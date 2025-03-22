@@ -5,7 +5,7 @@ set NODE_OPTIONS=--max_old_space_size=8192
 echo.
 echo Restoring backend python packages
 echo.
-call python -m pip install -r requirements.txt
+call python -m pip install -r src/requirements.txt
 if "%errorlevel%" neq "0" (
     echo Failed to restore backend python packages
     exit /B %errorlevel%
@@ -14,7 +14,7 @@ if "%errorlevel%" neq "0" (
 echo.
 echo Restoring frontend npm packages
 echo.
-cd frontend
+cd src/frontend
 call npm install
 if "%errorlevel%" neq "0" (
     echo Failed to restore frontend npm packages

@@ -29,7 +29,7 @@ jobs:
 
       - name: Install Backend Dependencies
         run: |
-          python -m pip install -r requirements.txt
+          python -m pip install -r src/requirements.txt
           python -m pip install coverage pytest-cov
           python -m pip install azure-keyvault-secrets
 
@@ -79,21 +79,21 @@ jobs:
             ${{ runner.os }}-node-
       
       - name: Navigate to frontend directory
-        run: cd frontend
+        run: cd src/frontend
 
       - name: Install Frontend Dependencies
         run: |
-          cd frontend  # Change to the frontend directory
+          cd src/frontend  # Change to the frontend directory
           npm install  # Install dependencies from frontend/package.json
 
       - name: Run Frontend Tests with Coverage
         run: |
-          cd frontend  # Change to the frontend directory
+          cd src/frontend  # Change to the frontend directory
           if npm run test -- --coverage; then
             echo "Tests completed, checking coverage."
             # Check coverage report and ensure it meets threshold
-            if [ -f frontend/coverage/lcov-report/index.html ]; then
-              COVERAGE=$(cat frontend/coverage/lcov-report/index.html | grep -oP 'total: \K[0-9]+(\.[0-9]+)?')
+            if [ -f src/frontend/coverage/lcov-report/index.html ]; then
+              COVERAGE=$(cat src/frontend/coverage/lcov-report/index.html | grep -oP 'total: \K[0-9]+(\.[0-9]+)?')
               if (( $(echo "$COVERAGE < 80" | bc -l) )); then
                 echo "Coverage is below 80%, failing the job."
                 exit 1
@@ -107,5 +107,5 @@ jobs:
         with:
           name: frontend-coverage
           path: |
-            frontend/coverage/  # Correct path to frontend coverage
-            frontend/coverage/lcov-report/  # Correct path to frontend lcov report
+            src/frontend/coverage/  # Correct path to frontend coverage
+            src/frontend/coverage/lcov-report/  # Correct path to frontend lcov report
