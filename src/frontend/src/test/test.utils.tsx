@@ -4,7 +4,7 @@ import { render, RenderResult } from '@testing-library/react';
 import { AppStateContext } from '../state/AppProvider';
 import { Conversation, ChatHistoryLoadingState } from '../api/models'; 
 // Default mock state
-const defaultMockState = {
+export const defaultMockState = {
   isChatHistoryOpen: true,
   chatHistoryLoadingState: ChatHistoryLoadingState.Loading,
   isCosmosDBAvailable: { cosmosDB: true, status: 'success' },
@@ -22,6 +22,7 @@ const defaultMockState = {
   failedSections : [],
   isFailedReqInitiated : false,
   isLoading : false,
+  isLoadedSections : []
 };
 
 // Create a custom render function

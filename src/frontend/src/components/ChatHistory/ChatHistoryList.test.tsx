@@ -4,10 +4,13 @@ import { AppStateContext } from '../../state/AppProvider';
 import ChatHistoryList from './ChatHistoryList';
 import { Conversation } from '../../api/models';
 import { ChatHistoryLoadingState } from '../../api/models';
+import {defaultMockState} from '../../test/test.utils';
+
 
 const mockDispatch = jest.fn();
 
 const mockState = {
+  ...defaultMockState,
   isChatHistoryOpen: false,
   chatHistoryLoadingState: ChatHistoryLoadingState.Loading,
   isCosmosDBAvailable: {
@@ -27,7 +30,7 @@ const mockState = {
   isRequestInitiated: false,
   failedSections : [],
   isFailedReqInitiated : false,
-  isLoading : false,
+  isLoading : false
 };
 
 const renderChatHistoryList = (stateOverride = {}) => {

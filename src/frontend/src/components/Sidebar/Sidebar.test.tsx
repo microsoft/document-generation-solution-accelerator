@@ -5,6 +5,7 @@ import Sidebar from './Sidebar';
 import { ChatHistoryLoadingState } from '../../api/models';
 import { BrowserRouter as Router, useLocation ,useNavigate} from 'react-router-dom';
 import { getUserInfo } from '../../api';
+import {defaultMockState} from '../../test/test.utils';
 
 const mockDispatch = jest.fn();
 beforeEach(() => {
@@ -35,6 +36,7 @@ jest.mock('react-router-dom', () => ({
   useLocation: jest.fn(),
 }));
 const mockState = {
+  ...defaultMockState,
   isChatHistoryOpen: false,
   chatHistoryLoadingState: ChatHistoryLoadingState.Loading,
   isCosmosDBAvailable: {
@@ -56,23 +58,7 @@ const mockState = {
   isFailedReqInitiated : false,
   isLoading : false,
 };
-const mockState2 = {
-  isChatHistoryOpen: false,
-    chatHistoryLoadingState: ChatHistoryLoadingState.Loading,
-    chatHistory: null, 
-    filteredChatHistory: [], 
-    currentChat: null, 
-    browseChat: null, 
-    generateChat: null,
-    isCosmosDBAvailable: {
-        cosmosDB: false,
-        status: 'NotConfigured' 
-    },
-    frontendSettings: { auth_enabled: false }, 
-    feedbackState: {}, 
-    draftedDocument: null,
-    draftedDocumentTitle: ''
-};
+
 const renderSidebar = (stateOverride = {}, pathname = '/') => {
   
   (useLocation as jest.Mock).mockReturnValue({ pathname });

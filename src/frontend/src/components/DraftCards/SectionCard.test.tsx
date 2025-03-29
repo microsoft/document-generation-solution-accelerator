@@ -9,6 +9,8 @@ import { MemoryRouter } from 'react-router-dom'
 import { ChatHistoryLoadingState } from '../../api/models'
 import { act } from 'react-dom/test-utils'
 
+import {defaultMockState} from '../../test/test.utils';
+
 // Mock the API
 jest.mock('../../api/api', () => ({
   sectionGenerate: jest.fn(() =>
@@ -26,6 +28,7 @@ jest.mock('../../assets/Generate.svg', () => 'mocked-generate-icon')
 
 const mockDispatch = jest.fn()
 const mockState = {
+  ...defaultMockState,
   draftedDocument: {
     title: 'Draft Document',
     sections: [
@@ -56,7 +59,7 @@ const mockState = {
   isRequestInitiated: false,
   failedSections : [],
   isFailedReqInitiated : false,
-  isLoading : false,
+  isLoading : false
 }
 
 const renderWithContext = (idx = 0) =>
@@ -210,4 +213,7 @@ describe('SectionCard Component', () => {
       }
     })
   })
+
+  
+
 })

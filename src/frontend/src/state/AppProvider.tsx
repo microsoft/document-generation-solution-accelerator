@@ -34,6 +34,7 @@ export interface AppState {
   failedSections : Section[],
   isFailedReqInitiated : boolean,
   isLoading: boolean,
+  isLoadedSections: Section[]
 }
 
 export type Action =
@@ -66,7 +67,8 @@ export type Action =
   | { type: 'REMOVED_FAILED_SECTION'; payload: {section : Section} }
   | { type: 'UPDATE_SECTION_API_REQ_STATUS'; payload: boolean }
   | { type: 'SET_LOADING'; payload: boolean }
-
+  | { type: 'UPDATE_IS_LOADED_SECTIONS'; payload: {section : Section | null , title ? : string , 'act'?: string} }
+  
 const initialState: AppState = {
   isChatHistoryOpen: false,
   chatHistoryLoadingState: ChatHistoryLoadingState.Loading,
@@ -88,6 +90,8 @@ const initialState: AppState = {
   failedSections : [],
   isFailedReqInitiated : false,
   isLoading: false,
+  isLoadedSections: []
+
 }
 
 export const AppStateContext = createContext<

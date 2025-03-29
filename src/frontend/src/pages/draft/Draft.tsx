@@ -18,22 +18,41 @@ const Draft = (): JSX.Element => {
   const draftedDocument = appStateContext?.state.draftedDocument
   const sections = draftedDocument?.sections ?? []
 
-  const [sectionItems , setSectionItems] = useState<Section[]>([])
+  const isLoadedSections = appStateContext?.state.isLoadedSections
+
+
+  const [sectionItems, setSectionItems] = useState<Section[]>([])
   const aiWarningLabel = 'AI-generated content may be incorrect'
 
-  // redirect to home page if draftedDocument is empty
+
+  const [isExportButtonDisable, setIsExportButtonDisable] = useState<boolean>(false)
+
+
 
   useEffect(() => {
     sections.forEach((item, index) => {
       setTimeout(() => {
-        setSectionItems((prev) => [...prev, item]); 
-      }, index * 500); 
+        setSectionItems((prev) => [...prev, item]);
+      }, index * 500);
     });
-  }, []); 
 
-  useEffect(()=>{
-    console.log("sectionItems", sectionItems)
-  },[sectionItems])
+    return () => {
+      appStateContext?.dispatch({ type: 'UPDATE_IS_LOADED_SECTIONS', payload: { section: null, 'act': 'removeAll' } })
+    }
+
+  }, []);
+
+
+
+  useEffect(() => {
+    if (isLoadedSections?.length === sections.length) {
+      setIsExportButtonDisable(false);
+    }
+    else {
+      setIsExportButtonDisable(true);
+    }
+  }, [isLoadedSections])
+
 
   if (!draftedDocument) {
     navigate('/')
@@ -116,7 +135,7 @@ const Draft = (): JSX.Element => {
   return (
     <Stack className={styles.container}>
       <TitleCard />
-      {(sectionItems ?? []).map((_, index : any) => (
+      {(sectionItems).map((_, index: any) => (
         <SectionCard key={index} sectionIdx={index} />
       ))}
       <Stack className={styles.buttonContainer}>
@@ -142,6 +161,7 @@ const Draft = (): JSX.Element => {
           onClick={exportToWord}
           aria-label="export document"
           text="Export Document"
+          disabled={isExportButtonDisable}
         />
       </Stack>
     </Stack>

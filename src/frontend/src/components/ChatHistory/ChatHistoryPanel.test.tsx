@@ -4,6 +4,8 @@ import { AppStateContext } from '../../state/AppProvider';
 import { ChatHistoryPanel } from './ChatHistoryPanel';
 import { ChatHistoryLoadingState, ChatMessage, Conversation, CosmosDBStatus, Feedback, historyDeleteAll,historyList } from '../../api';
 import * as api from '../../api';
+import {defaultMockState} from '../../test/test.utils';
+
  
 // Mock the API function
 jest.mock('../../api/api', () => ({
@@ -37,6 +39,7 @@ const mockConversation: Conversation = {
  
 // Mock initial state for the context
 const mockState = {
+  ...defaultMockState,
   chatHistoryLoadingState: ChatHistoryLoadingState.Success,
   isCosmosDBAvailable: { cosmosDB: true, status: CosmosDBStatus.NotConfigured },
   chatHistory: [mockConversation], // Added mock chat history here
@@ -54,7 +57,7 @@ const mockState = {
   isRequestInitiated: false,
   failedSections : [],
   isFailedReqInitiated : false,
-  isLoading : false,
+  isLoading : false
 };
  
 const mockDispatch = jest.fn();

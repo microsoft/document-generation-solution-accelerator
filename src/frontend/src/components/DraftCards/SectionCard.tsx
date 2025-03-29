@@ -111,7 +111,7 @@ const useStyles = makeStyles({
   }
 })
 
-const SectionCard = ({ sectionIdx }: SectionCardProps) => {
+const SectionCard = ({ sectionIdx  }: SectionCardProps) => {
   const location = useLocation()
   const classes = useStyles()
   const [isLoading, setIsLoading] = useState(false)
@@ -141,7 +141,6 @@ const SectionCard = ({ sectionIdx }: SectionCardProps) => {
 
   useEffect(() => {
     if (appStateContext.state?.failedSections.length >0 && appStateContext.state?.failedSections[0].title === sectionTitle && isLoading && !appStateContext.state.isFailedReqInitiated) {
-      console.log("appStateContext.state?.failedSections", appStateContext.state?.failedSections);
       const tempItem = {
         title: sectionTitle,
         description: sectionDescription,
@@ -157,13 +156,13 @@ const SectionCard = ({ sectionIdx }: SectionCardProps) => {
 
   async function fetchSectionContent(sectionTitle: string, sectionDescription: string , isReqFrom = '') {
     setIsLoading(true)
+    
     const sectionGenerateRequest: SectionGenerateRequest = { sectionTitle, sectionDescription }
 
     const response = await sectionGenerate(sectionGenerateRequest)
     const responseBody = await response.json()
 
     if(responseBody?.error?.includes("429")) {
-      console.log("retriggerd !!!")
       const failedSectionItems = {
         title: sectionTitle,
         description: sectionDescription,
@@ -192,8 +191,10 @@ const SectionCard = ({ sectionIdx }: SectionCardProps) => {
   
       setCharCount(content.length)
       setIsLoading(false)
-
       appStateContext?.dispatch({ type: 'REMOVED_FAILED_SECTION', payload: {section : updatedSection} })
+
+      appStateContext?.dispatch({ type: 'UPDATE_IS_LOADED_SECTIONS', payload: {section : updatedSection} })
+
 
       if(isReqFrom == 'failed')
         appStateContext?.dispatch({ type: 'UPDATE_SECTION_API_REQ_STATUS', payload:  false })
@@ -207,6 +208,11 @@ const SectionCard = ({ sectionIdx }: SectionCardProps) => {
   useEffect(() => {
     if (sectionContent === '' && !isLoading && !isManuallyCleared) {
       fetchSectionContent(sectionTitle, sectionDescription)
+    }else {
+      if(sectionContent!='' && !isLoading){
+        const updatedSection: Section = {...section}
+        appStateContext?.dispatch({ type: 'UPDATE_IS_LOADED_SECTIONS', payload: {section : updatedSection} })
+      }
     }
   }, [sectionContent, isLoading, isManuallyCleared])
 
@@ -256,6 +262,7 @@ const SectionCard = ({ sectionIdx }: SectionCardProps) => {
                     console.error('Section description is empty')
                     return
                   }
+                  appStateContext?.dispatch({ type: 'UPDATE_IS_LOADED_SECTIONS', payload: {section : null, 'title' : sectionTitle ,'act' :'removeItem'  } })
 
                   setIsPopoverOpen(false)
                   fetchSectionContent(sectionTitle, updatedSectionDescription)
