@@ -76,7 +76,7 @@
     "prettier": "^3.5.1",
     "react-test-renderer": "^18.2.0",
     "string.prototype.replaceall": "^1.0.10",
-    "ts-jest": "^29.2.5",
+    "ts-jest": "^29.3.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.7.2",
     "vite": "^6.1.0"
