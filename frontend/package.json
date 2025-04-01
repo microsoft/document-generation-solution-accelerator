@@ -19,7 +19,7 @@
     "@fluentui/react": "^8.122.9",
     "@fluentui/react-components": "^9.56.8",
     "@fluentui/react-hooks": "^8.6.29",
-    "@fluentui/react-icons": "^2.0.270",
+    "@fluentui/react-icons": "^2.0.292",
     "docx": "^9.2.0",
     "dompurify": "^3.2.3",
     "file-saver": "^2.0.5",
