@@ -6,7 +6,7 @@ azure-storage-blob==12.25.1
 python-dotenv==1.1.0
 azure-cosmos==4.9.0
 quart==0.20.0
-uvicorn==0.34.1
+uvicorn==0.34.2
 aiohttp==3.11.16
 gunicorn==23.0.0
 pydantic-settings==2.8.1
