@@ -104,6 +104,10 @@ param AZURE_COSMOSDB_ENABLE_FEEDBACK string = 'True'
 
 param imageTag string
 param applicationInsightsId string
+
+@description('The Application Insights connection string')
+@secure()
+param appInsightsConnectionString string
 // var imageName = 'DOCKER|byoaiacontainer.azurecr.io/byoaia-app:latest'
 
 // var imageName = 'DOCKER|ncwaappcontainerreg1.azurecr.io/ncqaappimage:v1.0.0'
@@ -143,6 +147,10 @@ resource Website 'Microsoft.Web/sites@2020-06-01' = {
         {
           name: 'APPINSIGHTS_INSTRUMENTATIONKEY'
           value: reference(applicationInsightsId, '2015-05-01').InstrumentationKey
+        }
+        {
+          name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
+          value: appInsightsConnectionString
         }
         {
           name: 'AZURE_SEARCH_SERVICE'
@@ -331,4 +339,3 @@ resource role 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@2022-05-
 }
 
 output webAppUrl string = 'https://${WebsiteName}.azurewebsites.net'
-

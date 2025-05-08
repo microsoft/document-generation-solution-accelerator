@@ -385,6 +385,7 @@ module appserviceModule 'deploy_app_service.bicep' = {
     // AZURE_COSMOSDB_ACCOUNT_KEY: keyVault.getSecret('AZURE-COSMOSDB-ACCOUNT-KEY')
     AZURE_COSMOSDB_CONVERSATIONS_CONTAINER: cosmosDBModule.outputs.cosmosContainerName
     AZURE_COSMOSDB_DATABASE: cosmosDBModule.outputs.cosmosDatabaseName
+    appInsightsConnectionString: aifoundry.outputs.applicationInsightsConnectionString 
     AZURE_COSMOSDB_ENABLE_FEEDBACK:'True'
     HostingPlanName:'${abbrs.compute.appServicePlan}${solutionPrefix}'
     WebsiteName:'${abbrs.compute.webApp}${solutionPrefix}'
@@ -419,6 +420,7 @@ resource ApplicationInsights 'Microsoft.Insights/components@2020-02-02' = {
   kind: 'web'
 }
 
+
 // ========== Cosmos DB module ========== //
 module cosmosDBModule 'deploy_cosmos_db.bicep' = {
   name: 'deploy_cosmos_db'
@@ -438,125 +440,3 @@ output STORAGE_CONTAINER_NAME string = storageAccount.outputs.storageContainer
 output KEY_VAULT_NAME string = kvault.outputs.keyvaultName
 output COSMOSDB_ACCOUNT_NAME string = cosmosDBModule.outputs.cosmosAccountName
 output RESOURCE_GROUP_NAME string = resourceGroup().name
-
-
-// //========== Deployment script to upload sample data ========== //
-// module uploadFiles 'deploy_upload_files_script.bicep' = {
-//   name : 'deploy_upload_files_script'
-//   params:{
-//     solutionLocation: secondaryLocation
-//     baseUrl: baseUrl
-//     storageAccountName: storageAccount.outputs.storageName
-//     containerName: storageAccount.outputs.storageContainer
-//     managedIdentityObjectId:managedIdentityModule.outputs.managedIdentityOutput.id
-//   }
-
-//   // dependsOn:[storageAccount,keyVault]
-// }
-
-// //========== Deployment script to process and index data ========== //
-// module createIndex 'deploy_index_scripts.bicep' = {
-//   name : 'deploy_index_scripts'
-//   params:{
-//     solutionLocation: secondaryLocation
-//     identity:managedIdentityModule.outputs.managedIdentityOutput.id
-//     baseUrl:baseUrl
-//     keyVaultName:aifoundry.outputs.keyvaultName
-//   }
-//   dependsOn:[keyVault,uploadFiles]
-// }
-
-// //========== Deployment script to upload sample data ========== //
-// module uploadFiles 'deploy_post_deployment_scripts.bicep' = {
-//   name : 'deploy_post_deployment_scripts'
-//   params:{
-//     solutionName: solutionPrefix
-//     solutionLocation: secondaryLocation
-//     baseUrl: baseUrl
-//     storageAccountName: storageAccount.outputs.storageName
-//     containerName: storageAccount.outputs.storageContainer
-//     managedIdentityObjectId:managedIdentityModule.outputs.managedIdentityOutput.id
-//     managedIdentityClientId:managedIdentityModule.outputs.managedIdentityOutput.clientId
-//     keyVaultName:aifoundry.outputs.keyvaultName
-//     logAnalyticsWorkspaceResourceName: aifoundry.outputs.logAnalyticsWorkspaceResourceName
-//   }
-// }
-
-
-// resource CosmosDB 'Microsoft.DocumentDB/databaseAccounts@2023-04-15' = {
-//   name: CosmosDBName
-//   location: CosmosDBRegion
-//   kind: 'GlobalDocumentDB'
-//   properties: {
-//     consistencyPolicy: {
-//       defaultConsistencyLevel: 'Session'
-//     }
-//     locations: [
-//       {
-//         locationName: CosmosDBRegion
-//         failoverPriority: 0
-//         isZoneRedundant: false
-//       }
-//     ]
-//     databaseAccountOfferType: 'Standard'
-//     capabilities: [
-//       {
-//         name: 'EnableServerless'
-//       }
-//     ]
-//   }
-// }
-
-// resource CosmosDBName_cosmosdb_database_name 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2023-04-15' = {
-//   parent: CosmosDB
-//   name: '${cosmosdb_database_name}'
-//   properties: {
-//     resource: {
-//       id: cosmosdb_database_name
-//     }
-//   }
-// }
-
-// resource CosmosDBName_cosmosdb_database_name_conversations 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2023-04-15' = {
-//   parent: CosmosDBName_cosmosdb_database_name
-//   name: 'conversations'
-//   properties: {
-//     resource: {
-//       id: 'conversations'
-//       indexingPolicy: {
-//         indexingMode: 'consistent'
-//         automatic: true
-//         includedPaths: [
-//           {
-//             path: '/*'
-//           }
-//         ]
-//         excludedPaths: [
-//           {
-//             path: '/"_etag"/?'
-//           }
-//         ]
-//       }
-//       partitionKey: {
-//         paths: [
-//           '/userId'
-//         ]
-//         kind: 'Hash'
-//       }
-//     }
-//   }
-// }
-
-// resource CosmosDBName_roleAssignmentId 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@2021-04-15' = {
-//   parent: CosmosDB
-//   name: '${roleAssignmentId}'
-//   properties: {
-//     roleDefinitionId: resourceId(
-//       'Microsoft.DocumentDB/databaseAccounts/sqlRoleDefinitions',
-//       split('${CosmosDBName}/${roleDefinitionId}', '/')[0],
-//       split('${CosmosDBName}/${roleDefinitionId}', '/')[1]
-//     )
-//     // principalId: reference(Website.id, '2021-02-01', 'Full').identity.principalId
-//     scope: CosmosDB.id
-//   }
-// }
