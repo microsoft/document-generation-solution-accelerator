@@ -19,6 +19,7 @@
             "version": "stable"
         }
     },
+    "updateContentCommand": "echo 'Running prebuild setup...'",
     "customizations": {
         "vscode": {
             "extensions": [
