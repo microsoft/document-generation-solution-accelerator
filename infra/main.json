@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.35.1.17967",
-      "templateHash": "13536585236097147854"
+      "templateHash": "18358327607425694933"
     }
   },
   "parameters": {
@@ -49,6 +49,13 @@
       "minLength": 1,
       "metadata": {
         "description": "Name of the GPT model to deploy:"
+      }
+    },
+    "gptModelVersion": {
+      "type": "string",
+      "defaultValue": "2024-05-13",
+      "metadata": {
+        "description": "Name of the GPT model version to deploy:"
       }
     },
     "azureOpenaiAPIVersion": {
@@ -590,11 +597,12 @@
           "keyVaultName": {
             "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, resourceGroup().name), 'Microsoft.Resources/deployments', 'deploy_keyvault'), '2022-09-01').outputs.keyvaultName.value]"
           },
-          "deploymentType": {
-            "value": "[parameters('deploymentType')]"
-          },
+          "deploymentType": "[if(equals(parameters('gptModelName'), 'gpt-4o'), createObject('value', parameters('deploymentType')), createObject('value', 'Standard'))]",
           "gptModelName": {
             "value": "[parameters('gptModelName')]"
+          },
+          "gptModelVersion": {
+            "value": "[parameters('gptModelVersion')]"
           },
           "azureOpenaiAPIVersion": {
             "value": "[parameters('azureOpenaiAPIVersion')]"
@@ -619,7 +627,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.35.1.17967",
-              "templateHash": "6302547316976018886"
+              "templateHash": "13167300775686733542"
             }
           },
           "parameters": {
@@ -636,6 +644,9 @@
               "type": "string"
             },
             "gptModelName": {
+              "type": "string"
+            },
+            "gptModelVersion": {
               "type": "string"
             },
             "azureOpenaiAPIVersion": {
@@ -905,6 +916,7 @@
                   "name": "[parameters('deploymentType')]",
                   "capacity": "[parameters('gptDeploymentCapacity')]"
                 },
+                "version": "[parameters('gptModelVersion')]",
                 "raiPolicyName": "Microsoft.Default"
               },
               {
@@ -914,6 +926,7 @@
                   "name": "Standard",
                   "capacity": "[parameters('embeddingDeploymentCapacity')]"
                 },
+                "version": "2",
                 "raiPolicyName": "Microsoft.Default"
               }
             ],
@@ -1059,9 +1072,11 @@
               "properties": {
                 "model": {
                   "format": "OpenAI",
-                  "name": "[variables('aiModelDeployments')[copyIndex()].model]"
+                  "name": "[variables('aiModelDeployments')[copyIndex()].model]",
+                  "version": "[variables('aiModelDeployments')[copyIndex()].version]"
                 },
-                "raiPolicyName": "[variables('aiModelDeployments')[copyIndex()].raiPolicyName]"
+                "raiPolicyName": "[variables('aiModelDeployments')[copyIndex()].raiPolicyName]",
+                "versionUpgradeOption": "OnceCurrentVersionExpired"
               },
               "sku": {
                 "name": "[variables('aiModelDeployments')[copyIndex()].sku.name]",
@@ -1404,6 +1419,10 @@
             "storageAccountName": {
               "type": "string",
               "value": "[variables('storageNameCleaned')]"
+            },
+            "applicationInsightsConnectionString": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Insights/components', variables('applicationInsightsName')), '2020-02-02').ConnectionString]"
             }
           }
         }
@@ -1667,6 +1686,9 @@
           "AZURE_COSMOSDB_DATABASE": {
             "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, resourceGroup().name), 'Microsoft.Resources/deployments', 'deploy_cosmos_db'), '2022-09-01').outputs.cosmosDatabaseName.value]"
           },
+          "appInsightsConnectionString": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, resourceGroup().name), 'Microsoft.Resources/deployments', 'deploy_ai_foundry'), '2022-09-01').outputs.applicationInsightsConnectionString.value]"
+          },
           "AZURE_COSMOSDB_ENABLE_FEEDBACK": {
             "value": "True"
           },
@@ -1684,7 +1706,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.35.1.17967",
-              "templateHash": "2607460382594511507"
+              "templateHash": "16988932665267526316"
             }
           },
           "parameters": {
@@ -1907,6 +1929,12 @@
             },
             "applicationInsightsId": {
               "type": "string"
+            },
+            "appInsightsConnectionString": {
+              "type": "securestring",
+              "metadata": {
+                "description": "The Application Insights connection string"
+              }
             }
           },
           "variables": {
@@ -1970,6 +1998,10 @@
                     {
                       "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
                       "value": "[reference(parameters('applicationInsightsId'), '2015-05-01').InstrumentationKey]"
+                    },
+                    {
+                      "name": "APPLICATIONINSIGHTS_CONNECTION_STRING",
+                      "value": "[parameters('appInsightsConnectionString')]"
                     },
                     {
                       "name": "AZURE_SEARCH_SERVICE",

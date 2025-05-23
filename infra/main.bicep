@@ -33,6 +33,9 @@ param deploymentType string = 'GlobalStandard'
 ])
 param gptModelName string = 'gpt-4o'
 
+@description('Name of the GPT model version to deploy:')
+param gptModelVersion string = '2024-05-13'
+
 param azureOpenaiAPIVersion string = '2024-05-01-preview'
 
 @minValue(10)
@@ -95,8 +98,9 @@ module aifoundry 'deploy_ai_foundry.bicep' = {
     solutionName: solutionPrefix
     solutionLocation: solutionLocation
     keyVaultName: kvault.outputs.keyvaultName
-    deploymentType: deploymentType
+    deploymentType: gptModelName == 'gpt-4o' ? deploymentType : 'Standard'
     gptModelName: gptModelName
+    gptModelVersion: gptModelVersion
     azureOpenaiAPIVersion: azureOpenaiAPIVersion
     gptDeploymentCapacity: gptDeploymentCapacity
     embeddingModel: embeddingModel
