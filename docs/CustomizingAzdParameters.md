@@ -18,10 +18,10 @@ Change the Model Deployment Type (allowed values: Standard, GlobalStandard)
 azd env set AZURE_ENV_MODEL_DEPLOYMENT_TYPE Standard
 ```
 
-Set the Model Name (allowed values: gpt-4, gpt-4o)
+Set the Model Name (allowed values: gpt-4, gpt-4o,gpt-4.1)
 
 ```shell
-azd env set AZURE_ENV_MODEL_NAME gpt-4o
+azd env set AZURE_ENV_MODEL_NAME gpt-4.1
 ```
 
 Change the Model Capacity (choose a number based on available GPT model capacity in your subscription)

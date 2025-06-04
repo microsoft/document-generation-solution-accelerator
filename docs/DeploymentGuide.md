@@ -103,7 +103,7 @@ When you start the deployment, most parameters will have **default values**, but
 | **Environment Name** | A **3-20 character alphanumeric value** used to generate a unique ID to prefix the resources. |  byctemplate |
 | **Secondary Location** | A **less busy** region for **CosmosDB**, useful in case of availability constraints. |  eastus2 |
 | **Deployment Type** | Select from a drop-down list. |  Global Standard |
-| **GPT Model** | Choose from **gpt-4, gpt-4o** | gpt-4o |  
+| **GPT Model** | Choose from **gpt-4, gpt-4o , gpt-4.1** | gpt-4.1 |  
 | **GPT Model Deployment Capacity** | Configure capacity for **GPT models**. | 30k |
 | **Embedding Model** | Default: **text-embedding-ada-002**. |  text-embedding-ada-002 |
 | **Embedding Model Capacity** | Set the capacity for **embedding models**. |  80k |
@@ -114,8 +114,9 @@ When you start the deployment, most parameters will have **default values**, but
 <details>
   <summary><b>[Optional] Quota Recommendations</b></summary>
 
-By default, the _Gpt-4o model capacity_ in deployment is set to _30k tokens_, so we recommend:
-- **For Global Standard | GPT-4o** - the capacity to at least 150k tokens post-deployment for optimal performance.
+By default, the _Gpt-4.1 model capacity_ in deployment is set to _30k tokens_, so we recommend:
+- **For Global Standard | GPT-4.1** - the capacity to at least 150k tokens post-deployment for optimal performance.
+- **For Global Standard | GPT-4.0** - the capacity to at least 150k tokens post-deployment for optimal performance.
 
 - **For Standard | GPT-4** - ensure a minimum of 30k–40k tokens for best results.
 

@@ -120,7 +120,7 @@ jobs:
                 environmentName="${{ env.SOLUTION_PREFIX }}" \
                 secondaryLocation="northcentralus" \
                 deploymentType="GlobalStandard" \
-                gptModelName="gpt-4o" \
+                gptModelName="gpt-4.1" \
                 azureOpenaiAPIVersion="2024-05-01-preview" \
                 gptDeploymentCapacity=${{ env.GPT_MIN_CAPACITY }} \
                 embeddingModel="text-embedding-ada-002" \

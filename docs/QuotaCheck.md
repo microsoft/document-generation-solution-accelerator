@@ -1,7 +1,8 @@
 ## Check Quota Availability Before Deployment
 
 Before deploying the accelerator, **ensure sufficient quota availability** for the required model.
-> **For Global Standard | GPT-4o - the capacity to at least 150k tokens post-deployment for optimal performance.**
+
+> **For Global Standard | GPT-4o |GPT-4.1- the capacity to at least 150k tokens post-deployment for optimal performance.**
 
 > **For Standard | GPT-4 - ensure a minimum of 30k–40k tokens for best results.**
 
@@ -13,7 +14,7 @@ azd auth login
 
 ### 📌 Default Models & Capacities:
 ```
-gpt-4o:30, text-embedding-ada-002:80, gpt-4:30
+gpt-4.1:30, text-embedding-ada-002:80, gpt-4:30, gpt-4o:30
 ```
 ### 📌 Default Regions:
 ```
