@@ -27,6 +27,14 @@ fi
 
 echo "Getting signed in user id"
 signed_user_id=$(az ad signed-in-user show --query id -o tsv)
+if [ $? -ne 0 ]; then
+    if [ -z "$managedIdentityClientId" ]; then
+        echo "Error: Failed to get signed in user id."
+        exit 1
+    else
+        signed_user_id=$managedIdentityClientId
+    fi
+fi
 
 # # Download the create_index and create table python files
 # curl --output "01_create_search_index.py" ${baseUrl}"infra/scripts/index_scripts/01_create_search_index.py"
