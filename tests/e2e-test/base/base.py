@@ -45,23 +45,4 @@ class BasePage:
             "response code is " + str(response.status) + " " + str(response.json())
         )
 
-    def validate_response_status_draft_section(self, sectionTitle):
-        load_dotenv()  # Ensure environment variables are loaded
-        # URL of the API endpoint
-        url = f"{URL}/section/generate"
-
-        # Prepare headers
-        headers = {
-            "Content-Type": "application/json",
-            "Accept": "*/*",
-        }
-
-        payload = {"sectionTitle": sectionTitle}
-
-        # Make the POST request
-        response = self.page.request.post(
-            url, headers=headers, data=json.dumps(payload), timeout=200000
-        )
-        assert response.status == 200, (
-            "response code is " + str(response.status) + " " + str(response.json())
-        )
+  
