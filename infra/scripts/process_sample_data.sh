@@ -6,7 +6,8 @@ fileSystem="$2"
 keyvaultName="$3"
 cosmosDbAccountName="$4"
 resourceGroupName="$5"
-managedIdentityClientId="$6"
+aiFoundryName="$6"
+managedIdentityClientId="$7"
 
 # get parameters from azd env, if not provided
 if [ -z "$resourceGroupName" ]; then
@@ -29,10 +30,13 @@ if [ -z "$keyvaultName" ]; then
     keyvaultName=$(azd env get-value KEY_VAULT_NAME)
 fi
 
+if [ -z "$aiFoundryName" ]; then
+    aiFoundryName=$(azd env get-value AI_FOUNDRY_NAME)
+fi
 
 # Check if all required arguments are provided
-if [ -z "$storageAccount" ] || [ -z "$fileSystem" ] || [ -z "$keyvaultName" ] || [ -z "$cosmosDbAccountName" ] || [ -z "$resourceGroupName" ]; then
-    echo "Usage: $0 <storageAccount> <storageContainerName> <keyvaultName> <cosmosDbAccountName> <resourceGroupName>"
+if [ -z "$storageAccount" ] || [ -z "$fileSystem" ] || [ -z "$keyvaultName" ] || [ -z "$cosmosDbAccountName" ] || [ -z "$resourceGroupName" ] || [ -z "$aiFoundryName" ]; then
+    echo "Usage: $0 <storageAccount> <storageContainerName> <keyvaultName> <cosmosDbAccountName> <resourceGroupName> <aiFoundryName>"
     exit 1
 fi
 
@@ -56,7 +60,7 @@ echo "copy_kb_files.sh completed successfully."
 
 # Call run_create_index_scripts.sh
 echo "Running run_create_index_scripts.sh"
-bash infra/scripts/run_create_index_scripts.sh "$keyvaultName" "$managedIdentityClientId"
+bash infra/scripts/run_create_index_scripts.sh "$keyvaultName" "$resourceGroupName" "$aiFoundryName" "$managedIdentityClientId"
 if [ $? -ne 0 ]; then
     echo "Error: run_create_index_scripts.sh failed."
     exit 1

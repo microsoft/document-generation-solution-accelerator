@@ -3,7 +3,9 @@
 # Variables
 # baseUrl="$1"
 keyvaultName="$1"
-managedIdentityClientId="$2"
+resourceGroupName="$2"
+aiFoundryName="$3"
+managedIdentityClientId="$4"
 # requirementFile="infra/scripts/index_scripts/requirements.txt"
 # requirementFileUrl=${baseUrl}"infra/scripts/index_scripts/requirements.txt"
 
@@ -59,6 +61,30 @@ if [ -z "$role_assignment" ]; then
 else
     echo "User already has the Key Vault Administrator role."
 fi
+
+### Assign Azure AI User role to the signed in user ###
+
+    echo "Getting Azure AI resource id"
+    echo "Resource group name: $resourceGroupName"
+    aif_resource_id=$(az cognitiveservices account show --name $aiFoundryName --resource-group $resourceGroupName --query id --output tsv)
+    echo "Azure AI resource id: $aif_resource_id"
+    echo "AI foundry name: $aiFoundryName"
+
+    # Check if the user has the Azure AI User role
+    echo "Checking if user has the Azure AI User role"
+    role_assignment=$(MSYS_NO_PATHCONV=1 az role assignment list --role 53ca6127-db72-4b80-b1b0-d745d6d5456d --scope $aif_resource_id --assignee $signed_user_id --query "[].roleDefinitionId" -o tsv)
+    if [ -z "$role_assignment" ]; then
+        echo "User does not have the Azure AI User role. Assigning the role."
+        MSYS_NO_PATHCONV=1 az role assignment create --assignee $signed_user_id --role 53ca6127-db72-4b80-b1b0-d745d6d5456d --scope $aif_resource_id --output none
+        if [ $? -eq 0 ]; then
+            echo "Azure AI User role assigned successfully."
+        else
+            echo "Failed to assign Azure AI User role."
+            exit 1
+        fi
+    else
+        echo "User already has the Azure AI User role."
+    fi
 
 # RUN apt-get update
 # RUN apt-get install python3 python3-dev g++ unixodbc-dev unixodbc libpq-dev

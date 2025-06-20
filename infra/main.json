@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.36.1.42791",
-      "templateHash": "16830004841131342789"
+      "templateHash": "5837450370511727433"
     }
   },
   "parameters": {
@@ -2291,6 +2291,10 @@
     "RESOURCE_GROUP_NAME": {
       "type": "string",
       "value": "[resourceGroup().name]"
+    },
+    "AI_FOUNDRY_NAME": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, resourceGroup().name), 'Microsoft.Resources/deployments', 'deploy_ai_foundry'), '2022-09-01').outputs.aiFoundryName.value]"
     }
   }
 }
