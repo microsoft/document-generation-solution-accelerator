@@ -20,7 +20,7 @@ By default this template will use the environment name as the prefix to prevent 
 | `AZURE_ENV_EMBEDDING_MODEL_NAME`       | string  | `text-embedding-ada-002`   | Sets the name of the embedding model to use.                                  |
 | `AZURE_ENV_IMAGETAG`       | string  | `latest`   | Set the Image tag Like (allowed values: latest, dev, hotfix)                                   |
 | `AZURE_ENV_EMBEDDING_MODEL_CAPACITY`   | integer | `80`                         | Sets the capacity for the embedding model deployment.                         |
-| `AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID` | string  | `<Existing Workspace Id>`  | Reuses an existing Log Analytics Workspace instead of creating a new one.     |
+| `AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID` | string  | Guide to get your [Existing Workspace ID](/docs/re-use-log-analytics.md)  | Reuses an existing Log Analytics Workspace instead of creating a new one.     |
 
 
 
