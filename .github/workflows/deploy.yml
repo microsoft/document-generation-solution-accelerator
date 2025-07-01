@@ -1,17 +1,9 @@
 name: DocGen Deploy-Test-Cleanup Pipeline
 
 on:
-    workflow_run:
-      workflows: ["Build Docker and Optional Push"]
-      types:
-        - completed
-      branches:
-        - main
-        - dev
-        - demo
-
-    schedule:
-      - cron: '0 9,21 * * *'  # Runs at 9:00 AM and 9:00 PM GMT
+  push:
+    branches:
+      - psl-test-pipeline
 
 env:
   GPT_MIN_CAPACITY: 250
@@ -57,7 +49,6 @@ jobs:
             exit 1  # Fail the pipeline if any other failure occurs
           fi
 
-
       - name: Send Notification on Quota Failure
         if: env.QUOTA_FAILED == 'true'
         run: |
@@ -79,7 +70,7 @@ jobs:
 
       - name: Install Bicep CLI
         run: az bicep install
-      
+
       - name: Set Deployment Region
         run: |
           echo "Selected Region: $VALID_REGION"
@@ -94,7 +85,7 @@ jobs:
           UNIQUE_RG_NAME="arg-${ACCL_NAME}-${SHORT_UUID}"
           echo "RESOURCE_GROUP_NAME=${UNIQUE_RG_NAME}" >> $GITHUB_ENV
           echo "Generated RESOURCE_GROUP_NAME: ${UNIQUE_RG_NAME}"
-      
+
       - name: Check and Create Resource Group
         id: check_create_rg
         run: |
@@ -118,7 +109,7 @@ jobs:
           UPDATED_TIMESTAMP=$(echo $TIMESTAMP | tail -c 6) 
           UNIQUE_SOLUTION_PREFIX="${COMMON_PART}${UPDATED_TIMESTAMP}"
           echo "SOLUTION_PREFIX=${UNIQUE_SOLUTION_PREFIX}" >> $GITHUB_ENV
-          echo "Generated SOLUTION_PREFIX: ${UNIQUE_SOLUTION_PREFIX}" 
+          echo "Generated SOLUTION_PREFIX: ${UNIQUE_SOLUTION_PREFIX}"
 
       - name: Deploy Bicep Template
         id: deploy
@@ -194,7 +185,6 @@ jobs:
           az logout
           echo "Logged out from Azure."
 
-  
   e2e-test:
     needs: deploy
     uses: ./.github/workflows/test-automation.yml
@@ -223,12 +213,12 @@ jobs:
         if: always()
         run: |
           echo "Fetching AI Services and Key Vault names before deletion..."
-          
+
           # Get Key Vault name
           KEYVAULT_NAME=$(az resource list --resource-group "${{ env.RESOURCE_GROUP_NAME }}" --resource-type "Microsoft.KeyVault/vaults" --query "[].name" -o tsv)
           echo "Detected Key Vault: $KEYVAULT_NAME"
           echo "KEYVAULT_NAME=$KEYVAULT_NAME" >> $GITHUB_ENV
-      
+
 
            # Extract AI Services names
           echo "Fetching AI Services..."
@@ -239,7 +229,7 @@ jobs:
 
           echo "Detected AI Services: $AI_SERVICES"
           echo "AI_SERVICES=$AI_SERVICES" >> $GITHUB_ENV
-      
+
       - name: Delete Bicep Deployment
         if: always()
         run: |
@@ -261,21 +251,21 @@ jobs:
         if: always()
         run: |
           echo "Waiting for all deployed resources (including AI Services) to be deleted..."
-      
+
           # Convert AI_SERVICES space-separated string into an array
           IFS=' ' read -r -a resources_to_check <<< "${{ env.AI_SERVICES }}"
-      
+
           echo "Resources to check for deletion:"
           printf '%s\n' "${resources_to_check[@]}"
-      
+
           # Get the current resource list in YAML
           resource_list=$(az resource list --subscription "${{ secrets.AZURE_SUBSCRIPTION_ID }}" --output yaml)
-      
+
           # Set up retry logic
           max_retries=3
           retry_intervals=(30 60 120)
           retries=0
-      
+
           while true; do
             resource_found=false
             for resource in "${resources_to_check[@]}"; do
@@ -287,7 +277,7 @@ jobs:
                 echo "Resource '$resource' has been deleted."
               fi
             done
-      
+
             if [ "$resource_found" = true ]; then
               retries=$((retries + 1))
               if [ "$retries" -ge "$max_retries" ]; then
@@ -303,13 +293,12 @@ jobs:
               break
             fi
           done
-        
 
       - name: Wait for Soft Deletion of Key Vault and AI Services
         if: always()
         run: |
           echo "Waiting for resources to be soft deleted..."
-      
+
           # Wait for Key Vault to be soft deleted
           if [ -n "${{ env.KEYVAULT_NAME }}" ]; then
             while true; do
@@ -323,7 +312,7 @@ jobs:
             done
           fi
 
-      
+
           # Wait for AI Services to be soft deleted
           for AI_SERVICE in ${{ env.AI_SERVICES }}; do
             while true; do
@@ -336,13 +325,12 @@ jobs:
               sleep 15
             done
           done
-              
-        
+
       - name: Purge Key Vault and AI Services
         if: always()
         run: |
           echo "Purging soft deleted resources..."
-          
+
           # Ensure AI_SERVICES is properly split into individual services
           IFS=' ' read -r -a SERVICES <<< "${{ env.AI_SERVICES }}"
 
@@ -377,7 +365,6 @@ jobs:
               echo "Could not determine location for Key Vault: $VAULT. Skipping purge."
             fi
           done
-
 
       - name: Send Notification on Failure
         if: failure() || needs.deploy.result == 'failure'
