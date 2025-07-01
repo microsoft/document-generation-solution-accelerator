@@ -41,9 +41,8 @@ class BasePage:
         response = self.page.request.post(
             url, headers=headers, data=json.dumps(payload), timeout=120000
         )
-        response_body = response.text()
         assert response.status == 200, (
-            f"Response code is {response.status}. Response body: {response_body}"
+            "response code is " + str(response.status) + " " + str(response.json())
         )
 
   

@@ -476,7 +476,7 @@ async def conversation_internal(request_body, request_headers):
             response.timeout = None
             response.mimetype = "application/json-lines"
             track_event_if_configured("ConversationStreamResponsePrepared", {
-                "response": response
+                "response": str(response)
             })
             return response
         else:
