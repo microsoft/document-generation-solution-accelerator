@@ -23,6 +23,7 @@ var aiProjectFriendlyName = aiProjectName
 var aiProjectDescription = 'AI Foundry Project'
 var aiSearchName = '${abbrs.ai.aiSearch}${solutionName}'
 var workspaceName = '${abbrs.managementGovernance.logAnalyticsWorkspace}${solutionName}'
+var aiSearchConnectionName = 'myVectorStoreProjectConnectionName-${solutionName}'
 
 var useExisting = !empty(existingLogAnalyticsWorkspaceId)
 var existingLawSubscription = useExisting ? split(existingLogAnalyticsWorkspaceId, '/')[2] : ''
@@ -122,49 +123,51 @@ resource aiFoundryProject 'Microsoft.CognitiveServices/accounts/projects@2025-04
 }
 
 @batchSize(1)
-resource aiFModelDeployments 'Microsoft.CognitiveServices/accounts/deployments@2025-04-01-preview' = [for aiModeldeployment in aiModelDeployments: {
-  parent: aiFoundry
-  name: aiModeldeployment.name
-  properties: {
-    model: {
-      format: 'OpenAI'
-      name: aiModeldeployment.model
+resource aiFModelDeployments 'Microsoft.CognitiveServices/accounts/deployments@2025-04-01-preview' = [
+  for aiModeldeployment in aiModelDeployments: {
+    parent: aiFoundry
+    name: aiModeldeployment.name
+    properties: {
+      model: {
+        format: 'OpenAI'
+        name: aiModeldeployment.model
+      }
+      raiPolicyName: aiModeldeployment.raiPolicyName
     }
-    raiPolicyName: aiModeldeployment.raiPolicyName
+    sku: {
+      name: aiModeldeployment.sku.name
+      capacity: aiModeldeployment.sku.capacity
+    }
   }
-  sku:{
-    name: aiModeldeployment.sku.name
-    capacity: aiModeldeployment.sku.capacity
-  }
-}]
+]
 
 resource aiSearch 'Microsoft.Search/searchServices@2024-06-01-preview' = {
-    name: aiSearchName
-    location: solutionLocation
-    sku: {
-      name: 'basic'
-    }
-    properties: {
-      replicaCount: 1
-      partitionCount: 1
-      hostingMode: 'default'
-      publicNetworkAccess: 'enabled'
-      networkRuleSet: {
-        ipRules: []
-      }
-      encryptionWithCmk: {
-        enforcement: 'Unspecified'
-      }
-      disableLocalAuth: false
-      authOptions: {
-        apiKeyOnly: {}
-      }
-      semanticSearch: 'free'
-    }
+  name: aiSearchName
+  location: solutionLocation
+  sku: {
+    name: 'basic'
   }
+  identity: {
+    type: 'SystemAssigned'
+  }
+  properties: {
+    replicaCount: 1
+    partitionCount: 1
+    hostingMode: 'default'
+    publicNetworkAccess: 'enabled'
+    networkRuleSet: {
+      ipRules: []
+    }
+    encryptionWithCmk: {
+      enforcement: 'Unspecified'
+    }
+    disableLocalAuth: true
+    semanticSearch: 'free'
+  }
+}
 
 resource aiSearchFoundryConnection 'Microsoft.CognitiveServices/accounts/projects/connections@2025-04-01-preview' = {
-  name: 'foundry-search-connection'
+  name: aiSearchConnectionName
   parent: aiFoundryProject
   properties: {
     category: 'CognitiveSearch'
@@ -176,6 +179,48 @@ resource aiSearchFoundryConnection 'Microsoft.CognitiveServices/accounts/project
       ResourceId: aiSearch.id
       location: aiSearch.location
     }
+  }
+}
+
+resource cognitiveServicesOpenAIUser 'Microsoft.Authorization/roleDefinitions@2022-04-01' existing = {
+  name: '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd'
+}
+
+resource assignCognitiveRoleToAISearch 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(resourceGroup().id, aiFoundryProject.id, cognitiveServicesOpenAIUser.id)
+  scope: aiFoundry
+  properties: {
+    roleDefinitionId: cognitiveServicesOpenAIUser.id
+    principalId: aiSearch.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+resource searchIndexDataReader 'Microsoft.Authorization/roleDefinitions@2022-04-01' existing = {
+  name: '1407120a-92aa-4202-b7e9-c0e197c71c8f'
+}
+
+resource assignSearchIndexDataReaderToAiProject 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(resourceGroup().id, aiFoundryProject.id, searchIndexDataReader.id)
+  scope: aiSearch
+  properties: {
+    principalId: aiFoundryProject.identity.principalId
+    roleDefinitionId: searchIndexDataReader.id
+    principalType: 'ServicePrincipal'
+  }
+}
+
+resource searchServiceContributor 'Microsoft.Authorization/roleDefinitions@2022-04-01' existing = {
+  name: '7ca78c08-252a-4471-8644-bb5ff32d4ba0'
+}
+
+resource assignSearchServiceContributorToAiProject 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(resourceGroup().id, aiFoundryProject.id, searchServiceContributor.id)
+  scope: aiSearch
+  properties: {
+    principalId: aiFoundryProject.identity.principalId
+    roleDefinitionId: searchServiceContributor.id
+    principalType: 'ServicePrincipal'
   }
 }
 
@@ -199,7 +244,7 @@ resource azureOpenAIApiVersionEntry 'Microsoft.KeyVault/vaults/secrets@2021-11-0
   parent: keyVault
   name: 'AZURE-OPENAI-PREVIEW-API-VERSION'
   properties: {
-    value: azureOpenaiAPIVersion  //'2024-02-15-preview'
+    value: azureOpenaiAPIVersion //'2024-02-15-preview'
   }
 }
 
@@ -211,11 +256,11 @@ resource azureOpenAIEndpointEntry 'Microsoft.KeyVault/vaults/secrets@2021-11-01-
   }
 }
 
-resource azureSearchAdminKeyEntry 'Microsoft.KeyVault/vaults/secrets@2021-11-01-preview' = {
+resource azureOpenAIEmbeddingDeploymentModel 'Microsoft.KeyVault/vaults/secrets@2021-11-01-preview' = {
   parent: keyVault
-  name: 'AZURE-SEARCH-KEY'
+  name: 'AZURE-OPENAI-EMBEDDING-MODEL'
   properties: {
-    value: aiSearch.listAdminKeys().primaryKey
+    value: embeddingModel
   }
 }
 
@@ -302,6 +347,7 @@ output aiSearchName string = aiSearchName
 output aiSearchId string = aiSearch.id
 output aiSearchTarget string = 'https://${aiSearch.name}.search.windows.net'
 output aiSearchService string = aiSearch.name
+output aiSearchConnectionName string = aiSearchConnectionName
 output aiFoundryProjectName string = aiFoundryProject.name
 output aiFoundryProjectEndpoint string = aiFoundryProject.properties.endpoints['AI Foundry API']
 output aoaiEndpoint string = aiFoundry.properties.endpoints['OpenAI Language Model Instance API']

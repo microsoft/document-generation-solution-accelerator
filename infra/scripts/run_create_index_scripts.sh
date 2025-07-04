@@ -5,7 +5,8 @@
 keyvaultName="$1"
 resourceGroupName="$2"
 aiFoundryName="$3"
-managedIdentityClientId="$4"
+aiSearchName="$4"
+managedIdentityClientId="$5"
 # requirementFile="infra/scripts/index_scripts/requirements.txt"
 # requirementFileUrl=${baseUrl}"infra/scripts/index_scripts/requirements.txt"
 
@@ -81,6 +82,27 @@ fi
         fi
     else
         echo "User already has the Azure AI User role."
+    fi
+
+### Assign Search Index Data Contributor role to the signed in user ###
+
+    echo "Getting Azure Search resource id"
+    search_resource_id=$(az search service show --name $aiSearchName --resource-group $resourceGroupName --query id --output tsv)
+
+    # Check if the user has the Search Index Data Contributor role
+    echo "Checking if user has the Search Index Data Contributor role"
+    role_assignment=$(MSYS_NO_PATHCONV=1 az role assignment list --assignee $signed_user_id --role 8ebe5a00-799e-43f5-93ac-243d3dce84a7 --scope $search_resource_id --query "[].roleDefinitionId" -o tsv)
+    if [ -z "$role_assignment" ]; then
+        echo "User does not have the Search Index Data Contributor role. Assigning the role."
+        MSYS_NO_PATHCONV=1 az role assignment create --assignee $signed_user_id --role 8ebe5a00-799e-43f5-93ac-243d3dce84a7 --scope $search_resource_id --output none
+        if [ $? -eq 0 ]; then
+            echo "Search Index Data Contributor role assigned successfully."
+        else
+            echo "Failed to assign Search Index Data Contributor role."
+            exit 1
+        fi
+    else
+        echo "User already has the Search Index Data Contributor role."
     fi
 
 # RUN apt-get update

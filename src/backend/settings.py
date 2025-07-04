@@ -85,7 +85,6 @@ class _AzureOpenAISettings(BaseSettings):
     )
 
     model: str
-    key: Optional[str] = None
     resource: Optional[str] = None
     endpoint: Optional[str] = None
     temperature: float = 0
@@ -248,6 +247,7 @@ class _AzureSearchSettings(BaseSettings, DatasourcePayloadConstructor):
         default=True, serialization_alias="in_scope")
     service: str = Field(exclude=True)
     endpoint_suffix: str = Field(default="search.windows.net", exclude=True)
+    connection_name: Optional[str] = None
     index: str = Field(serialization_alias="index_name")
     key: Optional[str] = Field(default=None, exclude=True)
     use_semantic_search: bool = Field(default=False, exclude=True)
@@ -357,7 +357,6 @@ class _BaseSettings(BaseSettings):
     auth_enabled: bool = False
     sanitize_answer: bool = False
     use_promptflow: bool = False
-    use_ai_foundry_sdk: bool = Field(default=False, validation_alias="USE_AI_FOUNDRY_SDK")
 
 
 class _AppSettings(BaseModel):
