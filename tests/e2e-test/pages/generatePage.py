@@ -1,4 +1,3 @@
-from asyncio.log import logger
 from base.base import BasePage
 from playwright.sync_api import expect
 import logging
@@ -41,7 +40,7 @@ class GeneratePage(BasePage):
             msg = "❌ TIMED-OUT: Not recieved response within 60 sec."
             logger.info(msg)  # ✅ log to console/log file
             raise AssertionError(msg)
-        
+
         finally:
             if stop_button.is_visible():
                 stop_button.click()

@@ -3,7 +3,7 @@ import ReactMarkdown from 'react-markdown'
 import { Components } from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { nord } from 'react-syntax-highlighter/dist/esm/styles/prism'
-import { Checkbox, DefaultButton, Dialog, FontIcon, Stack, Text } from '@fluentui/react'
+import { Checkbox, DefaultButton, Dialog, FontIcon, Stack, Text, Spinner, MessageBar, MessageBarType, PrimaryButton } from '@fluentui/react'
 import { useBoolean } from '@fluentui/react-hooks'
 import { ThumbDislike20Filled, ThumbLike20Filled } from '@fluentui/react-icons'
 import DOMPurify from 'dompurify'
@@ -20,6 +20,13 @@ import styles from './Answer.module.css'
 interface Props {
   answer: AskResponse
   onCitationClicked: (citedDocument: Citation) => void
+}
+
+// Add interface for citation content response
+interface CitationContentResponse {
+  content: string
+  title: string
+  error?: string
 }
 
 export const Answer = ({ answer, onCitationClicked }: Props) => {
@@ -40,10 +47,71 @@ export const Answer = ({ answer, onCitationClicked }: Props) => {
   const [isFeedbackDialogOpen, setIsFeedbackDialogOpen] = useState(false)
   const [showReportInappropriateFeedback, setShowReportInappropriateFeedback] = useState(false)
   const [negativeFeedbackList, setNegativeFeedbackList] = useState<Feedback[]>([])
+  
+  // Add new state for citation content dialog
+  const [isCitationContentDialogOpen, setIsCitationContentDialogOpen] = useState(false)
+  const [citationContent, setCitationContent] = useState<CitationContentResponse | null>(null)
+  const [isLoadingCitationContent, setIsLoadingCitationContent] = useState(false)
+  const [citationContentError, setCitationContentError] = useState<string | null>(null)
+
   const appStateContext = useContext(AppStateContext)
   const FEEDBACK_ENABLED =
     appStateContext?.state.frontendSettings?.feedback_enabled && appStateContext?.state.isCosmosDBAvailable?.cosmosDB
   const SANITIZE_ANSWER = appStateContext?.state.frontendSettings?.sanitize_answer
+
+  // Add function to fetch citation content
+  const fetchCitationContent = async (citation: Citation) => {
+    setIsLoadingCitationContent(true)
+    setCitationContentError(null)
+    
+    try {
+      const payload = {
+        url: citation.url || '',
+        title: citation.title || 'Citation Content',
+      }
+
+      const response = await fetch('/fetch-azure-search-content', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload)
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const data: CitationContentResponse = await response.json()
+      // {
+      //   content: "abcd",
+      //   title: 'abcdtile'
+      // } 
+      setCitationContent(data)
+      setIsCitationContentDialogOpen(true)
+    } catch (error) {
+      console.error('Error fetching citation content:', error)
+      setCitationContentError(error instanceof Error ? error.message : 'Failed to fetch citation content')
+    } finally {
+      setIsLoadingCitationContent(false)
+    }
+  }
+
+  // Update the onCitationClicked handler
+  const handleCitationClick = (citation: Citation) => {
+    // Call the original onCitationClicked prop
+    onCitationClicked(citation)
+    
+    // Fetch citation content and show dialog
+    fetchCitationContent(citation)
+  }
+
+  // Add function to close citation content dialog
+  const closeCitationContentDialog = () => {
+    setIsCitationContentDialogOpen(false)
+    setCitationContent(null)
+    setCitationContentError(null)
+  }
 
   const handleChevronClick = () => {
     setChevronIsExpanded(!chevronIsExpanded)
@@ -67,22 +135,22 @@ export const Answer = ({ answer, onCitationClicked }: Props) => {
   }, [appStateContext?.state.feedbackState, feedbackState, answer.message_id])
 
   const createCitationFilepath = (citation: Citation, index: number, truncate: boolean = false) => {
-    let citationFilename = ''
-
-    if (citation.filepath) {
-      const part_i = citation.part_index ?? (citation.chunk_id ? parseInt(citation.chunk_id) + 1 : '')
-      if (truncate && citation.filepath.length > filePathTruncationLimit) {
-        const citationLength = citation.filepath.length
-        citationFilename = `${citation.filepath.substring(0, 20)}...${citation.filepath.substring(citationLength - 20)} - Part ${part_i}`
-      } else {
-        citationFilename = `${citation.filepath} - Part ${part_i}`
-      }
-    } else if (citation.filepath && citation.reindex_id) {
-      citationFilename = `${citation.filepath} - Part ${citation.reindex_id}`
-    } else {
-      citationFilename = `Citation ${index}`
-    }
-    return citationFilename
+    // let citationFilename = ''
+    // console.log('createCitationFilepath', citation, index, truncate)      
+    // if (citation.filepath) {
+    //   const part_i = citation.part_index ?? (citation.chunk_id ? parseInt(citation.chunk_id) + 1 : '')
+    //   if (truncate && citation.filepath.length > filePathTruncationLimit) {
+    //     const citationLength = citation.filepath.length
+    //     citationFilename = `${citation.filepath.substring(0, 20)}...${citation.filepath.substring(citationLength - 20)} - Part ${part_i}`
+    //   } else {
+    //     citationFilename = `${citation.filepath} - Part ${part_i}`
+    //   }
+    // } else if (citation.filepath && citation.reindex_id) {
+    //   citationFilename = `${citation.filepath} - Part ${citation.reindex_id}`
+    // } else {
+    //   citationFilename = `Citation ${index}`
+    // }
+    return citation.title ? citation.title : `Citation ${index + 1}`
   }
 
   const onLikeResponseClicked = async () => {
@@ -345,15 +413,15 @@ export const Answer = ({ answer, onCitationClicked }: Props) => {
             {parsedAnswer.citations.map((citation, idx) => {
               return (
                 <span
-                  title={createCitationFilepath(citation, ++idx)}
+                  title={citation.title ?? undefined}
                   tabIndex={0}
                   role="link"
                   key={idx}
-                  onClick={() => onCitationClicked(citation)}
-                  onKeyDown={e => (e.key === 'Enter' || e.key === ' ' ? onCitationClicked(citation) : null)}
+                  onClick={() => handleCitationClick(citation)}
+                  onKeyDown={e => (e.key === 'Enter' || e.key === ' ' ? handleCitationClick(citation) : null)}
                   className={styles.citationContainer}
                   aria-label={createCitationFilepath(citation, idx)}>
-                  <div className={styles.citation}>{idx}</div>
+                  <div className={styles.citation}>{idx+1}</div>
                   {createCitationFilepath(citation, idx, true)}
                 </span>
               )
@@ -361,6 +429,8 @@ export const Answer = ({ answer, onCitationClicked }: Props) => {
           </div>
         )}
       </Stack>
+
+      {/* Existing feedback dialog */}
       <Dialog
         onDismiss={() => {
           resetFeedbackDialog()
@@ -389,14 +459,105 @@ export const Answer = ({ answer, onCitationClicked }: Props) => {
         }}>
         <Stack tokens={{ childrenGap: 4 }}>
           <div>Your feedback will improve this experience.</div>
-
           {!showReportInappropriateFeedback ? <UnhelpfulFeedbackContent /> : <ReportInappropriateFeedbackContent />}
-
           <div>By pressing submit, your feedback will be visible to the application owner.</div>
-
           <DefaultButton disabled={negativeFeedbackList.length < 1} onClick={onSubmitNegativeFeedback}>
             Submit
           </DefaultButton>
+        </Stack>
+      </Dialog>
+
+
+  {isLoadingCitationContent && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.3)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            padding: '24px',
+            borderRadius: '8px',
+            boxShadow: '0px 14px 28.8px rgba(0, 0, 0, 0.24)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '16px'
+          }}>
+            <Spinner size={3} />
+            <Text>Loading citation content...</Text>
+          </div>
+        </div>
+      )}
+      {/* New citation content dialog */}
+      <Dialog
+        onDismiss={closeCitationContentDialog}
+        hidden={!isCitationContentDialogOpen}
+        styles={{
+          main: [
+            {
+              selectors: {
+                ['@media (min-width: 480px)']: {
+                  width: '800px',
+                  height: '600px',
+                  maxWidth: '800px',
+                  maxHeight: '600px',
+                  minWidth: '800px',
+                  minHeight: '600px',
+                  background: '#FFFFFF',
+                  boxShadow: '0px 14px 28.8px rgba(0, 0, 0, 0.24), 0px 0px 8px rgba(0, 0, 0, 0.2)',
+                  borderRadius: '8px'
+                }
+              }
+            }
+          ]
+        }}
+        dialogContentProps={{
+          title: citationContent?.title || 'Citation Content',
+          showCloseButton: true
+        }}>
+        <Stack tokens={{ childrenGap: 16 }} styles={{ root: { height: '500px' } }}>
+          {isLoadingCitationContent && (
+            <Stack horizontal horizontalAlign="center" tokens={{ childrenGap: 8 }}>
+              <Spinner label="Loading citation content..." />
+            </Stack>
+          )}
+          
+          {citationContentError && (
+            <MessageBar messageBarType={MessageBarType.error}>
+              Error loading citation content: {citationContentError}
+            </MessageBar>
+          )}
+          
+          {citationContent && !isLoadingCitationContent && (
+            <div style={{ 
+              height: '400px',
+              overflowY: 'auto', 
+              padding: '16px',
+              border: '1px solid #e1e1e1',
+              borderRadius: '4px',
+              backgroundColor: '#fafafa'
+            }}>
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm, supersub]}
+                children={citationContent.content}
+                components={components}
+              />
+            </div>
+          )}
+          
+          <Stack horizontal horizontalAlign="end">
+            <PrimaryButton onClick={closeCitationContentDialog}>
+              Close
+            </PrimaryButton>
+          </Stack>
         </Stack>
       </Dialog>
     </>

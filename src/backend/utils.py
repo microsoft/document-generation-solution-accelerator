@@ -4,8 +4,9 @@ import logging
 import os
 from enum import Enum
 from typing import List
-
 import requests
+import uuid
+import time
 
 DEBUG = os.environ.get("DEBUG", "false")
 if DEBUG.lower() == "true":
@@ -83,74 +84,68 @@ def generateFilterString(userToken):
     return f"{AZURE_SEARCH_PERMITTED_GROUPS_COLUMN}/any(g:search.in(g, '{group_ids}'))"
 
 
-def format_non_streaming_response(chatCompletion, history_metadata, apim_request_id):
+def format_non_streaming_response(chunk, history_metadata):
+    from backend.settings import app_settings
     response_obj = {
-        "id": chatCompletion.id,
-        "model": chatCompletion.model,
-        "created": chatCompletion.created,
-        "object": chatCompletion.object,
-        "choices": [{"messages": []}],
-        "history_metadata": history_metadata,
-        "apim-request-id": apim_request_id,
+        "id": str(uuid.uuid4()),
+        "model": app_settings.azure_ai.agent_model_deployment_name,
+        "created": int(time.time()),
+        "choices": [{
+            "messages": []
+        }],
+        "history_metadata": history_metadata
     }
+    has_data = False
 
-    if len(chatCompletion.choices) > 0:
-        message = chatCompletion.choices[0].message
-        if message:
-            if hasattr(message, "context"):
-                response_obj["choices"][0]["messages"].append(
-                    {
-                        "role": "tool",
-                        "content": json.dumps(message.context),
-                    }
-                )
-            response_obj["choices"][0]["messages"].append(
-                {
-                    "role": "assistant",
-                    "content": message.content,
-                }
-            )
-            return response_obj
+    if "answer" in chunk and chunk["answer"]:
+        has_data = True
+        response_obj["choices"][0]["messages"].append({
+            "role": "assistant",
+            "content": chunk["answer"]
+        })
 
-    return {}
+    if "citations" in chunk and chunk["citations"]:
+        has_data = True
+        response_obj["choices"][0]["messages"].append({
+            "role": "tool",
+            "content": chunk["citations"]
+        })
+
+    if not has_data:
+        return {}
+    return response_obj
 
 
-def format_stream_response(chatCompletionChunk, history_metadata, apim_request_id):
+def format_stream_response(chunk, history_metadata):
+    from backend.settings import app_settings
     response_obj = {
-        "id": chatCompletionChunk.id,
-        "model": chatCompletionChunk.model,
-        "created": chatCompletionChunk.created,
-        "object": chatCompletionChunk.object,
-        "choices": [{"messages": []}],
-        "history_metadata": history_metadata,
-        "apim-request-id": apim_request_id,
+        "id": str(uuid.uuid4()),
+        "model": app_settings.azure_ai.agent_model_deployment_name,
+        "created": int(time.time()),
+        "choices": [{
+            "messages": []
+        }],
+        "history_metadata": history_metadata
     }
+    has_data = False
 
-    if len(chatCompletionChunk.choices) > 0:
-        delta = chatCompletionChunk.choices[0].delta
-        if delta:
-            if hasattr(delta, "context"):
-                messageObj = {"role": "tool",
-                              "content": json.dumps(delta.context)}
-                response_obj["choices"][0]["messages"].append(messageObj)
-                return response_obj
-            if delta.role == "assistant" and hasattr(delta, "context"):
-                messageObj = {
-                    "role": "assistant",
-                    "context": delta.context,
-                }
-                response_obj["choices"][0]["messages"].append(messageObj)
-                return response_obj
-            else:
-                if delta.content:
-                    messageObj = {
-                        "role": "assistant",
-                        "content": delta.content,
-                    }
-                    response_obj["choices"][0]["messages"].append(messageObj)
-                    return response_obj
+    if "answer" in chunk and chunk["answer"]:
+        has_data = True
+        response_obj["choices"][0]["messages"].append({
+            "role": "assistant",
+            "content": chunk["answer"]
+        })
 
-    return {}
+    if "citations" in chunk and chunk["citations"]:
+        has_data = True
+        response_obj["choices"][0]["messages"].append({
+            "role": "tool",
+            "content": chunk["citations"]
+        })
+
+    if not has_data:
+        return {}
+    return response_obj
 
 
 def comma_separated_string_to_list(s: str) -> List[str]:

@@ -45,7 +45,6 @@ class BasePage:
             "response code is " + str(response.status) + " " + str(response.json())
         )
 
-
     def validate_generate_response_status(self, question_api=""):
         load_dotenv()  # Ensure environment variables are loaded
         # URL of the API endpoint
@@ -75,5 +74,3 @@ class BasePage:
         assert response.status == 200, (
             "response code is " + str(response.status) + " " + str(response.json())
         )
-
-

@@ -1,4 +1,4 @@
-import { Conversation, ChatMessage, ToolMessageContent } from '../api/models'
+import { Conversation, ChatMessage, ToolMessageContent, Citation } from '../api/models'
 
 
 // -------------Chat.tsx-------------
@@ -15,9 +15,10 @@ const enum contentTemplateSections {
 export const parseCitationFromMessage = (message: ChatMessage) => {
     if (message?.role && message?.role === 'tool') {
         try {
-            const toolMessage = JSON.parse(message.content) as ToolMessageContent
-            return toolMessage.citations
+            const toolMessage = JSON.parse(message.content)
+            return toolMessage
         } catch {
+           console.error('Error parsing tool message content:', message.content)
             return []
         }
     }

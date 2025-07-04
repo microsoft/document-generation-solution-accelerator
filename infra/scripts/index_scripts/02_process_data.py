@@ -1,4 +1,3 @@
-from azure.core.credentials import AzureKeyCredential
 from azure.keyvault.secrets import SecretClient
 from openai import AzureOpenAI
 import re
@@ -15,23 +14,47 @@ key_vault_name = 'kv_to-be-replaced'
 managed_identity_client_id = 'mici_to-be-replaced'
 file_system_client_name = "data"
 directory = 'pdf'
+index_name = "pdf_index"
 
 
-def get_secrets_from_kv(kv_name, secret_name):
-    # Set the name of the Azure Key Vault
-    key_vault_name = kv_name
-    credential = DefaultAzureCredential(managed_identity_client_id=managed_identity_client_id)
+def get_secrets_from_kv(secret_name: str) -> str:
+    """
+    Retrieves a secret value from Azure Key Vault.
+    Args:
+        secret_name (str): Name of the secret.
+        credential (DefaultAzureCredential): Credential with access to Key Vault.
+    Returns:
+        str: The secret value.
+    """
+    kv_credential = DefaultAzureCredential(managed_identity_client_id=managed_identity_client_id)
+    secret_client = SecretClient(
+        vault_url=f"https://{key_vault_name}.vault.azure.net/",
+        credential=kv_credential
+    )
+    return secret_client.get_secret(secret_name).value
 
-    # Create a secret client object using the credential and Key Vault name
-    secret_client = SecretClient(vault_url=f"https://{key_vault_name}.vault.azure.net/", credential=credential)
-    return (secret_client.get_secret(secret_name).value)
 
+# Retrieve secrets from Key Vault
+search_endpoint = get_secrets_from_kv("AZURE-SEARCH-ENDPOINT")
+openai_api_base = get_secrets_from_kv("AZURE-OPENAI-ENDPOINT")
+openai_api_version = get_secrets_from_kv("AZURE-OPENAI-PREVIEW-API-VERSION")
+deployment = get_secrets_from_kv("AZURE-OPEN-AI-DEPLOYMENT-MODEL")
+account_name = get_secrets_from_kv("ADLS-ACCOUNT-NAME")
+print("Secrets retrieved from Key Vault.")
 
-search_endpoint = get_secrets_from_kv(key_vault_name, "AZURE-SEARCH-ENDPOINT")
-search_key = get_secrets_from_kv(key_vault_name, "AZURE-SEARCH-KEY")
-openai_api_base = get_secrets_from_kv(key_vault_name, "AZURE-OPENAI-ENDPOINT")
-openai_api_version = get_secrets_from_kv(key_vault_name, "AZURE-OPENAI-PREVIEW-API-VERSION")
-deployment = get_secrets_from_kv(key_vault_name, "AZURE-OPEN-AI-DEPLOYMENT-MODEL")
+# Azure Data Lake settings
+account_url = f"https://{account_name}.dfs.core.windows.net"
+credential = DefaultAzureCredential(managed_identity_client_id=managed_identity_client_id)
+service_client = DataLakeServiceClient(account_url, credential=credential, api_version='2023-01-03')
+file_system_client = service_client.get_file_system_client(file_system_client_name)
+directory_name = directory
+paths = file_system_client.get_paths(path=directory_name)
+print("Azure DataLake setup complete.")
+
+# Azure Search settings
+search_client = SearchClient(search_endpoint, index_name, credential)
+index_client = SearchIndexClient(endpoint=search_endpoint, credential=credential)
+print("Azure Search setup complete.")
 
 
 # Function: Get Embeddings
@@ -59,6 +82,7 @@ def clean_spaces_with_regex(text):
     return cleaned_text
 
 
+# Function: Chunk Data
 def chunk_data(text):
     tokens_per_chunk = 256  # 1024 # 500
     text = clean_spaces_with_regex(text)
@@ -94,34 +118,12 @@ def chunk_data(text):
     return chunks
 
 
-account_name = get_secrets_from_kv(key_vault_name, "ADLS-ACCOUNT-NAME")
-
-account_url = f"https://{account_name}.dfs.core.windows.net"
-
-credential = DefaultAzureCredential()
-service_client = DataLakeServiceClient(account_url, credential=credential, api_version='2023-01-03')
-
-file_system_client = service_client.get_file_system_client(file_system_client_name)
-
-directory_name = directory
-paths = file_system_client.get_paths(path=directory_name)
-print(paths)
-
-index_name = "pdf_index"
-
-search_credential = AzureKeyCredential(search_key)
-
-search_client = SearchClient(search_endpoint, index_name, search_credential)
-index_client = SearchIndexClient(endpoint=search_endpoint, credential=search_credential)
-
-
+# Function: Prepare Search Document
 def prepare_search_doc(content, document_id):
     chunks = chunk_data(content)
     results = []
-    chunk_num = 0
-    for chunk in chunks:
-        chunk_num += 1
-        chunk_id = document_id + '_' + str(chunk_num).zfill(2)
+    for idx, chunk in enumerate(chunks, 1):
+        chunk_id = f"{document_id}_{str(idx).zfill(2)}"
 
         try:
             v_contentVector = get_embeddings(str(chunk), openai_api_base, openai_api_version)

@@ -126,8 +126,7 @@ def test_generate_prompt(setup_pages, question, request):
             logger.info(f"Attempt {attempt}: Entering Generate Question: {question}")
             generate.enter_a_question(question)
             generate.click_send_button()
-            #generate.validate_generate_response_status(question_api=question)
-
+            # generate.validate_generate_response_status(question_api=question)
 
             time.sleep(2)
             response_text = page.locator("//p")
@@ -136,7 +135,7 @@ def test_generate_prompt(setup_pages, question, request):
             ).text_content()
 
             if latest_response not in [invalid_response, invalid_response1]:
-                logger.info(f"Valid response received on attempt {attempt}")       
+                logger.info(f"Valid response received on attempt {attempt}")
                 break
             else:
                 logger.warning(f"Invalid response received on attempt {attempt}")
@@ -166,7 +165,7 @@ def test_add_section_prompt(setup_pages, question, request):
         logger.info(f"Entering Add Section Question: {question}")
         generate.enter_a_question(question)
         generate.click_send_button()
-        #generate.validate_generate_response_status(question_api=question)
+        # generate.validate_generate_response_status(question_api=question)
     except Exception as e:
         logger.error(f"FAILED while validating Add Section Prompt '{question}': {e}")
         raise
@@ -185,7 +184,7 @@ def test_generate_draft_from_section_prompt(setup_pages, request):
     try:
         logger.info("Clicking 'Generate Draft' and validating sections.")
         generate.click_generate_draft_button()
-        #draft.validate_draft_sections()
+        # draft.validate_draft_sections()
         draft.validate_draft_sections_loaded()
     except Exception as e:
         logger.error(f"FAILED while generating or validating draft sections: {e}")

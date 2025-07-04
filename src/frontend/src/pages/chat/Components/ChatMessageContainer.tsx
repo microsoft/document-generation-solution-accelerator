@@ -35,7 +35,7 @@ export const ChatMessageContainer = forwardRef<HTMLDivElement, ChatMessageContai
                             <Answer
                                 answer={{
                                     answer: type === ChatType.Browse ? answer.content : generateTemplateSections(answer.content),
-                                    citations: parseCitationFromMessage(messages[index - 1]),  // Ensure previous message exists before parsing
+                                    citations: type === ChatType.Browse ? parseCitationFromMessage(messages[index - 1]) : [], // Ensure previous message exists before parsing
                                     message_id: answer.id,
                                     feedback: answer.feedback
                                 }}

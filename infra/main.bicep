@@ -11,7 +11,7 @@ param environmentName string
 param secondaryLocation string = 'eastus2'
 
 @description('Azure location for the solution. If not provided, it defaults to the resource group location.')
-param AZURE_LOCATION string=''
+param AZURE_LOCATION string = ''
 
 // ========== AI Deployments Location ========== //
 @description('Location for AI deployments. This should be a valid Azure region where OpenAI services are available.')
@@ -69,7 +69,6 @@ var solutionLocation = empty(AZURE_LOCATION) ? resourceGroup().location : AZURE_
 var uniqueId = toLower(uniqueString(environmentName, subscription().id, solutionLocation))
 var solutionPrefix = 'dg${padLeft(take(uniqueId, 12), 12, '0')}'
 
-
 // ========== Managed Identity ========== //
 module managedIdentityModule 'deploy_managed_identity.bicep' = {
   name: 'deploy_managed_identity'
@@ -87,8 +86,8 @@ module kvault 'deploy_keyvault.bicep' = {
   params: {
     solutionName: solutionPrefix
     solutionLocation: solutionLocation
-    managedIdentityObjectId:managedIdentityModule.outputs.managedIdentityOutput.objectId
-    keyvaultName:'${abbrs.security.keyVault}${solutionPrefix}'
+    managedIdentityObjectId: managedIdentityModule.outputs.managedIdentityOutput.objectId
+    keyvaultName: '${abbrs.security.keyVault}${solutionPrefix}'
   }
   scope: resourceGroup(resourceGroup().name)
 }
@@ -120,12 +119,11 @@ module storageAccount 'deploy_storage_account.bicep' = {
     solutionName: solutionPrefix
     solutionLocation: solutionLocation
     keyVaultName: kvault.outputs.keyvaultName
-    managedIdentityObjectId:managedIdentityModule.outputs.managedIdentityOutput.objectId
-    saName:'${abbrs.storage.storageAccount}${ solutionPrefix}' 
+    managedIdentityObjectId: managedIdentityModule.outputs.managedIdentityOutput.objectId
+    saName: '${abbrs.storage.storageAccount}${solutionPrefix}'
   }
   scope: resourceGroup(resourceGroup().name)
 }
-
 
 //========== Updates to Key Vault ========== //
 resource keyVault 'Microsoft.KeyVault/vaults@2022-07-01' existing = {
@@ -143,24 +141,24 @@ module appserviceModule 'deploy_app_service.bicep' = {
     solutionName: solutionPrefix
     solutionLocation: solutionLocation
     aiSearchService: aifoundry.outputs.aiSearchService
-    AzureSearchKey: keyVault.getSecret('AZURE-SEARCH-KEY')
-    AzureOpenAIEndpoint:aifoundry.outputs.aoaiEndpoint
-    AzureOpenAIModel: gptModelName 
+    aiSearchName: aifoundry.outputs.aiSearchName
+    AzureOpenAIEndpoint: aifoundry.outputs.aoaiEndpoint
+    AzureOpenAIModel: gptModelName
     azureOpenAIApiVersion: azureOpenaiAPIVersion //'2024-02-15-preview'
-    azureOpenaiResource:aifoundry.outputs.aiFoundryName
+    azureOpenaiResource: aifoundry.outputs.aiFoundryName
     aiFoundryProjectName: aifoundry.outputs.aiFoundryProjectName
     aiFoundryName: aifoundry.outputs.aiFoundryName
     aiFoundryProjectEndpoint: aifoundry.outputs.aiFoundryProjectEndpoint
-    USE_CHAT_HISTORY_ENABLED:'True'
+    USE_CHAT_HISTORY_ENABLED: 'True'
     AZURE_COSMOSDB_ACCOUNT: cosmosDBModule.outputs.cosmosAccountName
     // AZURE_COSMOSDB_ACCOUNT_KEY: keyVault.getSecret('AZURE-COSMOSDB-ACCOUNT-KEY')
     AZURE_COSMOSDB_CONVERSATIONS_CONTAINER: cosmosDBModule.outputs.cosmosContainerName
     AZURE_COSMOSDB_DATABASE: cosmosDBModule.outputs.cosmosDatabaseName
-    appInsightsConnectionString: aifoundry.outputs.applicationInsightsConnectionString 
-    AZURE_COSMOSDB_ENABLE_FEEDBACK:'True'
-    HostingPlanName:'${abbrs.compute.appServicePlan}${solutionPrefix}'
-    WebsiteName:'${abbrs.compute.webApp}${solutionPrefix}'
-    useAiFoundrySdk: 'False'
+    appInsightsConnectionString: aifoundry.outputs.applicationInsightsConnectionString
+    AZURE_COSMOSDB_ENABLE_FEEDBACK: 'True'
+    HostingPlanName: '${abbrs.compute.appServicePlan}${solutionPrefix}'
+    WebsiteName: '${abbrs.compute.webApp}${solutionPrefix}'
+    aiSearchProjectConnectionName: aifoundry.outputs.aiSearchConnectionName
   }
   scope: resourceGroup(resourceGroup().name)
   // dependsOn:[sqlDBModule]
@@ -186,3 +184,5 @@ output KEY_VAULT_NAME string = kvault.outputs.keyvaultName
 output COSMOSDB_ACCOUNT_NAME string = cosmosDBModule.outputs.cosmosAccountName
 output RESOURCE_GROUP_NAME string = resourceGroup().name
 output AI_FOUNDRY_NAME string = aifoundry.outputs.aiFoundryName
+output AI_SEARCH_SERVICE_NAME string = aifoundry.outputs.aiSearchService
+output AZURE_SEARCH_CONNECTION_NAME string = aifoundry.outputs.aiSearchConnectionName

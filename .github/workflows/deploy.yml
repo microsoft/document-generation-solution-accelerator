@@ -169,6 +169,8 @@ jobs:
           echo "COSMOSDB_ACCOUNT_NAME=$COSMOSDB_ACCOUNT_NAME" >> $GITHUB_ENV
           AI_FOUNDRY_NAME=$(echo $BICEP_OUTPUT | jq -r '.aI_FOUNDRY_NAME.value')
           echo "AI_FOUNDRY_NAME=$AI_FOUNDRY_NAME" >> $GITHUB_ENV
+          AI_SEARCH_SERVICE_NAME=$(echo $BICEP_OUTPUT | jq -r '.aI_SEARCH_SERVICE_NAME.value')
+          echo "AI_SEARCH_SERVICE_NAME=$AI_SEARCH_SERVICE_NAME" >> $GITHUB_ENV
           echo "Deployment output: $BICEP_OUTPUT"
 
       - name: Run Post-Deployment Script
@@ -186,6 +188,7 @@ jobs:
             "${{ env.KEY_VAULT_NAME }}" \
             "${{ env.RESOURCE_GROUP_NAME }}" \
             "${{ env.AI_FOUNDRY_NAME }}" \
+            "${{ env.AI_SEARCH_SERVICE_NAME }}" \
             "${{ secrets.AZURE_CLIENT_ID }}"
 
       - name: Logout from Azure
