@@ -2291,7 +2291,8 @@
               "name": "[guid(parameters('WebsiteName'), parameters('aiSearchName'), resourceId('Microsoft.Authorization/roleDefinitions', '1407120a-92aa-4202-b7e9-c0e197c71c8f'))]",
               "properties": {
                 "roleDefinitionId": "[resourceId('Microsoft.Authorization/roleDefinitions', '1407120a-92aa-4202-b7e9-c0e197c71c8f')]",
-                "principalId": "[reference(resourceId('Microsoft.Web/sites', parameters('WebsiteName')), '2020-06-01', 'full').identity.principalId]"
+                "principalId": "[reference(resourceId('Microsoft.Web/sites', parameters('WebsiteName')), '2020-06-01', 'full').identity.principalId]",
+                "principalType": "ServicePrincipal"
               },
               "dependsOn": [
                 "[resourceId('Microsoft.Web/sites', parameters('WebsiteName'))]"

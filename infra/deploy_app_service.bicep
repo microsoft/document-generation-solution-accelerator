@@ -345,6 +345,7 @@ resource searchIndexDataReaderAssignment 'Microsoft.Authorization/roleAssignment
   properties: {
     roleDefinitionId: searchIndexDataReader.id
     principalId: Website.identity.principalId
+    principalType: 'ServicePrincipal'
   }
 }
 
