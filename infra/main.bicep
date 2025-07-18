@@ -20,7 +20,7 @@ param AZURE_LOCATION string = ''
     type: 'location'
     usageName: [
       'OpenAI.GlobalStandard.gpt4.1,150'
-      'OpenAI.Standard.text-embedding-ada-002,80'
+      'OpenAI.GlobalStandard.text-embedding-ada-002,80'
     ]
   }
 })

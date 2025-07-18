@@ -39,7 +39,7 @@
           "type": "location",
           "usageName": [
             "OpenAI.GlobalStandard.gpt4.1,150",
-            "OpenAI.Standard.text-embedding-ada-002,80"
+            "OpenAI.GlobalStandard.text-embedding-ada-002,80"
           ]
         },
         "description": "Location for AI deployments. This should be a valid Azure region where OpenAI services are available."

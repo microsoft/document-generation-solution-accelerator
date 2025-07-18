@@ -35,7 +35,7 @@ declare -A MIN_CAPACITY=(
 
     ["OpenAI.GlobalStandard.gpt4.1"]=$GPT_MIN_CAPACITY
 
-    ["OpenAI.Standard.text-embedding-ada-002"]=$TEXT_EMBEDDING_MIN_CAPACITY
+    ["OpenAI.GlobalStandard.text-embedding-ada-002"]=$TEXT_EMBEDDING_MIN_CAPACITY
 )
 
 VALID_REGION=""

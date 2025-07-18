@@ -45,7 +45,7 @@ var aiModelDeployments = [
     name: embeddingModel
     model: embeddingModel
     sku: {
-      name: 'Standard'
+      name: 'GlobalStandard'
       capacity: embeddingDeploymentCapacity
     }
     version: '2'
