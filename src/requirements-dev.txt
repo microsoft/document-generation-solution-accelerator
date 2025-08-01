@@ -4,12 +4,12 @@ Markdown==3.8.2
 requests==2.32.4
 tqdm==4.67.1
 tiktoken
-langchain==0.3.26
+langchain==0.3.27
 bs4==0.0.2
 urllib3==2.5.0
 pytest==8.4.1
-pytest-asyncio==1.0.0
-PyMuPDF==1.26.1
+pytest-asyncio==1.1.0
+PyMuPDF==1.26.3
 azure-storage-blob
 chardet
 azure-keyvault-secrets
