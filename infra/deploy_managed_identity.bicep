@@ -13,13 +13,13 @@ param solutionLocation string
 @description('Name')
 param miName  string
 
+@description('Optional. Tags to be applied to the resources.')
+param tags object = {}
+
 resource managedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
   name: miName
   location: solutionLocation
-  tags: {
-    app: solutionName
-    location: solutionLocation
-  }
+  tags: tags
 }
 
 @description('This is the built-in owner role. See https://docs.microsoft.com/azure/role-based-access-control/built-in-roles#owner')
@@ -81,9 +81,11 @@ resource roleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
 //   }
 // }
 
+@description('Contains ManagedIdentity Object Details.')
 output managedIdentityOutput object = {
   id: managedIdentity.id
   objectId: managedIdentity.properties.principalId
   clientId: managedIdentity.properties.clientId
   name: miName
+  tags : tags
 }

@@ -2,10 +2,20 @@
 @maxLength(15)
 @description('Solution Name')
 param solutionName string
+
+@minLength(3)
+@maxLength(20)
+@description('Solution location.')
 param solutionLocation string
 param keyVaultName string
 
+@minLength(5)
+@maxLength(25)
+@description('Name of the Account')
 param accountName string 
+
+@description('Optional. Tags to be applied to the resources.')
+param tags object = {}
 
 var databaseName = 'db_conversation_history'
 var collectionName = 'conversations'
@@ -20,8 +30,6 @@ var containers = [
 
 @allowed([ 'GlobalDocumentDB', 'MongoDB', 'Parse' ])
 param kind string = 'GlobalDocumentDB'
-
-param tags object = {}
 
 resource cosmos 'Microsoft.DocumentDB/databaseAccounts@2022-08-15' = {
   name: accountName
@@ -64,6 +72,7 @@ resource database 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2022-05-15
       options: {}
     }
   }]
+  tags : tags
 }
 
 resource keyVault 'Microsoft.KeyVault/vaults@2022-07-01' existing = {
@@ -76,6 +85,7 @@ resource AZURE_COSMOSDB_ACCOUNT 'Microsoft.KeyVault/vaults/secrets@2021-11-01-pr
   properties: {
     value: cosmos.name
   }
+  tags : tags
 }
 
 resource AZURE_COSMOSDB_ACCOUNT_KEY 'Microsoft.KeyVault/vaults/secrets@2021-11-01-preview' = {
@@ -84,6 +94,7 @@ resource AZURE_COSMOSDB_ACCOUNT_KEY 'Microsoft.KeyVault/vaults/secrets@2021-11-0
   properties: {
     value: cosmos.listKeys().primaryMasterKey
   }
+  tags : tags
 }
 
 resource AZURE_COSMOSDB_DATABASE 'Microsoft.KeyVault/vaults/secrets@2021-11-01-preview' = {
@@ -92,6 +103,7 @@ resource AZURE_COSMOSDB_DATABASE 'Microsoft.KeyVault/vaults/secrets@2021-11-01-p
   properties: {
     value: databaseName
   }
+  tags : tags
 }
 
 resource AZURE_COSMOSDB_CONVERSATIONS_CONTAINER 'Microsoft.KeyVault/vaults/secrets@2021-11-01-preview' = {
@@ -100,6 +112,7 @@ resource AZURE_COSMOSDB_CONVERSATIONS_CONTAINER 'Microsoft.KeyVault/vaults/secre
   properties: {
     value: collectionName
   }
+  tags : tags
 }
 
 resource AZURE_COSMOSDB_ENABLE_FEEDBACK 'Microsoft.KeyVault/vaults/secrets@2021-11-01-preview' = {
@@ -108,8 +121,14 @@ resource AZURE_COSMOSDB_ENABLE_FEEDBACK 'Microsoft.KeyVault/vaults/secrets@2021-
   properties: {
     value: 'True'
   }
+  tags : tags
 }
 
+@description('Cosmos Account Name')
 output cosmosAccountName string = cosmos.name
+
+@description('Cosmos DB Name')
 output cosmosDatabaseName string = databaseName
+
+@description('Container Name')
 output cosmosContainerName string = collectionName

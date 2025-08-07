@@ -1,8 +1,13 @@
 @description('Specifies the location for resources.')
 param solutionLocation string 
 
+@description('Base URL')
 param baseUrl string
+
+@description('Contains the name of the KeyVault')
 param keyVaultName string
+
+@description('Contains Identity')
 param identity string
 
 resource create_index 'Microsoft.Resources/deploymentScripts@2020-10-01' = {

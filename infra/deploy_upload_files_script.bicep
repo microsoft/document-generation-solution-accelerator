@@ -1,9 +1,20 @@
 @description('Specifies the location for resources.')
 param solutionLocation string
+
+@description('Contains BaseURL.')
 param baseUrl string
+
+@description('Contains Managed Identity Object ID.')
 param managedIdentityObjectId string
+
+@description('Contains Storage Account Name.')
 param storageAccountName string
+
+@description('Contains Container Name.')
 param containerName string
+
+@description('Optional. Tags to be applied to the resources.')
+param tags object = {}
 
 resource copy_demo_Data 'Microsoft.Resources/deploymentScripts@2020-10-01' = {
   kind:'AzureCLI'
@@ -23,4 +34,5 @@ resource copy_demo_Data 'Microsoft.Resources/deploymentScripts@2020-10-01' = {
     retentionInterval: 'PT1H' // Specify the desired retention interval
     cleanupPreference:'OnSuccess'
   }
+  tags : tags
 }

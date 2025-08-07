@@ -140,7 +140,7 @@ jobs:
             --resource-group ${{ env.RESOURCE_GROUP_NAME }} \
             --template-file infra/main.bicep \
             --parameters \
-                environmentName="${{ env.SOLUTION_PREFIX }}" \
+                solutionName="${{ env.SOLUTION_PREFIX }}" \
                 secondaryLocation="northcentralus" \
                 deploymentType="GlobalStandard" \
                 gptModelName="gpt-4.1" \
