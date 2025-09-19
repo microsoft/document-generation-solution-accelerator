@@ -269,7 +269,7 @@ resource resourceGroupTags 'Microsoft.Resources/tags@2021-04-01' = {
   properties: {
     tags: {
       ... tags
-      TemplateName: 'Docgen'
+      TemplateName: enablePrivateNetworking ? 'DocGen-WAF' : 'DocGen'
       CreatedBy: createdBy
     }
   }
