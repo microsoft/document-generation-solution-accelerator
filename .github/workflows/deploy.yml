@@ -149,8 +149,7 @@ jobs:
                 embeddingModel="text-embedding-ada-002" \
                 embeddingDeploymentCapacity=${{ env.TEXT_EMBEDDING_MIN_CAPACITY }} \
                 azureAiServiceLocation=${{ env.AZURE_LOCATION }} \
-                imageTag="${IMAGE_TAG}"\
-                createdBy="Pipeline"
+                imageTag="${IMAGE_TAG}"
 
       - name: Get Deployment Output and extract Values
         id: get_output
