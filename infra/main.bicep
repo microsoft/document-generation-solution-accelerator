@@ -136,7 +136,8 @@ param enableTelemetry bool = true
 param enablePurgeProtection bool = false
 
 @description('Optional created by user name')
-param createdBy string = empty(deployer().userPrincipalName) ? '' : split(deployer().userPrincipalName, '@')[0]
+param createdBy string = contains(deployer(), 'userPrincipalName')? split(deployer().userPrincipalName, '@')[0]: deployer().objectId
+
 
 // ============== //
 // Variables      //
@@ -269,7 +270,8 @@ resource resourceGroupTags 'Microsoft.Resources/tags@2021-04-01' = {
   properties: {
     tags: {
       ... tags
-      TemplateName: 'Docgen'
+      TemplateName: 'DocGen'
+      Type: enablePrivateNetworking ? 'WAF' : 'Non-WAF'
       CreatedBy: createdBy
     }
   }
