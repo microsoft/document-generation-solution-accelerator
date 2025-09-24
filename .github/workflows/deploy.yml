@@ -83,7 +83,10 @@ jobs:
       - name: Set Deployment Region
         run: |
           echo "Selected Region: $VALID_REGION"
-          echo "AZURE_LOCATION=$VALID_REGION" >> $GITHUB_ENV
+          echo "AZURE_AI_LOCATION=$VALID_REGION" >> $GITHUB_ENV
+          if [ "$VALID_REGION" == "eastus" ] || [ "$VALID_REGION" == "westus3" ]; then
+            echo "AZURE_LOCATION=uksouth" >> $GITHUB_ENV
+          fi
 
       - name: Generate Resource Group Name
         id: generate_rg_name
@@ -141,14 +144,11 @@ jobs:
             --template-file infra/main.bicep \
             --parameters \
                 solutionName="${{ env.SOLUTION_PREFIX }}" \
-                secondaryLocation="northcentralus" \
-                deploymentType="GlobalStandard" \
-                gptModelName="gpt-4.1" \
-                azureOpenaiAPIVersion="2025-01-01-preview" \
-                gptDeploymentCapacity=${{ env.GPT_MIN_CAPACITY }} \
-                embeddingModel="text-embedding-ada-002" \
+                secondaryLocation="${{ env.AZURE_LOCATION }}" \
+                location="${{ env.AZURE_LOCATION }}" \
+                gptModelCapacity=${{ env.GPT_MIN_CAPACITY }} \
                 embeddingDeploymentCapacity=${{ env.TEXT_EMBEDDING_MIN_CAPACITY }} \
-                azureAiServiceLocation=${{ env.AZURE_LOCATION }} \
+                azureAiServiceLocation=${{ env.AZURE_AI_LOCATION }} \
                 imageTag="${IMAGE_TAG}"\
                 createdBy="Pipeline"
 
