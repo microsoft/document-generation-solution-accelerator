@@ -142,6 +142,9 @@ jobs:
             IMAGE_TAG="latest_waf"
           fi
 
+          # Generate current timestamp in desired format: YYYY-MM-DDTHH:MM:SS.SSSSSSSZ
+            current_date=$(date -u +"%Y-%m-%dT%H:%M:%S.%7NZ")
+
           az deployment group create \
             --name ${{ env.SOLUTION_PREFIX }}-deployment \
             --resource-group ${{ env.RESOURCE_GROUP_NAME }} \
@@ -154,7 +157,8 @@ jobs:
                 embeddingDeploymentCapacity=${{ env.TEXT_EMBEDDING_MIN_CAPACITY }} \
                 azureAiServiceLocation=${{ env.AZURE_AI_LOCATION }} \
                 imageTag="${IMAGE_TAG}"\
-                createdBy="Pipeline"
+                createdBy="Pipeline" \
+                tags="{'SecurityControl':'Ignore','Purpose':'Deploying and Cleaning Up Resources for Validation','CreatedDate':'$current_date'}"
 
       - name: Get Deployment Output and extract Values
         id: get_output
