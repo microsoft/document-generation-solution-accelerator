@@ -271,7 +271,9 @@ if [ -z "$aif_resource_id" ]; then
     aif_resource_id=$(azd env get-value AI_FOUNDRY_RESOURCE_ID)
 fi
 
-azSubscriptionId=$(azd env get-value AZURE_SUBSCRIPTION_ID)
+# Get subscription id from azd env or from environment variable
+
+azSubscriptionId=$(azd env get-value AZURE_SUBSCRIPTION_ID) || azSubscriptionId="$AZURE_SUBSCRIPTION_ID"
 
 # Check if all required arguments are provided
 if [ -z "$storageAccount" ] || [ -z "$fileSystem" ] || [ -z "$keyvaultName" ] || [ -z "$cosmosDbAccountName" ] || [ -z "$resourceGroupName" ] || [ -z "$aif_resource_id" ] || [ -z "$aiSearchName" ]; then

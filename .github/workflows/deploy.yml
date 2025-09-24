@@ -1,16 +1,20 @@
 name: DocGen Deploy-Test-Cleanup Pipeline
 
 on:
-    workflow_run:
-      workflows: ["Build Docker and Optional Push"]
-      types:
-        - completed
-      branches:
-        - main
-        - dev
-        - demo
-    schedule:
-      - cron: '0 9,21 * * *'  # Runs at 9:00 AM and 9:00 PM GMT
+  pull_request:
+    branches:
+      - main
+  workflow_run:
+    workflows: ["Build Docker and Optional Push"]
+    types:
+      - completed
+    branches:
+      - main
+      - dev
+      - demo
+
+  schedule:
+    - cron: '0 9,21 * * *'  # Runs at 9:00 AM and 9:00 PM GMT
 
 env:
   GPT_MIN_CAPACITY: 150
@@ -82,7 +86,11 @@ jobs:
       - name: Set Deployment Region
         run: |
           echo "Selected Region: $VALID_REGION"
+          echo "AZURE_AI_LOCATION=$VALID_REGION" >> $GITHUB_ENV
           echo "AZURE_LOCATION=$VALID_REGION" >> $GITHUB_ENV
+          if [ "$VALID_REGION" == "eastus" ] || [ "$VALID_REGION" == "westus3" ]; then
+            echo "AZURE_LOCATION=uksouth" >> $GITHUB_ENV
+          fi
 
       - name: Generate Resource Group Name
         id: generate_rg_name
@@ -143,14 +151,11 @@ jobs:
             --template-file infra/main.bicep \
             --parameters \
                 solutionName="${{ env.SOLUTION_PREFIX }}" \
-                secondaryLocation="northcentralus" \
-                deploymentType="GlobalStandard" \
-                gptModelName="gpt-4.1" \
-                azureOpenaiAPIVersion="2025-01-01-preview" \
-                gptDeploymentCapacity=${{ env.GPT_MIN_CAPACITY }} \
-                embeddingModel="text-embedding-ada-002" \
+                secondaryLocation="${{ env.AZURE_LOCATION }}" \
+                location="${{ env.AZURE_LOCATION }}" \
+                gptModelCapacity=${{ env.GPT_MIN_CAPACITY }} \
                 embeddingDeploymentCapacity=${{ env.TEXT_EMBEDDING_MIN_CAPACITY }} \
-                azureAiServiceLocation=${{ env.AZURE_LOCATION }} \
+                azureAiServiceLocation=${{ env.AZURE_AI_LOCATION }} \
                 imageTag="${IMAGE_TAG}"\
                 createdBy="Pipeline" \
                 tags="{'SecurityControl':'Ignore','Purpose':'Deploying and Cleaning Up Resources for Validation','CreatedDate':'$current_date'}"
@@ -180,19 +185,19 @@ jobs:
 
       - name: Run Post-Deployment Script
         id: post_deploy
+        env: 
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
         run: |
           set -e
           az account set --subscription "${{ secrets.AZURE_SUBSCRIPTION_ID }}"
 
           echo "Running post-deployment script..."
 
-          bash ./infra/scripts/copy_kb_files.sh \
+          bash ./infra/scripts/process_sample_data.sh \
             "${{ env.STORAGE_ACCOUNT_NAME }}" \
             "${{ env.STORAGE_CONTAINER_NAME }}" \
-            "${{ secrets.AZURE_CLIENT_ID }}"
-
-          bash ./infra/scripts/run_create_index_scripts.sh \
             "${{ env.KEY_VAULT_NAME }}" \
+            "${{ env.COSMOSDB_ACCOUNT_NAME }}" \
             "${{ env.RESOURCE_GROUP_NAME }}" \
             "${{ env.AI_SEARCH_SERVICE_NAME }}" \
             "${{ secrets.AZURE_CLIENT_ID }}" \
