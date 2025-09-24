@@ -190,7 +190,7 @@ jobs:
 
           echo "Running post-deployment script..."
 
-          bash ./infra/scripts/process_sample_data.sh \
+          echo -e "2\n" | bash ./infra/scripts/process_sample_data.sh \
             "${{ env.STORAGE_ACCOUNT_NAME }}" \
             "${{ env.STORAGE_CONTAINER_NAME }}" \
             "${{ env.KEY_VAULT_NAME }}" \
