@@ -3,7 +3,7 @@ name: DocGen Deploy-Test-Cleanup Pipeline
 on:
   push:
     branches:
-      - hb-deploywf-fix
+      - hb-deplywf-fix
   pull_request:
     branches:
       - main
