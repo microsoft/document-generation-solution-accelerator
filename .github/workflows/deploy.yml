@@ -1,17 +1,23 @@
 name: DocGen Deploy-Test-Cleanup Pipeline
 
 on:
-    workflow_run:
-      workflows: ["Build Docker and Optional Push"]
-      types:
-        - completed
-      branches:
-        - main
-        - dev
-        - demo
+  push:
+    branches:
+      - hb-deploywf-fix
+  pull_request:
+    branches:
+      - main
+  workflow_run:
+    workflows: ["Build Docker and Optional Push"]
+    types:
+      - completed
+    branches:
+      - main
+      - dev
+      - demo
 
-    schedule:
-      - cron: '0 9,21 * * *'  # Runs at 9:00 AM and 9:00 PM GMT
+  schedule:
+    - cron: '0 9,21 * * *'  # Runs at 9:00 AM and 9:00 PM GMT
 
 env:
   GPT_MIN_CAPACITY: 150
