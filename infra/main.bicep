@@ -273,6 +273,7 @@ resource resourceGroupTags 'Microsoft.Resources/tags@2021-04-01' = {
       TemplateName: 'DocGen'
       Type: enablePrivateNetworking ? 'WAF' : 'Non-WAF'
       CreatedBy: createdBy
+      DeploymentName: deployment().name
     }
   }
 }
@@ -1181,3 +1182,7 @@ output AZURE_APPLICATION_INSIGHTS_CONNECTION_STRING string = (enableMonitoring &
 
 @description('Contains Application Environment.')
 output APP_ENV string  = appEnvironment
+@description('Contains Subscription ID')
+output SubscriptionId string = subscription().subscriptionId
+@description('Contains Managed Identity Client ID')
+output MANAGED_IDENTITY_CLIENT_ID string = userAssignedIdentity.outputs.clientId

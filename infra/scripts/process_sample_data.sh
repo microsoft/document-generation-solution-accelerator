@@ -1,14 +1,7 @@
 #!/bin/bash
 
 # Variables
-storageAccount="$1"
-fileSystem="$2"
-keyvaultName="$3"
-cosmosDbAccountName="$4"
-resourceGroupName="$5"
-aiSearchName="$6"
-managedIdentityClientId="$7"
-aif_resource_id="${8}"
+resourceGroupName="$1"
 
 # Global variables to track original network access states
 original_storage_public_access=""
@@ -241,40 +234,48 @@ cleanup_on_exit() {
 
 # Set up trap to ensure cleanup happens on exit
 trap cleanup_on_exit EXIT INT TERM
-
-# get parameters from azd env, if not provided
-if [ -z "$resourceGroupName" ]; then
-    resourceGroupName=$(azd env get-value RESOURCE_GROUP_NAME)
+if az account show &> /dev/null; then
+    echo "Already authenticated with Azure."
+else
+    echo "Authenticating with Azure CLI..."
+    az login
+    echo "Authenticated with Azure CLI."
 fi
-
-if [ -z "$cosmosDbAccountName" ]; then
-    cosmosDbAccountName=$(azd env get-value COSMOSDB_ACCOUNT_NAME)
-fi
-
-if [ -z "$storageAccount" ]; then
-    storageAccount=$(azd env get-value STORAGE_ACCOUNT_NAME)
-fi
-
-if [ -z "$fileSystem" ]; then
-    fileSystem=$(azd env get-value STORAGE_CONTAINER_NAME)
-fi
-
-if [ -z "$keyvaultName" ]; then
-    keyvaultName=$(azd env get-value KEY_VAULT_NAME)
-fi
-
-if [ -z "$aiSearchName" ]; then
-    aiSearchName=$(azd env get-value AI_SEARCH_SERVICE_NAME)
-fi
-
-if [ -z "$aif_resource_id" ]; then
-    aif_resource_id=$(azd env get-value AI_FOUNDRY_RESOURCE_ID)
-fi
-
-# Get subscription id from azd env or from environment variable
-
-azSubscriptionId=$(azd env get-value AZURE_SUBSCRIPTION_ID) || azSubscriptionId="$AZURE_SUBSCRIPTION_ID"
-
+# get parameters from deployment
+deploymentName=$(az group show --name "$resourceGroupName" --query "tags.DeploymentName" -o tsv) 
+echo "Deployment Name (from tag): $deploymentName"
+cosmosDbAccountName=$(az deployment group show \
+    --name "$deploymentName" \
+    --resource-group "$resourceGroupName" \
+    --query "properties.outputs.cosmosdB_ACCOUNT_NAME.value" -o tsv)
+storageAccount=$(az deployment group show \
+    --name "$deploymentName" \
+    --resource-group "$resourceGroupName" \
+    --query "properties.outputs.storagE_ACCOUNT_NAME.value" -o tsv)
+fileSystem=$(az deployment group show \
+    --name "$deploymentName" \
+    --resource-group "$resourceGroupName" \
+    --query "properties.outputs.storagE_CONTAINER_NAME.value" -o tsv)
+keyvaultName=$(az deployment group show \
+    --name "$deploymentName" \
+    --resource-group "$resourceGroupName" \
+    --query "properties.outputs.keY_VAULT_NAME.value" -o tsv)
+managedIdentityClientId=$(az deployment group show \
+    --name "$deploymentName" \
+    --resource-group "$resourceGroupName" \
+    --query "properties.outputs.manageD_IDENTITY_CLIENT_ID.value" -o tsv)
+aiSearchName=$(az deployment group show \
+    --name "$deploymentName" \
+    --resource-group "$resourceGroupName" \
+    --query "properties.outputs.aI_SEARCH_SERVICE_NAME.value" -o tsv)
+aif_resource_id=$(az deployment group show \
+    --name "$deploymentName" \
+    --resource-group "$resourceGroupName" \
+    --query "properties.outputs.aI_FOUNDRY_RESOURCE_ID.value" -o tsv)
+azSubscriptionId=$(az deployment group show \
+    --name "$deploymentName" \
+    --resource-group "$resourceGroupName" \
+    --query "properties.outputs.subscriptionId.value" -o tsv)
 # Check if all required arguments are provided
 if [ -z "$storageAccount" ] || [ -z "$fileSystem" ] || [ -z "$keyvaultName" ] || [ -z "$cosmosDbAccountName" ] || [ -z "$resourceGroupName" ] || [ -z "$aif_resource_id" ] || [ -z "$aiSearchName" ]; then
     echo "Usage: $0 <storageAccount> <storageContainerName> <keyvaultName> <cosmosDbAccountName> <resourceGroupName> <aiSearchName> <managedIdentityClientId> <aif_resource_id>"
@@ -318,7 +319,7 @@ if [ "$currentSubscriptionId" != "$azSubscriptionId" ]; then
                 selectedSubscription=$(echo "$availableSubscriptions" | sed -n "${subscriptionIndex}p")
                 selectedSubscriptionName=$(echo "$selectedSubscription" | cut -f1)
                 selectedSubscriptionId=$(echo "$selectedSubscription" | cut -f2)
-
+                
                 # Set the selected subscription
                 if  az account set --subscription "$selectedSubscriptionId"; then
                     echo "Switched to subscription: $selectedSubscriptionName ( $selectedSubscriptionId )"
