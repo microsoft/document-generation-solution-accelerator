@@ -479,6 +479,46 @@ module existingAiFoundryAiServicesDeployments 'modules/ai-services-deployments.b
   }
 }
 
+// ========== Private Endpoint for Existing AI Services ========== //
+// Always create private endpoint when using existing AI Services with private networking enabled
+var shouldCreatePrivateEndpoint = useExistingAiFoundryAiProject && enablePrivateNetworking
+
+// Use existing DNS zones if provided, otherwise use newly created ones
+var privateDnsZoneIds = {
+      cognitiveServices: avmPrivateDnsZones[dnsZoneIndex.cognitiveServices]!.outputs.resourceId
+      openAI: avmPrivateDnsZones[dnsZoneIndex.openAI]!.outputs.resourceId
+      aiServices: avmPrivateDnsZones[dnsZoneIndex.aiServices]!.outputs.resourceId
+    }
+
+module existingAiServicesPrivateEndpoint 'modules/private-endpoint.bicep' = if (shouldCreatePrivateEndpoint) {
+  name: take('module.private-endpoint.${existingAiFoundryAiServices.name}', 64)
+  scope: resourceGroup()
+  params: {
+    name: 'pep-${existingAiFoundryAiServices.name}'
+    location: location
+    subnetResourceId: network!.outputs.subnetPrivateEndpointsResourceId
+    targetResourceId: existingAiFoundryAiServices.id
+    groupIds: ['account']
+    customNetworkInterfaceName: 'nic-${existingAiFoundryAiServices.name}'
+    tags: tags
+    privateDnsZoneGroupConfigs: [
+      {
+        name: 'ai-services-dns-zone-cognitiveservices'
+        privateDnsZoneResourceId: privateDnsZoneIds.cognitiveServices
+      }
+      {
+        name: 'ai-services-dns-zone-openai'
+        privateDnsZoneResourceId: privateDnsZoneIds.openAI
+      }
+      {
+        name: 'ai-services-dns-zone-aiservices'
+        privateDnsZoneResourceId: privateDnsZoneIds.aiServices
+      }
+    ]
+  }
+}
+
+
 module aiFoundryAiServices 'br:mcr.microsoft.com/bicep/avm/res/cognitive-services/account:0.13.2' = if (!useExistingAiFoundryAiProject) {
   name: take('avm.res.cognitive-services.account.${aiFoundryAiServicesResourceName}', 64)
   params: {
@@ -584,7 +624,7 @@ module aiFoundryAiServicesProject 'modules/ai-project.bicep' = if (!useExistingA
 }
 
 var aiFoundryAiProjectEndpoint = useExistingAiFoundryAiProject
-  ? existingAiFoundryAiServicesProject!.properties.endpoints['AI Foundry API']
+  ? 'https://${aiFoundryAiServicesResourceName}.services.ai.azure.com/api/projects/${aiFoundryAiProjectResourceName}'
   : aiFoundryAiServicesProject!.outputs.apiEndpoint
 
 // ========== Search Service to AI Services Role Assignment ========== //
