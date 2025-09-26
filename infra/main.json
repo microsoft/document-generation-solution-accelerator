@@ -6,7 +6,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.37.4.10188",
-      "templateHash": "5746734565036197616"
+      "templateHash": "15105557945473357848"
     },
     "name": "Document Generation Solution Accelerator",
     "description": "CSA CTO Gold Standard Solution Accelerator for Document Generation.\n"
@@ -251,7 +251,7 @@
     },
     "createdBy": {
       "type": "string",
-      "defaultValue": "[if(empty(deployer().userPrincipalName), '', split(deployer().userPrincipalName, '@')[0])]",
+      "defaultValue": "[if(contains(deployer(), 'userPrincipalName'), split(deployer().userPrincipalName, '@')[0], deployer().objectId)]",
       "metadata": {
         "description": "Optional created by user name"
       }
@@ -355,6 +355,7 @@
       "appService": 7,
       "searchService": 8
     },
+    "shouldCreatePrivateEndpoint": "[and(variables('useExistingAiFoundryAiProject'), parameters('enablePrivateNetworking'))]",
     "nenablePrivateNetworking": false,
     "storageAccountName": "[format('st{0}', variables('solutionSuffix'))]",
     "cosmosDBResourceName": "[format('cosmos-{0}', variables('solutionSuffix'))]",
@@ -394,7 +395,7 @@
       "apiVersion": "2021-04-01",
       "name": "default",
       "properties": {
-        "tags": "[shallowMerge(createArray(parameters('tags'), createObject('TemplateName', 'Docgen', 'CreatedBy', parameters('createdBy'))))]"
+        "tags": "[shallowMerge(createArray(parameters('tags'), createObject('TemplateName', 'DocGen', 'Type', if(parameters('enablePrivateNetworking'), 'WAF', 'Non-WAF'), 'CreatedBy', parameters('createdBy'))))]"
       }
     },
     "existingAiFoundryAiServices": {
@@ -24066,6 +24067,210 @@
         "userAssignedIdentity"
       ]
     },
+    "existingAiServicesPrivateEndpoint": {
+      "condition": "[variables('shouldCreatePrivateEndpoint')]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2022-09-01",
+      "name": "[take(format('module.private-endpoint.{0}', variables('aiFoundryAiServicesResourceName')), 64)]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "name": {
+            "value": "[format('pep-{0}', variables('aiFoundryAiServicesResourceName'))]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "subnetResourceId": {
+            "value": "[reference('network').outputs.subnetPrivateEndpointsResourceId.value]"
+          },
+          "targetResourceId": {
+            "value": "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', variables('aiFoundryAiServicesSubscriptionId'), variables('aiFoundryAiServicesResourceGroupName')), 'Microsoft.CognitiveServices/accounts', variables('aiFoundryAiServicesResourceName'))]"
+          },
+          "groupIds": {
+            "value": [
+              "account"
+            ]
+          },
+          "customNetworkInterfaceName": {
+            "value": "[format('nic-{0}', variables('aiFoundryAiServicesResourceName'))]"
+          },
+          "tags": {
+            "value": "[parameters('tags')]"
+          },
+          "privateDnsZoneGroupConfigs": {
+            "value": [
+              {
+                "name": "ai-services-dns-zone-cognitiveservices",
+                "privateDnsZoneResourceId": "[createObject('cognitiveServices', reference(format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').cognitiveServices)).outputs.resourceId.value, 'openAI', reference(format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').openAI)).outputs.resourceId.value, 'aiServices', reference(format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').aiServices)).outputs.resourceId.value).cognitiveServices]"
+              },
+              {
+                "name": "ai-services-dns-zone-openai",
+                "privateDnsZoneResourceId": "[createObject('cognitiveServices', reference(format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').cognitiveServices)).outputs.resourceId.value, 'openAI', reference(format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').openAI)).outputs.resourceId.value, 'aiServices', reference(format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').aiServices)).outputs.resourceId.value).openAI]"
+              },
+              {
+                "name": "ai-services-dns-zone-aiservices",
+                "privateDnsZoneResourceId": "[createObject('cognitiveServices', reference(format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').cognitiveServices)).outputs.resourceId.value, 'openAI', reference(format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').openAI)).outputs.resourceId.value, 'aiServices', reference(format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').aiServices)).outputs.resourceId.value).aiServices]"
+              }
+            ]
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.37.4.10188",
+              "templateHash": "3113830059289382546"
+            }
+          },
+          "parameters": {
+            "name": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the private endpoint"
+              }
+            },
+            "location": {
+              "type": "string",
+              "defaultValue": "[resourceGroup().location]",
+              "metadata": {
+                "description": "Location for the private endpoint"
+              }
+            },
+            "subnetResourceId": {
+              "type": "string",
+              "metadata": {
+                "description": "Subnet resource ID where the private endpoint will be created"
+              }
+            },
+            "targetResourceId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the target resource for the private endpoint"
+              }
+            },
+            "groupIds": {
+              "type": "array",
+              "defaultValue": [
+                "account"
+              ],
+              "metadata": {
+                "description": "Group IDs for the private endpoint connection"
+              }
+            },
+            "customNetworkInterfaceName": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Custom network interface name for the private endpoint"
+              }
+            },
+            "privateDnsZoneGroupConfigs": {
+              "type": "array",
+              "defaultValue": [],
+              "metadata": {
+                "description": "Private DNS zone group configurations"
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Tags to apply to the private endpoint"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Network/privateEndpoints",
+              "apiVersion": "2024-05-01",
+              "name": "[parameters('name')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "subnet": {
+                  "id": "[parameters('subnetResourceId')]"
+                },
+                "privateLinkServiceConnections": [
+                  {
+                    "name": "[parameters('name')]",
+                    "properties": {
+                      "privateLinkServiceId": "[parameters('targetResourceId')]",
+                      "groupIds": "[parameters('groupIds')]"
+                    }
+                  }
+                ],
+                "customNetworkInterfaceName": "[if(not(empty(parameters('customNetworkInterfaceName'))), parameters('customNetworkInterfaceName'), null())]"
+              }
+            },
+            {
+              "condition": "[not(empty(parameters('privateDnsZoneGroupConfigs')))]",
+              "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
+              "apiVersion": "2024-05-01",
+              "name": "[format('{0}/{1}', parameters('name'), 'default')]",
+              "properties": {
+                "copy": [
+                  {
+                    "name": "privateDnsZoneConfigs",
+                    "count": "[length(parameters('privateDnsZoneGroupConfigs'))]",
+                    "input": {
+                      "name": "[parameters('privateDnsZoneGroupConfigs')[copyIndex('privateDnsZoneConfigs')].name]",
+                      "properties": {
+                        "privateDnsZoneId": "[parameters('privateDnsZoneGroupConfigs')[copyIndex('privateDnsZoneConfigs')].privateDnsZoneResourceId]"
+                      }
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/privateEndpoints', parameters('name'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "resourceId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the private endpoint"
+              },
+              "value": "[resourceId('Microsoft.Network/privateEndpoints', parameters('name'))]"
+            },
+            "name": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the private endpoint"
+              },
+              "value": "[parameters('name')]"
+            },
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Location of the private endpoint"
+              },
+              "value": "[reference(resourceId('Microsoft.Network/privateEndpoints', parameters('name')), '2024-05-01', 'full').location]"
+            },
+            "networkInterfaceResourceIds": {
+              "type": "array",
+              "metadata": {
+                "description": "Network interface resource IDs associated with the private endpoint"
+              },
+              "value": "[reference(resourceId('Microsoft.Network/privateEndpoints', parameters('name')), '2024-05-01').networkInterfaces]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').aiServices)]",
+        "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').cognitiveServices)]",
+        "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').openAI)]",
+        "network"
+      ]
+    },
     "aiFoundryAiServices": {
       "condition": "[not(variables('useExistingAiFoundryAiProject'))]",
       "type": "Microsoft.Resources/deployments",
@@ -26682,9 +26887,9 @@
         }
       },
       "dependsOn": [
+        "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').cognitiveServices)]",
         "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').aiServices)]",
         "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').openAI)]",
-        "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').cognitiveServices)]",
         "logAnalyticsWorkspace",
         "network",
         "userAssignedIdentity"
@@ -35157,8 +35362,8 @@
         }
       },
       "dependsOn": [
-        "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').storageQueue)]",
         "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').storageBlob)]",
+        "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').storageQueue)]",
         "network",
         "userAssignedIdentity"
       ]
@@ -42891,7 +43096,7 @@
             }
           },
           "configs": {
-            "value": "[concat(createArray(createObject('name', 'appsettings', 'properties', createObject('SCM_DO_BUILD_DURING_DEPLOYMENT', 'true', 'DOCKER_REGISTRY_SERVER_URL', format('https://{0}.azurecr.io', parameters('acrName')), 'AUTH_ENABLED', 'false', 'AZURE_SEARCH_SERVICE', reference('aiSearch').outputs.name.value, 'AZURE_SEARCH_INDEX', variables('azureSearchIndex'), 'AZURE_SEARCH_USE_SEMANTIC_SEARCH', variables('azureSearchUseSemanticSearch'), 'AZURE_SEARCH_SEMANTIC_SEARCH_CONFIG', variables('azureSearchSemanticSearchConfig'), 'AZURE_SEARCH_INDEX_IS_PRECHUNKED', 'True', 'AZURE_SEARCH_TOP_K', '5', 'AZURE_SEARCH_ENABLE_IN_DOMAIN', variables('azureSearchEnableInDomain'), 'AZURE_SEARCH_CONTENT_COLUMNS', variables('azureSearchContentColumns'), 'AZURE_SEARCH_FILENAME_COLUMN', variables('azureSearchUrlColumn'), 'AZURE_SEARCH_TITLE_COLUMN', '', 'AZURE_SEARCH_URL_COLUMN', '', 'AZURE_SEARCH_QUERY_TYPE', variables('azureSearchQueryType'), 'AZURE_SEARCH_VECTOR_COLUMNS', variables('azureSearchVectorFields'), 'AZURE_SEARCH_PERMITTED_GROUPS_COLUMN', '', 'AZURE_SEARCH_STRICTNESS', '3', 'AZURE_SEARCH_CONNECTION_NAME', variables('aiSearchConnectionName'), 'AZURE_OPENAI_API_VERSION', parameters('azureOpenaiAPIVersion'), 'AZURE_OPENAI_MODEL', parameters('gptModelName'), 'AZURE_OPENAI_ENDPOINT', format('https://{0}.openai.azure.com/', variables('aiFoundryAiServicesResourceName')), 'AZURE_OPENAI_RESOURCE', variables('aiFoundryAiServicesResourceName'), 'AZURE_OPENAI_PREVIEW_API_VERSION', parameters('azureOpenaiAPIVersion'), 'AZURE_OPENAI_GENERATE_SECTION_CONTENT_PROMPT', variables('azureOpenAiGenerateSectionContentPrompt'), 'AZURE_OPENAI_TEMPLATE_SYSTEM_MESSAGE', variables('azureOpenAiTemplateSystemMessage'), 'AZURE_OPENAI_TITLE_PROMPT', variables('azureOpenAiTitlePrompt'), 'AZURE_OPENAI_SYSTEM_MESSAGE', variables('azureOpenAISystemMessage'), 'AZURE_AI_AGENT_ENDPOINT', if(variables('useExistingAiFoundryAiProject'), reference('existingAiFoundryAiServicesProject').endpoints['AI Foundry API'], reference('aiFoundryAiServicesProject').outputs.apiEndpoint.value), 'AZURE_AI_AGENT_MODEL_DEPLOYMENT_NAME', parameters('gptModelName'), 'AZURE_AI_AGENT_API_VERSION', parameters('azureAiAgentApiVersion'), 'SOLUTION_NAME', parameters('solutionName'), 'USE_CHAT_HISTORY_ENABLED', 'True', 'AZURE_COSMOSDB_ACCOUNT', reference('cosmosDB').outputs.name.value, 'AZURE_COSMOSDB_ACCOUNT_KEY', '', 'AZURE_COSMOSDB_CONVERSATIONS_CONTAINER', variables('cosmosDBcollectionName'), 'AZURE_COSMOSDB_DATABASE', variables('cosmosDBDatabaseName'), 'azureCosmosDbEnableFeedback', variables('azureCosmosDbEnableFeedback'), 'UWSGI_PROCESSES', '2', 'UWSGI_THREADS', '2', 'APP_ENV', variables('appEnvironment'), 'AZURE_CLIENT_ID', reference('userAssignedIdentity').outputs.clientId.value), 'applicationInsightResourceId', if(parameters('enableMonitoring'), reference('applicationInsights').outputs.resourceId.value, null()))), if(parameters('enableMonitoring'), createArray(createObject('name', 'logs', 'properties', createObject())), createArray()))]"
+            "value": "[concat(createArray(createObject('name', 'appsettings', 'properties', createObject('SCM_DO_BUILD_DURING_DEPLOYMENT', 'true', 'DOCKER_REGISTRY_SERVER_URL', format('https://{0}.azurecr.io', parameters('acrName')), 'AUTH_ENABLED', 'false', 'AZURE_SEARCH_SERVICE', reference('aiSearch').outputs.name.value, 'AZURE_SEARCH_INDEX', variables('azureSearchIndex'), 'AZURE_SEARCH_USE_SEMANTIC_SEARCH', variables('azureSearchUseSemanticSearch'), 'AZURE_SEARCH_SEMANTIC_SEARCH_CONFIG', variables('azureSearchSemanticSearchConfig'), 'AZURE_SEARCH_INDEX_IS_PRECHUNKED', 'True', 'AZURE_SEARCH_TOP_K', '5', 'AZURE_SEARCH_ENABLE_IN_DOMAIN', variables('azureSearchEnableInDomain'), 'AZURE_SEARCH_CONTENT_COLUMNS', variables('azureSearchContentColumns'), 'AZURE_SEARCH_FILENAME_COLUMN', variables('azureSearchUrlColumn'), 'AZURE_SEARCH_TITLE_COLUMN', '', 'AZURE_SEARCH_URL_COLUMN', '', 'AZURE_SEARCH_QUERY_TYPE', variables('azureSearchQueryType'), 'AZURE_SEARCH_VECTOR_COLUMNS', variables('azureSearchVectorFields'), 'AZURE_SEARCH_PERMITTED_GROUPS_COLUMN', '', 'AZURE_SEARCH_STRICTNESS', '3', 'AZURE_SEARCH_CONNECTION_NAME', variables('aiSearchConnectionName'), 'AZURE_OPENAI_API_VERSION', parameters('azureOpenaiAPIVersion'), 'AZURE_OPENAI_MODEL', parameters('gptModelName'), 'AZURE_OPENAI_ENDPOINT', format('https://{0}.openai.azure.com/', variables('aiFoundryAiServicesResourceName')), 'AZURE_OPENAI_RESOURCE', variables('aiFoundryAiServicesResourceName'), 'AZURE_OPENAI_PREVIEW_API_VERSION', parameters('azureOpenaiAPIVersion'), 'AZURE_OPENAI_GENERATE_SECTION_CONTENT_PROMPT', variables('azureOpenAiGenerateSectionContentPrompt'), 'AZURE_OPENAI_TEMPLATE_SYSTEM_MESSAGE', variables('azureOpenAiTemplateSystemMessage'), 'AZURE_OPENAI_TITLE_PROMPT', variables('azureOpenAiTitlePrompt'), 'AZURE_OPENAI_SYSTEM_MESSAGE', variables('azureOpenAISystemMessage'), 'AZURE_AI_AGENT_ENDPOINT', if(variables('useExistingAiFoundryAiProject'), format('https://{0}.services.ai.azure.com/api/projects/{1}', variables('aiFoundryAiServicesResourceName'), variables('aiFoundryAiProjectResourceName')), reference('aiFoundryAiServicesProject').outputs.apiEndpoint.value), 'AZURE_AI_AGENT_MODEL_DEPLOYMENT_NAME', parameters('gptModelName'), 'AZURE_AI_AGENT_API_VERSION', parameters('azureAiAgentApiVersion'), 'SOLUTION_NAME', parameters('solutionName'), 'USE_CHAT_HISTORY_ENABLED', 'True', 'AZURE_COSMOSDB_ACCOUNT', reference('cosmosDB').outputs.name.value, 'AZURE_COSMOSDB_ACCOUNT_KEY', '', 'AZURE_COSMOSDB_CONVERSATIONS_CONTAINER', variables('cosmosDBcollectionName'), 'AZURE_COSMOSDB_DATABASE', variables('cosmosDBDatabaseName'), 'azureCosmosDbEnableFeedback', variables('azureCosmosDbEnableFeedback'), 'UWSGI_PROCESSES', '2', 'UWSGI_THREADS', '2', 'APP_ENV', variables('appEnvironment'), 'AZURE_CLIENT_ID', reference('userAssignedIdentity').outputs.clientId.value), 'applicationInsightResourceId', if(parameters('enableMonitoring'), reference('applicationInsights').outputs.resourceId.value, null()))), if(parameters('enableMonitoring'), createArray(createObject('name', 'logs', 'properties', createObject())), createArray()))]"
           },
           "enableMonitoring": {
             "value": "[parameters('enableMonitoring')]"
@@ -44909,7 +45114,6 @@
         "aiSearch",
         "applicationInsights",
         "cosmosDB",
-        "existingAiFoundryAiServicesProject",
         "logAnalyticsWorkspace",
         "network",
         "userAssignedIdentity",
@@ -45098,7 +45302,7 @@
       "metadata": {
         "description": "Contains AI Agent Endpoint"
       },
-      "value": "[if(variables('useExistingAiFoundryAiProject'), reference('existingAiFoundryAiServicesProject').endpoints['AI Foundry API'], reference('aiFoundryAiServicesProject').outputs.apiEndpoint.value)]"
+      "value": "[if(variables('useExistingAiFoundryAiProject'), format('https://{0}.services.ai.azure.com/api/projects/{1}', variables('aiFoundryAiServicesResourceName'), variables('aiFoundryAiProjectResourceName')), reference('aiFoundryAiServicesProject').outputs.apiEndpoint.value)]"
     },
     "AZURE_AI_AGENT_API_VERSION": {
       "type": "string",
