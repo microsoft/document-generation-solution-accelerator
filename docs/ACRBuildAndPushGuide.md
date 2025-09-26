@@ -29,7 +29,7 @@ az acr login --name $ACR_NAME
 
 ## 🚀 Build and Push Images
 
-**Backend :** / **WebApp :**
+**Backend** / **WebApp :**
  
  ```bash 
 az acr login --name <containerregname>
