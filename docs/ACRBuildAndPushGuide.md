@@ -29,41 +29,18 @@ az acr login --name $ACR_NAME
 
 ## 🚀 Build and Push Images
 
-**Backend :** 
+**Backend :** / **WebApp :**
  
  ```bash 
 az acr login --name <containerregname>
-docker build --no-cache -f docker/Backend.Dockerfile -t <acrloginserver>/<repo>:<tagname> .
+docker build --no-cache -f WebApp.Dockerfile -t <acrloginserver>/<repo>:<tagname> .
 docker push <acrloginserver>/<repo>:<tagname>
  ```
-
- If you want to update image tag and image manually you can follow below steps:
-- Go to your **Container App** in the [Azure Portal](https://portal.azure.com/#home).
-- In the left menu, select **Containers**.
-- Under your container, update:
-
-    - Image source → Azure Container Registry / Docker Hub.
-
-    - Image name → myapp/backend.
-
-    - Tag → change to the new one you pushed (e.g., v2).
-
-- Click **Save** → this will create a new revision automatically with the updated image.
-
-![alt text](./images/ContainerApp.png)
-
-**WebApp :**
-
-```bash
-az acr login --name <containerregname>
-docker build --no-cache -f docker/Frontend.Dockerfile -t <acrloginserver>/<repo>:<tagname> .
-docker push <acrloginserver>/<repo>:<tagname>
-```
 
 If you want to update image tag and image manually you can follow below steps:
 - Go to your App Service in the [Azure Portal](https://portal.azure.com/#home).
 - In the left menu, select Deployment → Deployment Center
-- Under Container settings, you can configure:
+- Under Registry settings, you can configure:
 
     - Image Source → (e.g., Azure Container Registry / Docker Hub / Other).
 
@@ -72,7 +49,6 @@ If you want to update image tag and image manually you can follow below steps:
     - Tag → e.g., v1.2.3.
 
 ![alt text](./images/AppServiceContainer.png)
-
 
 ## ✅ Verification
 
