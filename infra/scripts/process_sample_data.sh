@@ -2,6 +2,14 @@
 
 # Variables
 resourceGroupName="$1"
+cosmosDbAccountName="$2"
+storageAccount="$3"
+filesystem="$4"
+keyvaultName="$5"
+managedIdentityClientId="$6"
+aiSearchName="$7"
+aif_resource_id="$8"
+azSubscriptionId="$9"
 
 # Global variables to track original network access states
 original_storage_public_access=""
