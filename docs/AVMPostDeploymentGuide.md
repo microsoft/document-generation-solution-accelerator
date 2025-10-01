@@ -1,6 +1,6 @@
 # AVM Post Deployment Guide
 
-This document provides guidance on post-deployment steps after deploying the Document Generation Solution Accelerator from the AVM.
+This document provides guidance on post-deployment steps after deploying the Document Generation Solution Accelerator from the AVM(Azure Verified Modules).
  
  ---
 
@@ -19,11 +19,7 @@ This document provides guidance on post-deployment steps after deploying the Doc
     ```bash 
     ./infra/scripts/process_sample_data.sh <resourceGroupName> 
     ```
-    If the deployment has been deleted from the Azure portal, you will need to pass additional parameters along with the command. In that case, the command will look like the following:
-
-    ```bash
-        ./infra/scripts/process_sample_data.sh <resourceGroupName> <cosmosDbAccountName> <storageAccount> <storageContainerName> <keyvaultName> <sqlServerName> <sqlDatabaseName> <webAppUserManagedIdentityClientId> <webAppUserManagedIdentityDisplayName> <aiFoundryResourceName> <aiSearchResourceName> <azSubscriptionId>
-    ```
+    If the deployment does not exist or has been deleted – The script will prompt you to manually enter the required values
 
 1. Add App Authentication
 

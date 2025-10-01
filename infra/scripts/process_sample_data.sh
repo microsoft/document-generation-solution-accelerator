@@ -2,14 +2,6 @@
 
 # Variables
 resourceGroupName="$1"
-cosmosDbAccountName="$2"
-storageAccount="$3"
-filesystem="$4"
-keyvaultName="$5"
-managedIdentityClientId="$6"
-aiSearchName="$7"
-aif_resource_id="$8"
-azSubscriptionId="$9"
 
 # Global variables to track original network access states
 original_storage_public_access=""
@@ -252,38 +244,55 @@ fi
 # get parameters from deployment
 deploymentName=$(az group show --name "$resourceGroupName" --query "tags.DeploymentName" -o tsv) 
 echo "Deployment Name (from tag): $deploymentName"
-cosmosDbAccountName=$(az deployment group show \
-    --name "$deploymentName" \
-    --resource-group "$resourceGroupName" \
-    --query "properties.outputs.cosmosdB_ACCOUNT_NAME.value" -o tsv)
-storageAccount=$(az deployment group show \
-    --name "$deploymentName" \
-    --resource-group "$resourceGroupName" \
-    --query "properties.outputs.storagE_ACCOUNT_NAME.value" -o tsv)
-fileSystem=$(az deployment group show \
-    --name "$deploymentName" \
-    --resource-group "$resourceGroupName" \
-    --query "properties.outputs.storagE_CONTAINER_NAME.value" -o tsv)
-keyvaultName=$(az deployment group show \
-    --name "$deploymentName" \
-    --resource-group "$resourceGroupName" \
-    --query "properties.outputs.keY_VAULT_NAME.value" -o tsv)
-managedIdentityClientId=$(az deployment group show \
-    --name "$deploymentName" \
-    --resource-group "$resourceGroupName" \
-    --query "properties.outputs.manageD_IDENTITY_CLIENT_ID.value" -o tsv)
-aiSearchName=$(az deployment group show \
-    --name "$deploymentName" \
-    --resource-group "$resourceGroupName" \
-    --query "properties.outputs.aI_SEARCH_SERVICE_NAME.value" -o tsv)
-aif_resource_id=$(az deployment group show \
-    --name "$deploymentName" \
-    --resource-group "$resourceGroupName" \
-    --query "properties.outputs.aI_FOUNDRY_RESOURCE_ID.value" -o tsv)
-azSubscriptionId=$(az deployment group show \
-    --name "$deploymentName" \
-    --resource-group "$resourceGroupName" \
-    --query "properties.outputs.subscriptionId.value" -o tsv)
+
+if az deployment group show --resource-group "$resourceGroupName" --name "$deploymentName" &>/dev/null; then
+    cosmosDbAccountName=$(az deployment group show \
+        --name "$deploymentName" \
+        --resource-group "$resourceGroupName" \
+        --query "properties.outputs.cosmosdB_ACCOUNT_NAME.value" -o tsv)
+    storageAccount=$(az deployment group show \
+        --name "$deploymentName" \
+        --resource-group "$resourceGroupName" \
+        --query "properties.outputs.storagE_ACCOUNT_NAME.value" -o tsv)
+    fileSystem=$(az deployment group show \
+        --name "$deploymentName" \
+        --resource-group "$resourceGroupName" \
+        --query "properties.outputs.storagE_CONTAINER_NAME.value" -o tsv)
+    keyvaultName=$(az deployment group show \
+        --name "$deploymentName" \
+        --resource-group "$resourceGroupName" \
+        --query "properties.outputs.keY_VAULT_NAME.value" -o tsv)
+    managedIdentityClientId=$(az deployment group show \
+        --name "$deploymentName" \
+        --resource-group "$resourceGroupName" \
+        --query "properties.outputs.manageD_IDENTITY_CLIENT_ID.value" -o tsv)
+    aiSearchName=$(az deployment group show \
+        --name "$deploymentName" \
+        --resource-group "$resourceGroupName" \
+        --query "properties.outputs.aI_SEARCH_SERVICE_NAME.value" -o tsv)
+    aif_resource_id=$(az deployment group show \
+        --name "$deploymentName" \
+        --resource-group "$resourceGroupName" \
+        --query "properties.outputs.aI_FOUNDRY_RESOURCE_ID.value" -o tsv)
+    azSubscriptionId=$(az deployment group show \
+        --name "$deploymentName" \
+        --resource-group "$resourceGroupName" \
+        --query "properties.outputs.subscriptionId.value" -o tsv)
+else
+    #echo "Deployment does NOT exist/deleted in resource group $resourceGroupName"
+    echo "Deployment does NOT exist in resource group $resourceGroupName."
+    echo "Please enter required values manually."
+
+    read -rp "Enter Cosmos DB Account Name: " cosmosDbAccountName
+    read -rp "Enter Storage Account Name: " storageAccount
+    read -rp "Enter Storage Container/File System Name: " fileSystem
+    read -rp "Enter Key Vault Name: " keyvaultName
+    read -rp "Enter Managed Identity Client ID: " managedIdentityClientId
+    read -rp "Enter AI Search Service Name: " aiSearchName
+    read -rp "Enter AI Foundry Resource ID: " aif_resource_id
+    read -rp "Enter Azure Subscription ID: " azSubscriptionId
+fi  
+
 # Check if all required arguments are provided
 if [ -z "$storageAccount" ] || [ -z "$fileSystem" ] || [ -z "$keyvaultName" ] || [ -z "$cosmosDbAccountName" ] || [ -z "$resourceGroupName" ] || [ -z "$aif_resource_id" ] || [ -z "$aiSearchName" ]; then
     echo "Usage: $0 <storageAccount> <storageContainerName> <keyvaultName> <cosmosDbAccountName> <resourceGroupName> <aiSearchName> <managedIdentityClientId> <aif_resource_id>"
