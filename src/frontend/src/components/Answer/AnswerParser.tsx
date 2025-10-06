@@ -24,17 +24,17 @@ export const enumerateCitations = (citations: Citation[]) => {
 export function parseAnswer(answer: AskResponse): ParsedAnswer {
   let answerText = answer.answer
   
-  const CITATION_MARKER_REGEX = /\[\d+\]/g;
+  const citationMarkerRegex = /\[\d+\]/g;
   // Early return if no citations available
   if (!answer.citations?.length) {
     return {
       citations: [],
-      markdownFormatText: answerText.replace(CITATION_MARKER_REGEX, '')
+      markdownFormatText: answerText.replace(citationMarkerRegex, '')
     }
   }
 
   // Extract unique citation markers and process them
-  const citationMarkers = [...new Set(answerText.match(CITATION_MARKER_REGEX) || [])]
+  const citationMarkers = [...new Set(answerText.match(citationMarkerRegex) || [])]
   const processedCitations: Citation[] = []
   
   citationMarkers.forEach((marker, index) => {
