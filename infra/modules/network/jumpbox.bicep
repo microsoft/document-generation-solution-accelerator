@@ -1,5 +1,5 @@
 // /****************************************************************************************************************************/
-// Create Jumpbox NSG and Jumpbox Subnet, then create Jumpbox VM
+// Create Jumpbox VM - Simplified with minimal parameters
 // /****************************************************************************************************************************/
 
 @description('Name of the Jumpbox Virtual Machine.')
@@ -8,15 +8,11 @@ param name string
 @description('Azure region to deploy resources.')
 param location string = resourceGroup().location
 
-@description('Name of the Virtual Network where the Jumpbox VM will be deployed.')
-param vnetName string 
-
 @description('Size of the Jumpbox Virtual Machine.')
 param size string
 
-import { subnetType } from 'virtualNetwork.bicep'
-@description('Optional. Subnet configuration for the Jumpbox VM.')
-param subnet subnetType?  
+@description('Resource ID of the jumpbox subnet.')
+param subnetResourceId string
 
 @description('Username to access the Jumpbox VM.')
 param username string
@@ -34,36 +30,7 @@ param logAnalyticsWorkspaceId string
 @description('Optional. Enable/Disable usage telemetry for module.')
 param enableTelemetry bool = true
 
-// 1. Create Jumpbox NSG 
-// using AVM Network Security Group module
-// https://github.com/Azure/bicep-registry-modules/tree/main/avm/res/network/network-security-group
-module nsg 'br/public:avm/res/network/network-security-group:0.5.1' = if (!empty(subnet)) {
-  name: take('avm.res.network.network-security-group.${subnet.?networkSecurityGroup.name}', 64)
-  params: {
-    name: '${subnet.?networkSecurityGroup.name}-${vnetName}'
-    location: location
-    securityRules: subnet.?networkSecurityGroup.securityRules
-    tags: tags
-    enableTelemetry: enableTelemetry
-  }
-}
-
-// 2. Create Jumpbox subnet as part of the existing VNet 
-// using AVM Virtual Network Subnet module
-// https://github.com/Azure/bicep-registry-modules/tree/main/avm/res/network/virtual-network/subnet
-module subnetResource 'br/public:avm/res/network/virtual-network/subnet:0.1.2' = if (!empty(subnet)) {
-  name: take('avm.res.network.virtual-network.subnet.${subnet.?name}', 64)
-  params: {
-    virtualNetworkName: vnetName
-    name: subnet.?name ?? ''
-    addressPrefixes: subnet.?addressPrefixes
-    networkSecurityGroupResourceId: nsg!.outputs.resourceId
-    enableTelemetry: enableTelemetry
-  }
-}
-
-// 3. Create Jumpbox VM 
-// using AVM Virtual Machine module 
+// Create Jumpbox VM using AVM Virtual Machine module 
 // https://github.com/Azure/bicep-registry-modules/tree/main/avm/res/compute/virtual-machine
 var vmName = take(name, 15) // Shorten VM name to 15 characters to avoid Azure limits
 
@@ -97,10 +64,9 @@ module vm 'br/public:avm/res/compute/virtual-machine:0.15.0' = {
         ipConfigurations: [
           {
             name: 'ipconfig1'
-            subnetResourceId: subnetResource!.outputs.resourceId
+            subnetResourceId: subnetResourceId
           }
         ]
-        networkSecurityGroupResourceId: nsg!.outputs.resourceId
         diagnosticSettings: [
           {
             name: 'jumpboxDiagnostics'
@@ -128,28 +94,3 @@ module vm 'br/public:avm/res/compute/virtual-machine:0.15.0' = {
 output resourceId string = vm.outputs.resourceId
 output name string = vm.outputs.name
 output location string = vm.outputs.location
-
-output subnetId string = subnetResource!.outputs.resourceId
-output subnetName string = subnetResource!.outputs.name
-output nsgId string = nsg!.outputs.resourceId
-output nsgName string = nsg!.outputs.name
-
-@export()
-@description('Custom type definition for establishing Jumpbox Virtual Machine and its associated resources.')
-type jumpBoxConfigurationType = {
-  @description('The name of the Virtual Machine.')
-  name: string
-
-  @description('The size of the VM.')
-  size: string?
-
-  @description('Username to access VM.')
-  username: string
-
-  @secure()
-  @description('Password to access VM.')
-  password: string
-
-  @description('Optional. Subnet configuration for the Jumpbox VM.')
-  subnet: subnetType?
-}

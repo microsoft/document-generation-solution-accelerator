@@ -140,6 +140,13 @@ param createdBy string = contains(deployer(), 'userPrincipalName')? split(deploy
 
 
 // ============== //
+// Imports        //
+// ============== //
+
+// Import custom types from network modules
+import { bastionHostConfigurationType, jumpBoxConfigurationType } from 'modules/network/virtualNetwork.bicep'
+
+// ============== //
 // Variables      //
 // ============== //
 
@@ -369,19 +376,68 @@ module userAssignedIdentity 'br/public:avm/res/managed-identity/user-assigned-id
   }
 }
 
-// ========== Network Module ========== //
-module network 'modules/network.bicep' = if (enablePrivateNetworking) {
-  name: take('module.network.${solutionSuffix}', 64)
+// ========== Virtual Network and Networking Components ========== //
+
+// Virtual Network with NSGs and Subnets
+module virtualNetwork 'modules/network/virtualNetwork.bicep' = if (enablePrivateNetworking) {
+  name: take('module.virtualNetwork.${solutionSuffix}', 64)
   params: {
-    resourcesName: solutionSuffix
-    logAnalyticsWorkSpaceResourceId: logAnalyticsWorkspaceResourceId
-    vmAdminUsername: vmAdminUsername ?? 'JumpboxAdminUser'
-    vmAdminPassword: vmAdminPassword ?? 'JumpboxAdminP@ssw0rd1234!'
-    vmSize: vmSize ??  'Standard_DS2_v2' // Default VM size 
+    name: 'vnet-${solutionSuffix}'
+    addressPrefixes: ['10.0.0.0/20'] // 4096 addresses (enough for 8 /23 subnets or 16 /24)
     location: solutionLocation
+    tags: tags
+    logAnalyticsWorkspaceId: logAnalyticsWorkspaceResourceId
+    resourceSuffix: solutionSuffix
+    enableTelemetry: enableTelemetry
+  }
+}
+
+// Define bastion configuration
+var bastionConfiguration = enablePrivateNetworking ? {
+  name: 'bas-${solutionSuffix}'
+} : null
+
+// Define jumpbox configuration
+var jumpboxConfiguration = enablePrivateNetworking ? {
+  name: 'vm-jumpbox-${solutionSuffix}'
+  size: vmSize ?? 'Standard_DS2_v2'
+  username: vmAdminUsername ?? 'JumpboxAdminUser'
+  password: vmAdminPassword ?? 'JumpboxAdminP@ssw0rd1234!'
+} : null
+
+// Azure Bastion Host
+module bastionHost 'modules/network/bastionHost.bicep' = if (enablePrivateNetworking && !empty(bastionConfiguration)) {
+  name: take('module.bastionHost.${bastionConfiguration!.name}', 64)
+  params: {
+    name: bastionConfiguration!.name
+    vnetId: virtualNetwork!.outputs.resourceId
+    location: solutionLocation
+    logAnalyticsWorkspaceId: logAnalyticsWorkspaceResourceId
     tags: tags
     enableTelemetry: enableTelemetry
   }
+  dependsOn: [
+    virtualNetwork
+  ]
+}
+
+// Jumpbox Virtual Machine
+module jumpbox 'modules/network/jumpbox.bicep' = if (enablePrivateNetworking && !empty(jumpboxConfiguration)) {
+  name: take('module.jumpbox.${jumpboxConfiguration!.name}', 64)
+  params: {
+    name: jumpboxConfiguration!.name
+    size: jumpboxConfiguration!.size!
+    subnetResourceId: virtualNetwork!.outputs.jumpboxSubnetResourceId
+    location: solutionLocation
+    username: jumpboxConfiguration!.username
+    password: jumpboxConfiguration!.password
+    logAnalyticsWorkspaceId: logAnalyticsWorkspaceResourceId
+    enableTelemetry: enableTelemetry
+    tags: tags
+  }
+  dependsOn: [
+    virtualNetwork
+  ]
 }
 
 // ========== Private DNS Zones ========== //
@@ -425,8 +481,8 @@ module avmPrivateDnsZones 'br/public:avm/res/network/private-dns-zone:0.7.1' = [
       enableTelemetry: enableTelemetry
       virtualNetworkLinks: [
         {
-          name: take('vnetlink-${network!.outputs.vnetName}-${split(zone, '.')[1]}', 80)
-          virtualNetworkResourceId: network!.outputs.vnetResourceId
+          name: take('vnetlink-${virtualNetwork!.outputs.name}-${split(zone, '.')[1]}', 80)
+          virtualNetworkResourceId: virtualNetwork!.outputs.resourceId
         }
       ]
     }
@@ -539,7 +595,7 @@ module aiFoundryAiServices 'br:mcr.microsoft.com/bicep/avm/res/cognitive-service
           {
             name: 'pep-${aiFoundryAiServicesResourceName}'
             customNetworkInterfaceName: 'nic-${aiFoundryAiServicesResourceName}'
-            subnetResourceId: network!.outputs.subnetPrivateEndpointsResourceId
+            subnetResourceId: virtualNetwork!.outputs.pepsSubnetResourceId
             privateDnsZoneGroup: {
               privateDnsZoneGroupConfigs: [
                 {
@@ -666,7 +722,7 @@ module aiSearch 'br/public:avm/res/search/search-service:0.11.1' = {
               { privateDnsZoneResourceId: avmPrivateDnsZones[dnsZoneIndex.searchService]!.outputs.resourceId }
             ]
           }
-          subnetResourceId: network!.outputs.subnetPrivateEndpointsResourceId
+          subnetResourceId: virtualNetwork!.outputs.pepsSubnetResourceId
           service: 'searchService'
         }
       ]
@@ -756,7 +812,7 @@ module storageAccount 'br/public:avm/res/storage/storage-account:0.20.0' = {
                 }
               ]
             }
-            subnetResourceId: network!.outputs.subnetPrivateEndpointsResourceId
+            subnetResourceId: virtualNetwork!.outputs.pepsSubnetResourceId
             service: 'blob'
           }
           {
@@ -769,7 +825,7 @@ module storageAccount 'br/public:avm/res/storage/storage-account:0.20.0' = {
                 }
               ]
             }
-            subnetResourceId: network!.outputs.subnetPrivateEndpointsResourceId
+            subnetResourceId: virtualNetwork!.outputs.pepsSubnetResourceId
             service: 'queue'
           }
         ]
@@ -833,7 +889,7 @@ module cosmosDB 'br/public:avm/res/document-db/database-account:0.15.0' = {
               ]
             }
             service: 'Sql'
-            subnetResourceId: network!.outputs.subnetPrivateEndpointsResourceId
+            subnetResourceId: virtualNetwork!.outputs.pepsSubnetResourceId
           }
         ]
       : []
@@ -899,7 +955,7 @@ module keyvault 'br/public:avm/res/key-vault/vault:0.12.1' = {
               ]
             }
             service: 'vault'
-            subnetResourceId: network!.outputs.subnetPrivateEndpointsResourceId
+            subnetResourceId: virtualNetwork!.outputs.pepsSubnetResourceId
           }
         ]
       : []
@@ -1086,7 +1142,7 @@ module webSite 'modules/web-sites.bicep' = {
     // WAF aligned configuration for Private Networking
     vnetRouteAllEnabled: enablePrivateNetworking ? true : false
     vnetImagePullEnabled: enablePrivateNetworking ? true : false
-    virtualNetworkSubnetId: enablePrivateNetworking ? network!.outputs.subnetWebResourceId : null
+    virtualNetworkSubnetId: enablePrivateNetworking ? virtualNetwork!.outputs.webSubnetResourceId : null
     publicNetworkAccess: 'Enabled'
   }
 }
