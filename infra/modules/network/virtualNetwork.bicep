@@ -168,6 +168,43 @@ param enableTelemetry bool = true
 @description('Required. Suffix for resource naming.')
 param resourceSuffix string
 
+// VM Size Notes:
+// 1 B-series VMs (like Standard_B2ms) do not support accelerated networking.
+// 2 Pick a VM size that does support accelerated networking (the usual jump-box candidates):
+//     Standard_DS2_v2 (2 vCPU, 7 GiB RAM, Premium SSD) // The most broadly available (it’s a legacy SKU supported in virtually every region).
+//     Standard_D2s_v3 (2 vCPU, 8 GiB RAM, Premium SSD) //  next most common
+//     Standard_D2s_v4 (2 vCPU, 8 GiB RAM, Premium SSD)  // Newest, so fewer regions availabl
+
+
+// Subnet Classless Inter-Doman Routing (CIDR)  Sizing Reference Table (Best Practices)
+// | CIDR      | # of Addresses | # of /24s | Notes                                 |
+// |-----------|---------------|-----------|----------------------------------------|
+// | /24       | 256           | 1         | Smallest recommended for Azure subnets |
+// | /23       | 512           | 2         | Good for 1-2 workloads per subnet      |
+// | /22       | 1024          | 4         | Good for 2-4 workloads per subnet      |
+// | /21       | 2048          | 8         |                                        |
+// | /20       | 4096          | 16        | Used for default VNet in this solution |
+// | /19       | 8192          | 32        |                                        |
+// | /18       | 16384         | 64        |                                        |
+// | /17       | 32768         | 128       |                                        |
+// | /16       | 65536         | 256       |                                        |
+// | /15       | 131072        | 512       |                                        |
+// | /14       | 262144        | 1024      |                                        |
+// | /13       | 524288        | 2048      |                                        |
+// | /12       | 1048576       | 4096      |                                        |
+// | /11       | 2097152       | 8192      |                                        |
+// | /10       | 4194304       | 16384     |                                        |
+// | /9        | 8388608       | 32768     |                                        |
+// | /8        | 16777216      | 65536     |                                        |
+//
+// Best Practice Notes:
+// - Use /24 as the minimum subnet size for Azure (smaller subnets are not supported for most services).
+// - Plan for future growth: allocate larger address spaces (e.g., /20 or /21 for VNets) to allow for new subnets.
+// - Avoid overlapping address spaces with on-premises or other VNets.
+// - Use contiguous, non-overlapping ranges for subnets.
+// - Document subnet usage and purpose in code comments.
+// - For AVM modules, ensure only one delegation per subnet and leave delegations empty if not required.
+
 // 1. Create NSGs for subnets 
 // using AVM Network Security Group module
 // https://github.com/Azure/bicep-registry-modules/tree/main/avm/res/network/network-security-group
@@ -177,7 +214,7 @@ module nsgs 'br/public:avm/res/network/network-security-group:0.5.1' = [
   for (subnet, i) in subnets: if (!empty(subnet.?networkSecurityGroup)) {
     name: take('avm.res.network.network-security-group.${subnet.?networkSecurityGroup.name}.${resourceSuffix}', 64)
     params: {
-      name: 'nsg-${resourceSuffix}-${subnet.?networkSecurityGroup.name}'
+      name: 'nsg-${subnet.?networkSecurityGroup.name}-${resourceSuffix}'
       location: location
       securityRules: subnet.?networkSecurityGroup.securityRules
       tags: tags
@@ -204,10 +241,6 @@ module virtualNetwork 'br/public:avm/res/network/virtual-network:0.7.0' = {
         privateEndpointNetworkPolicies: subnet.?privateEndpointNetworkPolicies
         privateLinkServiceNetworkPolicies: subnet.?privateLinkServiceNetworkPolicies
         delegation: subnet.?delegation
-        routeTableResourceId: subnet.?routeTableResourceId
-        serviceEndpointPolicies: subnet.?serviceEndpointPolicies
-        serviceEndpoints: subnet.?serviceEndpoints
-        defaultOutboundAccess: subnet.?defaultOutboundAccess
       }
     ]
     diagnosticSettings: [
