@@ -17,7 +17,7 @@ param subnets subnetType[] = [
     addressPrefixes: ['10.0.0.0/23'] // /23 (10.0.0.0 - 10.0.1.255), 512 addresses
     delegation: 'Microsoft.Web/serverFarms'
     networkSecurityGroup: {
-      name: 'web'
+      name: 'nsg-web'
       securityRules: [
         {
           name: 'AllowHttpsInbound'
@@ -67,7 +67,7 @@ param subnets subnetType[] = [
     privateEndpointNetworkPolicies: 'Disabled'
     privateLinkServiceNetworkPolicies: 'Disabled'
     networkSecurityGroup: {
-      name: 'peps'
+      name: 'nsg-peps'
       securityRules: []
     }
   }
@@ -75,7 +75,7 @@ param subnets subnetType[] = [
     name: 'AzureBastionSubnet' // Required name for Azure Bastion
     addressPrefixes: ['10.0.10.0/26']
     networkSecurityGroup: {
-      name: 'bastion'
+      name: 'nsg-bastion'
       securityRules: [
         {
           name: 'AllowGatewayManager'
@@ -136,7 +136,7 @@ param subnets subnetType[] = [
     name: 'jumpbox'
     addressPrefixes: ['10.0.12.0/23'] // /23 (10.0.12.0 - 10.0.13.255), 512 addresses
     networkSecurityGroup: {
-      name: 'jumpbox'
+      name: 'nsg-jumpbox'
       securityRules: [
         {
           name: 'AllowRdpFromBastion'
@@ -214,7 +214,7 @@ module nsgs 'br/public:avm/res/network/network-security-group:0.5.1' = [
   for (subnet, i) in subnets: if (!empty(subnet.?networkSecurityGroup)) {
     name: take('avm.res.network.network-security-group.${subnet.?networkSecurityGroup.name}.${resourceSuffix}', 64)
     params: {
-      name: 'nsg-${subnet.?networkSecurityGroup.name}-${resourceSuffix}'
+      name: '${subnet.?networkSecurityGroup.name}-${resourceSuffix}'
       location: location
       securityRules: subnet.?networkSecurityGroup.securityRules
       tags: tags
