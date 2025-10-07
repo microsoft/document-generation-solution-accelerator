@@ -138,14 +138,6 @@ param enablePurgeProtection bool = false
 @description('Optional created by user name')
 param createdBy string = contains(deployer(), 'userPrincipalName')? split(deployer().userPrincipalName, '@')[0]: deployer().objectId
 
-
-// ============== //
-// Imports        //
-// ============== //
-
-// Import custom types from network modules
-import { bastionHostConfigurationType, jumpBoxConfigurationType } from 'modules/network/virtualNetwork.bicep'
-
 // ============== //
 // Variables      //
 // ============== //
@@ -392,52 +384,35 @@ module virtualNetwork 'modules/network/virtualNetwork.bicep' = if (enablePrivate
   }
 }
 
-// Define bastion configuration
-var bastionConfiguration = enablePrivateNetworking ? {
-  name: 'bas-${solutionSuffix}'
-} : null
-
-// Define jumpbox configuration
-var jumpboxConfiguration = enablePrivateNetworking ? {
-  name: 'vm-jumpbox-${solutionSuffix}'
-  size: vmSize ?? 'Standard_DS2_v2'
-  username: vmAdminUsername ?? 'JumpboxAdminUser'
-  password: vmAdminPassword ?? 'JumpboxAdminP@ssw0rd1234!'
-} : null
-
 // Azure Bastion Host
-module bastionHost 'modules/network/bastionHost.bicep' = if (enablePrivateNetworking && !empty(bastionConfiguration)) {
-  name: take('module.bastionHost.${bastionConfiguration!.name}', 64)
+var bastionHostName = 'bas-${solutionSuffix}'
+module bastionHost 'modules/network/bastionHost.bicep' = if (enablePrivateNetworking) {
+  name: take('module.bastionHost.${bastionHostName}', 64)
   params: {
-    name: bastionConfiguration!.name
+    name: bastionHostName
     vnetId: virtualNetwork!.outputs.resourceId
     location: solutionLocation
     logAnalyticsWorkspaceId: logAnalyticsWorkspaceResourceId
     tags: tags
     enableTelemetry: enableTelemetry
   }
-  dependsOn: [
-    virtualNetwork
-  ]
 }
 
 // Jumpbox Virtual Machine
-module jumpbox 'modules/network/jumpbox.bicep' = if (enablePrivateNetworking && !empty(jumpboxConfiguration)) {
-  name: take('module.jumpbox.${jumpboxConfiguration!.name}', 64)
+var jumpboxVMName = 'vm-jumpbox-${solutionSuffix}'
+module jumpbox 'modules/network/jumpbox.bicep' = if (enablePrivateNetworking) {
+  name: take('module.jumpbox.${jumpboxVMName}', 64)
   params: {
-    name: jumpboxConfiguration!.name
-    size: jumpboxConfiguration!.size!
+    name: jumpboxVMName
+    size: vmSize ?? 'Standard_DS2_v2'
     subnetResourceId: virtualNetwork!.outputs.jumpboxSubnetResourceId
     location: solutionLocation
-    username: jumpboxConfiguration!.username
-    password: jumpboxConfiguration!.password
+    username: vmAdminUsername ?? 'JumpboxAdminUser'
+    password: vmAdminPassword ?? 'JumpboxAdminP@ssw0rd1234!'
     logAnalyticsWorkspaceId: logAnalyticsWorkspaceResourceId
     enableTelemetry: enableTelemetry
     tags: tags
   }
-  dependsOn: [
-    virtualNetwork
-  ]
 }
 
 // ========== Private DNS Zones ========== //
