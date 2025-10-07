@@ -371,7 +371,7 @@ module userAssignedIdentity 'br/public:avm/res/managed-identity/user-assigned-id
 // ========== Virtual Network and Networking Components ========== //
 
 // Virtual Network with NSGs and Subnets
-module virtualNetwork 'modules/network/virtualNetwork.bicep' = if (enablePrivateNetworking) {
+module virtualNetwork 'modules/virtualNetwork.bicep' = if (enablePrivateNetworking) {
   name: take('module.virtualNetwork.${solutionSuffix}', 64)
   params: {
     name: 'vnet-${solutionSuffix}'
@@ -386,32 +386,90 @@ module virtualNetwork 'modules/network/virtualNetwork.bicep' = if (enablePrivate
 
 // Azure Bastion Host
 var bastionHostName = 'bas-${solutionSuffix}'
-module bastionHost 'modules/network/bastionHost.bicep' = if (enablePrivateNetworking) {
-  name: take('module.bastionHost.${bastionHostName}', 64)
+module bastionHost 'br/public:avm/res/network/bastion-host:0.6.1' = if (enablePrivateNetworking) {
+  name: take('avm.res.network.bastion-host.${bastionHostName}', 64)
   params: {
     name: bastionHostName
-    vnetId: virtualNetwork!.outputs.resourceId
+    skuName: 'Standard'
     location: solutionLocation
-    logAnalyticsWorkspaceId: logAnalyticsWorkspaceResourceId
+    virtualNetworkResourceId: virtualNetwork!.outputs.resourceId
+    diagnosticSettings: [
+      {
+        name: 'bastionDiagnostics'
+        workspaceResourceId: logAnalyticsWorkspaceResourceId
+        logCategoriesAndGroups: [
+          {
+            categoryGroup: 'allLogs'
+            enabled: true
+          }
+        ]
+      }
+    ]
     tags: tags
     enableTelemetry: enableTelemetry
+    publicIPAddressObject: {
+      name: 'pip-${bastionHostName}'
+      zones: []
+    }
   }
 }
 
 // Jumpbox Virtual Machine
-var jumpboxVMName = 'vm-jumpbox-${solutionSuffix}'
-module jumpbox 'modules/network/jumpbox.bicep' = if (enablePrivateNetworking) {
-  name: take('module.jumpbox.${jumpboxVMName}', 64)
+var jumpboxVmName = take('vm-jumpbox-${solutionSuffix}', 15)
+module jumpboxVM 'br/public:avm/res/compute/virtual-machine:0.15.0' = if (enablePrivateNetworking) {
+  name: take('avm.res.compute.virtual-machine.${jumpboxVmName}', 64)
   params: {
-    name: jumpboxVMName
-    size: vmSize ?? 'Standard_DS2_v2'
-    subnetResourceId: virtualNetwork!.outputs.jumpboxSubnetResourceId
+    name: take(jumpboxVmName, 15) // Shorten VM name to 15 characters to avoid Azure limits
+    vmSize: vmSize ?? 'Standard_DS2_v2'
     location: solutionLocation
-    username: vmAdminUsername ?? 'JumpboxAdminUser'
-    password: vmAdminPassword ?? 'JumpboxAdminP@ssw0rd1234!'
-    logAnalyticsWorkspaceId: logAnalyticsWorkspaceResourceId
-    enableTelemetry: enableTelemetry
+    adminUsername: vmAdminUsername ?? 'JumpboxAdminUser'
+    adminPassword: vmAdminPassword ?? 'JumpboxAdminP@ssw0rd1234!'
     tags: tags
+    zone: 0
+    imageReference: {
+      offer: 'WindowsServer'
+      publisher: 'MicrosoftWindowsServer'
+      sku: '2019-datacenter'
+      version: 'latest'
+    }
+    osType: 'Windows'
+    osDisk: {
+      name: 'osdisk-${jumpboxVmName}'
+      managedDisk: {
+        storageAccountType: 'Standard_LRS'
+      }
+    }
+    encryptionAtHost: false // Some Azure subscriptions do not support encryption at host
+    nicConfigurations: [
+      {
+        name: 'nic-${jumpboxVmName}'
+        ipConfigurations: [
+          {
+            name: 'ipconfig1'
+            subnetResourceId: virtualNetwork!.outputs.jumpboxSubnetResourceId
+          }
+        ]
+        diagnosticSettings: [
+          {
+            name: 'jumpboxDiagnostics'
+            workspaceResourceId: logAnalyticsWorkspaceResourceId
+            logCategoriesAndGroups: [
+              {
+                categoryGroup: 'allLogs'
+                enabled: true
+              }
+            ]
+            metricCategories: [
+              {
+                category: 'AllMetrics'
+                enabled: true
+              }
+            ]
+          }
+        ]
+      }
+    ]
+    enableTelemetry: enableTelemetry
   }
 }
 
