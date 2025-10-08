@@ -124,7 +124,7 @@ param enableRedundancy bool = false
 param enablePrivateNetworking bool = false
 
 @description('Optional. The Container Registry hostname where the docker images are located.')
-param acrName string = 'byocgacontainerreg'  // testapwaf
+param acrName string = 'byocgacontainerreg'
 
 @description('Optional. Image Tag.')
 param imageTag string = 'latest_waf_2025-09-18_736'
@@ -575,7 +575,7 @@ module existingAiServicesPrivateEndpoint 'br/public:avm/res/network/private-endp
   params: {
     name: 'pep-${existingAiFoundryAiServices.name}'
     location: location
-    subnetResourceId: network!.outputs.subnetPrivateEndpointsResourceId
+    subnetResourceId: virtualNetwork!.outputs.pepsSubnetResourceId
     customNetworkInterfaceName: 'nic-${existingAiFoundryAiServices.name}'
     privateDnsZoneGroup: {
       privateDnsZoneGroupConfigs: [
