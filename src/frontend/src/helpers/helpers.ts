@@ -8,7 +8,8 @@ const enum contentTemplateSections {
     Intro = 'The proposal will include the following sections:',
     Closing = 'Does this look good? If so, you can **generate the document** now. You can also ask me to **add an item** or **change the order of the sections**.',
     JSONParseError = 'I was unable to find content related to your query and could not generate a template. Please try again.',
-    JSONStructureError = 'Unable to render the sections within the template. Please try again.'
+    JSONStructureError = 'Unable to render the sections within the template. Please try again.',
+    EmptySectionsError = 'No sections have been selected to include in the proposal.'
 }
 
 
@@ -52,6 +53,10 @@ export const generateTemplateSections = (jsonString: string) => {
 
     if (!Array.isArray(jsonResponse.template)) {
         return contentTemplateSections.JSONStructureError
+    }
+
+    if (jsonResponse.template.length === 0) {
+        return contentTemplateSections.EmptySectionsError
     }
 
     let sections = `${contentTemplateSections.Intro}${contentTemplateSections.NewLine}`
