@@ -124,7 +124,7 @@ param enableRedundancy bool = false
 param enablePrivateNetworking bool = false
 
 @description('Optional. The Container Registry hostname where the docker images are located.')
-param acrName string = 'byocgacontainerreg'  // testapwaf
+param acrName string = 'byocgacontainerreg'
 
 @description('Optional. Image Tag.')
 param imageTag string = 'latest_waf_2025-09-18_736'
@@ -568,6 +568,48 @@ module existingAiFoundryAiServicesDeployments 'modules/ai-services-deployments.b
   }
 }
 
+// ========== Private Endpoint for Existing AI Services ========== //
+var shouldCreatePrivateEndpoint = useExistingAiFoundryAiProject && enablePrivateNetworking
+module existingAiServicesPrivateEndpoint 'br/public:avm/res/network/private-endpoint:0.11.0' = if (shouldCreatePrivateEndpoint) {
+  name: take('module.private-endpoint.${existingAiFoundryAiServices.name}', 64)
+  params: {
+    name: 'pep-${existingAiFoundryAiServices.name}'
+    location: location
+    subnetResourceId: virtualNetwork!.outputs.pepsSubnetResourceId
+    customNetworkInterfaceName: 'nic-${existingAiFoundryAiServices.name}'
+    privateDnsZoneGroup: {
+      privateDnsZoneGroupConfigs: [
+        {
+          name: 'ai-services-dns-zone-cognitiveservices'
+          privateDnsZoneResourceId: avmPrivateDnsZones[dnsZoneIndex.cognitiveServices]!.outputs.resourceId
+        }
+        {
+          name: 'ai-services-dns-zone-openai'
+          privateDnsZoneResourceId: avmPrivateDnsZones[dnsZoneIndex.openAI]!.outputs.resourceId
+        }
+        {
+          name: 'ai-services-dns-zone-aiservices'
+          privateDnsZoneResourceId: avmPrivateDnsZones[dnsZoneIndex.aiServices]!.outputs.resourceId
+        }
+      ]
+    }
+    privateLinkServiceConnections: [
+      {
+        name: 'pep-${existingAiFoundryAiServices.name}'
+        properties: {
+          groupIds: ['account']
+          privateLinkServiceId: existingAiFoundryAiServices.id
+        }
+      }
+    ]
+    tags: tags
+  }
+  dependsOn: [
+    existingAiFoundryAiServices
+    avmPrivateDnsZones
+  ]
+}
+
 module aiFoundryAiServices 'br:mcr.microsoft.com/bicep/avm/res/cognitive-services/account:0.13.2' = if (!useExistingAiFoundryAiProject) {
   name: take('avm.res.cognitive-services.account.${aiFoundryAiServicesResourceName}', 64)
   params: {
@@ -673,7 +715,7 @@ module aiFoundryAiServicesProject 'modules/ai-project.bicep' = if (!useExistingA
 }
 
 var aiFoundryAiProjectEndpoint = useExistingAiFoundryAiProject
-  ? existingAiFoundryAiServicesProject!.properties.endpoints['AI Foundry API']
+  ? 'https://${aiFoundryAiServicesResourceName}.services.ai.azure.com/api/projects/${aiFoundryAiProjectResourceName}'
   : aiFoundryAiServicesProject!.outputs.apiEndpoint
 
 // ========== Search Service to AI Services Role Assignment ========== //
