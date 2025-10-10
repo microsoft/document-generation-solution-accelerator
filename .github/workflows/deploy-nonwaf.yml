@@ -165,7 +165,7 @@ jobs:
           if [[ "$BRANCH" == "main" ]]; then TAG="latest_waf"
           elif [[ "$BRANCH" == "dev" ]]; then TAG="dev"
           elif [[ "$BRANCH" == "demo" ]]; then TAG="demo"
-          else TAG="latest_Non-waf"; fi
+          else TAG="latest_waf"; fi
           echo "IMAGE_TAG=$TAG" >> $GITHUB_ENV
           echo "Image Tag: $TAG"
 
@@ -284,17 +284,16 @@ jobs:
         run: |
           az logout
           echo "Logged out from Azure."
-  # e2e-test:
-  #   needs: deploy
-  #   uses: ./.github/workflows/test-automation.yml
-  #   with:
-  #     DOCGEN_URL: ${{ needs.deploy.outputs.WEBAPP_URL }}
-  #   secrets: inherit
+  e2e-test:
+    needs: deploy
+    uses: ./.github/workflows/test-automation.yml
+    with:
+      DOCGEN_URL: ${{ needs.deploy.outputs.WEBAPP_URL }}
+    secrets: inherit
 
   cleanup-deployment:
     if: always() && needs.deploy.outputs.RESOURCE_GROUP_NAME != ''
-    # needs: [deploy, e2e-test]
-    needs: [deploy]
+    needs: [deploy, e2e-test]
     runs-on: ubuntu-latest
     env:
       RESOURCE_GROUP_NAME: ${{ needs.deploy.outputs.RESOURCE_GROUP_NAME }}
