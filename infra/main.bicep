@@ -124,7 +124,7 @@ param enableRedundancy bool = false
 param enablePrivateNetworking bool = false
 
 @description('Optional. The Container Registry hostname where the docker images are located.')
-param acrName string = 'byocgacontainerreg'  // testapwaf
+param acrName string = 'byocgacontainerreg'
 
 @description('Optional. Image Tag.')
 param imageTag string = 'latest_waf_2025-09-18_736'
@@ -137,7 +137,6 @@ param enablePurgeProtection bool = false
 
 @description('Optional created by user name')
 param createdBy string = contains(deployer(), 'userPrincipalName')? split(deployer().userPrincipalName, '@')[0]: deployer().objectId
-
 
 // ============== //
 // Variables      //
@@ -369,17 +368,107 @@ module userAssignedIdentity 'br/public:avm/res/managed-identity/user-assigned-id
   }
 }
 
-// ========== Network Module ========== //
-module network 'modules/network.bicep' = if (enablePrivateNetworking) {
-  name: take('module.network.${solutionSuffix}', 64)
+// ========== Virtual Network and Networking Components ========== //
+
+// Virtual Network with NSGs and Subnets
+module virtualNetwork 'modules/virtualNetwork.bicep' = if (enablePrivateNetworking) {
+  name: take('module.virtualNetwork.${solutionSuffix}', 64)
   params: {
-    resourcesName: solutionSuffix
-    logAnalyticsWorkSpaceResourceId: logAnalyticsWorkspaceResourceId
-    vmAdminUsername: vmAdminUsername ?? 'JumpboxAdminUser'
-    vmAdminPassword: vmAdminPassword ?? 'JumpboxAdminP@ssw0rd1234!'
-    vmSize: vmSize ??  'Standard_DS2_v2' // Default VM size 
+    name: 'vnet-${solutionSuffix}'
+    addressPrefixes: ['10.0.0.0/20'] // 4096 addresses (enough for 8 /23 subnets or 16 /24)
     location: solutionLocation
     tags: tags
+    logAnalyticsWorkspaceId: logAnalyticsWorkspaceResourceId
+    resourceSuffix: solutionSuffix
+    enableTelemetry: enableTelemetry
+  }
+}
+
+// Azure Bastion Host
+var bastionHostName = 'bas-${solutionSuffix}'
+module bastionHost 'br/public:avm/res/network/bastion-host:0.6.1' = if (enablePrivateNetworking) {
+  name: take('avm.res.network.bastion-host.${bastionHostName}', 64)
+  params: {
+    name: bastionHostName
+    skuName: 'Standard'
+    location: solutionLocation
+    virtualNetworkResourceId: virtualNetwork!.outputs.resourceId
+    diagnosticSettings: [
+      {
+        name: 'bastionDiagnostics'
+        workspaceResourceId: logAnalyticsWorkspaceResourceId
+        logCategoriesAndGroups: [
+          {
+            categoryGroup: 'allLogs'
+            enabled: true
+          }
+        ]
+      }
+    ]
+    tags: tags
+    enableTelemetry: enableTelemetry
+    publicIPAddressObject: {
+      name: 'pip-${bastionHostName}'
+      zones: []
+    }
+  }
+}
+
+// Jumpbox Virtual Machine
+var jumpboxVmName = take('vm-jumpbox-${solutionSuffix}', 15)
+module jumpboxVM 'br/public:avm/res/compute/virtual-machine:0.15.0' = if (enablePrivateNetworking) {
+  name: take('avm.res.compute.virtual-machine.${jumpboxVmName}', 64)
+  params: {
+    name: take(jumpboxVmName, 15) // Shorten VM name to 15 characters to avoid Azure limits
+    vmSize: vmSize ?? 'Standard_DS2_v2'
+    location: solutionLocation
+    adminUsername: vmAdminUsername ?? 'JumpboxAdminUser'
+    adminPassword: vmAdminPassword ?? 'JumpboxAdminP@ssw0rd1234!'
+    tags: tags
+    zone: 0
+    imageReference: {
+      offer: 'WindowsServer'
+      publisher: 'MicrosoftWindowsServer'
+      sku: '2019-datacenter'
+      version: 'latest'
+    }
+    osType: 'Windows'
+    osDisk: {
+      name: 'osdisk-${jumpboxVmName}'
+      managedDisk: {
+        storageAccountType: 'Standard_LRS'
+      }
+    }
+    encryptionAtHost: false // Some Azure subscriptions do not support encryption at host
+    nicConfigurations: [
+      {
+        name: 'nic-${jumpboxVmName}'
+        ipConfigurations: [
+          {
+            name: 'ipconfig1'
+            subnetResourceId: virtualNetwork!.outputs.jumpboxSubnetResourceId
+          }
+        ]
+        diagnosticSettings: [
+          {
+            name: 'jumpboxDiagnostics'
+            workspaceResourceId: logAnalyticsWorkspaceResourceId
+            logCategoriesAndGroups: [
+              {
+                categoryGroup: 'allLogs'
+                enabled: true
+              }
+            ]
+            metricCategories: [
+              {
+                category: 'AllMetrics'
+                enabled: true
+              }
+            ]
+          }
+        ]
+      }
+    ]
     enableTelemetry: enableTelemetry
   }
 }
@@ -425,8 +514,8 @@ module avmPrivateDnsZones 'br/public:avm/res/network/private-dns-zone:0.7.1' = [
       enableTelemetry: enableTelemetry
       virtualNetworkLinks: [
         {
-          name: take('vnetlink-${network!.outputs.vnetName}-${split(zone, '.')[1]}', 80)
-          virtualNetworkResourceId: network!.outputs.vnetResourceId
+          name: take('vnetlink-${virtualNetwork!.outputs.name}-${split(zone, '.')[1]}', 80)
+          virtualNetworkResourceId: virtualNetwork!.outputs.resourceId
         }
       ]
     }
@@ -478,6 +567,48 @@ module existingAiFoundryAiServicesDeployments 'modules/ai-services-deployments.b
     ]
   }
 }
+
+// ========== Private Endpoint for Existing AI Services ========== //
+// var shouldCreatePrivateEndpoint = useExistingAiFoundryAiProject && enablePrivateNetworking
+// module existingAiServicesPrivateEndpoint 'br/public:avm/res/network/private-endpoint:0.11.0' = if (shouldCreatePrivateEndpoint) {
+//   name: take('module.private-endpoint.${existingAiFoundryAiServices.name}', 64)
+//   params: {
+//     name: 'pep-${existingAiFoundryAiServices.name}'
+//     location: location
+//     subnetResourceId: virtualNetwork!.outputs.pepsSubnetResourceId
+//     customNetworkInterfaceName: 'nic-${existingAiFoundryAiServices.name}'
+//     privateDnsZoneGroup: {
+//       privateDnsZoneGroupConfigs: [
+//         {
+//           name: 'ai-services-dns-zone-cognitiveservices'
+//           privateDnsZoneResourceId: avmPrivateDnsZones[dnsZoneIndex.cognitiveServices]!.outputs.resourceId
+//         }
+//         {
+//           name: 'ai-services-dns-zone-openai'
+//           privateDnsZoneResourceId: avmPrivateDnsZones[dnsZoneIndex.openAI]!.outputs.resourceId
+//         }
+//         {
+//           name: 'ai-services-dns-zone-aiservices'
+//           privateDnsZoneResourceId: avmPrivateDnsZones[dnsZoneIndex.aiServices]!.outputs.resourceId
+//         }
+//       ]
+//     }
+//     privateLinkServiceConnections: [
+//       {
+//         name: 'pep-${existingAiFoundryAiServices.name}'
+//         properties: {
+//           groupIds: ['account']
+//           privateLinkServiceId: existingAiFoundryAiServices.id
+//         }
+//       }
+//     ]
+//     tags: tags
+//   }
+//   dependsOn: [
+//     existingAiFoundryAiServices
+//     avmPrivateDnsZones
+//   ]
+// }
 
 module aiFoundryAiServices 'br:mcr.microsoft.com/bicep/avm/res/cognitive-services/account:0.13.2' = if (!useExistingAiFoundryAiProject) {
   name: take('avm.res.cognitive-services.account.${aiFoundryAiServicesResourceName}', 64)
@@ -539,7 +670,7 @@ module aiFoundryAiServices 'br:mcr.microsoft.com/bicep/avm/res/cognitive-service
           {
             name: 'pep-${aiFoundryAiServicesResourceName}'
             customNetworkInterfaceName: 'nic-${aiFoundryAiServicesResourceName}'
-            subnetResourceId: network!.outputs.subnetPrivateEndpointsResourceId
+            subnetResourceId: virtualNetwork!.outputs.pepsSubnetResourceId
             privateDnsZoneGroup: {
               privateDnsZoneGroupConfigs: [
                 {
@@ -584,7 +715,7 @@ module aiFoundryAiServicesProject 'modules/ai-project.bicep' = if (!useExistingA
 }
 
 var aiFoundryAiProjectEndpoint = useExistingAiFoundryAiProject
-  ? existingAiFoundryAiServicesProject!.properties.endpoints['AI Foundry API']
+  ? 'https://${aiFoundryAiServicesResourceName}.services.ai.azure.com/api/projects/${aiFoundryAiProjectResourceName}'
   : aiFoundryAiServicesProject!.outputs.apiEndpoint
 
 // ========== Search Service to AI Services Role Assignment ========== //
@@ -666,7 +797,7 @@ module aiSearch 'br/public:avm/res/search/search-service:0.11.1' = {
               { privateDnsZoneResourceId: avmPrivateDnsZones[dnsZoneIndex.searchService]!.outputs.resourceId }
             ]
           }
-          subnetResourceId: network!.outputs.subnetPrivateEndpointsResourceId
+          subnetResourceId: virtualNetwork!.outputs.pepsSubnetResourceId
           service: 'searchService'
         }
       ]
@@ -756,7 +887,7 @@ module storageAccount 'br/public:avm/res/storage/storage-account:0.20.0' = {
                 }
               ]
             }
-            subnetResourceId: network!.outputs.subnetPrivateEndpointsResourceId
+            subnetResourceId: virtualNetwork!.outputs.pepsSubnetResourceId
             service: 'blob'
           }
           {
@@ -769,7 +900,7 @@ module storageAccount 'br/public:avm/res/storage/storage-account:0.20.0' = {
                 }
               ]
             }
-            subnetResourceId: network!.outputs.subnetPrivateEndpointsResourceId
+            subnetResourceId: virtualNetwork!.outputs.pepsSubnetResourceId
             service: 'queue'
           }
         ]
@@ -833,7 +964,7 @@ module cosmosDB 'br/public:avm/res/document-db/database-account:0.15.0' = {
               ]
             }
             service: 'Sql'
-            subnetResourceId: network!.outputs.subnetPrivateEndpointsResourceId
+            subnetResourceId: virtualNetwork!.outputs.pepsSubnetResourceId
           }
         ]
       : []
@@ -899,7 +1030,7 @@ module keyvault 'br/public:avm/res/key-vault/vault:0.12.1' = {
               ]
             }
             service: 'vault'
-            subnetResourceId: network!.outputs.subnetPrivateEndpointsResourceId
+            subnetResourceId: virtualNetwork!.outputs.pepsSubnetResourceId
           }
         ]
       : []
@@ -1086,7 +1217,7 @@ module webSite 'modules/web-sites.bicep' = {
     // WAF aligned configuration for Private Networking
     vnetRouteAllEnabled: enablePrivateNetworking ? true : false
     vnetImagePullEnabled: enablePrivateNetworking ? true : false
-    virtualNetworkSubnetId: enablePrivateNetworking ? network!.outputs.subnetWebResourceId : null
+    virtualNetworkSubnetId: enablePrivateNetworking ? virtualNetwork!.outputs.webSubnetResourceId : null
     publicNetworkAccess: 'Enabled'
   }
 }

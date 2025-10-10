@@ -973,7 +973,7 @@ const Chat = ({ type = ChatType.Browse }: Props) => {
                   className={styles.generateDocumentIcon}
                   iconProps={{ iconName: 'Generate' }}
                   onClick={generateDocument} //Update for Document Generation
-                  disabled={draftDocument === undefined || disabledButton()}
+                  disabled={draftDocument === undefined || !draftDocument?.sections?.length || disabledButton()}
                   aria-label="generate draft"
                   title="Generate Draft"
                 />

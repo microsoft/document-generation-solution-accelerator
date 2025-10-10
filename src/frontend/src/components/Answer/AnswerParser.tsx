@@ -23,26 +23,41 @@ export const enumerateCitations = (citations: Citation[]) => {
 
 export function parseAnswer(answer: AskResponse): ParsedAnswer {
   let answerText = answer.answer
-  // const citationLinks = answerText.match(/\[(doc\d\d?\d?)]/g)
-  // const lengthDocN = '[doc'.length
-  // let filteredCitations = [] as Citation[]
-  // let citationReindex = 0
-  // citationLinks?.forEach(link => {
-  //   // Replacing the links/citations with number
-  //   const citationIndex = link.slice(lengthDocN, link.length - 1)
-  //   const citation = cloneDeep(answer.citations[Number(citationIndex) - 1]) as Citation
-  //   if (!filteredCitations.find(c => c.id === citationIndex) && citation) {
-  //     answerText = answerText.replaceAll(link, ` ^${++citationReindex}^ `)
-  //     citation.id = citationIndex // original doc index to de-dupe
-  //     citation.reindex_id = citationReindex.toString() // reindex from 1 for display
-  //     filteredCitations.push(citation)
-  //   }
-  // })
+  
+  const citationMarkerRegex = /\[\d+\]/g;
+  // Early return if no citations available
+  if (!answer.citations?.length) {
+    return {
+      citations: [],
+      markdownFormatText: answerText.replace(citationMarkerRegex, '')
+    }
+  }
 
-  // filteredCitations = enumerateCitations(filteredCitations)
-  // console.log('filteredCitations', filteredCitations)
+  // Extract unique citation markers and process them
+  const citationMarkers = [...new Set(answerText.match(citationMarkerRegex) || [])]
+  const processedCitations: Citation[] = []
+  
+  citationMarkers.forEach((marker, index) => {
+    const citationIndex = parseInt(marker.slice(1, -1)) - 1 // Convert to 0-based index
+    const citation = answer.citations[citationIndex]
+    
+    if (citation) {
+      // Replace all instances of this marker with the new citation number
+      const newCitationNumber = index + 1
+      answerText = answerText.replaceAll(marker, ` ^${newCitationNumber}^ `)
+      
+      processedCitations.push({
+        ...cloneDeep(citation),
+        reindex_id: newCitationNumber.toString()
+      })
+    } else {
+      // Remove invalid citation markers
+      answerText = answerText.replaceAll(marker, '')
+    }
+  })
+  
   return {
-    citations: answer.citations,
+    citations: enumerateCitations(processedCitations),
     markdownFormatText: answerText
   }
 }
