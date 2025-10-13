@@ -1,19 +1,17 @@
 name: Deploy-Test-Cleanup (Waf)
 
 on:
-  push:
+  pull_request:
     branches:
-      - deploy-azd-waf
+      - main
   workflow_run:
-    workflows: ["Build Docker and Optional Push - Client Advisor"]
+    workflows: ["Build Docker and Optional Push"]
     types:
       - completed
     branches:
       - main
-      - hotfix
       - dev
       - demo
-      - deploy-azd-waf
   workflow_dispatch:
     inputs:
       cleanup_resources:
