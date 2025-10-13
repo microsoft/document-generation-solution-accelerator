@@ -1,0 +1,462 @@
+name: Deploy-Test-Cleanup (Parameterized)
+
+on:
+  push:
+    branches:
+      - deploy-azd-waf
+  workflow_dispatch:
+    inputs:
+      waf_enabled:
+        description: 'Enable WAF'
+        required: false
+        default: false
+        type: boolean
+      EXP:
+        description: 'Enable EXP'
+        required: false
+        default: false
+        type: boolean
+      cleanup_resources:
+        description: 'Cleanup deployed resources'
+        required: false
+        default: false
+        type: boolean
+  schedule:
+    - cron: "0 6,18 * * *" # Runs at 6:00 AM and 6:00 PM GMT
+
+env:
+  GPT_MIN_CAPACITY: 150
+  TEXT_EMBEDDING_MIN_CAPACITY: 80
+  BRANCH_NAME: ${{ github.event.workflow_run.head_branch || github.head_ref || github.ref_name }}
+  WAF_ENABLED: ${{ github.event.inputs.waf_enabled || false }}
+  EXP: ${{ github.event.inputs.EXP || false }}
+  CLEANUP_RESOURCES: ${{ github.event.inputs.cleanup_resources || true }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    outputs:
+      RESOURCE_GROUP_NAME: ${{ steps.check_create_rg.outputs.RESOURCE_GROUP_NAME }}
+      WEBAPP_URL: ${{ steps.get_output.outputs.WEBAPP_URL }}
+      ENV_NAME: ${{ steps.generate_env_name.outputs.ENV_NAME }}
+      AZURE_LOCATION: ${{ steps.set_region.outputs.AZURE_LOCATION }}
+    env:
+      WAF_ENABLED: ${{ github.event.inputs.waf_enabled || true }}
+      EXP: ${{ github.event.inputs.EXP || false }}
+      CLEANUP_RESOURCES: ${{ github.event.inputs.cleanup_resources || true }}
+      
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Debug - WAF/EXP/Cleanup Parameters
+        run: |
+          echo "=== DEBUGGING: WAF/EXP/Cleanup Parameters ==="
+          echo "Event type: ${{ github.event_name }}"
+          echo "Branch: ${{ github.ref_name }}"
+          echo ""
+          echo "Raw GitHub Event Inputs:"
+          echo "  github.event.inputs.waf_enabled: '${{ github.event.inputs.waf_enabled }}'"
+          echo "  github.event.inputs.EXP: '${{ github.event.inputs.EXP }}'"
+          echo "  github.event.inputs.cleanup_resources: '${{ github.event.inputs.cleanup_resources }}'"
+          echo ""
+          echo "Global Environment Variables (with defaults):"
+          echo "  WAF_ENABLED (global): '${{ env.WAF_ENABLED }}'"
+          echo "  EXP (global): '${{ env.EXP }}'"
+          echo "  CLEANUP_RESOURCES (global): '${{ env.CLEANUP_RESOURCES }}'"
+          echo ""
+          echo "Job-level Environment Variables (with different defaults):"
+          echo "  WAF_ENABLED (job): '${{ env.WAF_ENABLED }}' (should be true for push events)"
+          echo "  EXP (job): '${{ env.EXP }}' (should be false)"
+          echo "  CLEANUP_RESOURCES (job): '${{ env.CLEANUP_RESOURCES }}' (should be true)"
+          echo ""
+          echo "Logic Evaluation Tests:"
+          echo "  WAF test [[ '${{ env.WAF_ENABLED }}' == 'true' ]]: $(if [[ '${{ env.WAF_ENABLED }}' == 'true' ]]; then echo 'TRUE - WAF WILL BE ENABLED'; else echo 'FALSE - WAF WILL BE DISABLED'; fi)"
+          echo "  EXP test [[ '${{ env.EXP }}' == 'true' ]]: $(if [[ '${{ env.EXP }}' == 'true' ]]; then echo 'TRUE - EXP WILL BE ENABLED'; else echo 'FALSE - EXP WILL BE DISABLED'; fi)"
+          echo "=== END DEBUG SECTION ==="
+
+      - name: Setup Azure CLI
+        run: |
+          curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+          az --version  # Verify installation
+
+      - name: Run Quota Check
+        id: quota-check
+        run: |
+          export AZURE_CLIENT_ID=${{ secrets.AZURE_CLIENT_ID }}
+          export AZURE_TENANT_ID=${{ secrets.AZURE_TENANT_ID }}
+          export AZURE_CLIENT_SECRET=${{ secrets.AZURE_CLIENT_SECRET }}
+          export AZURE_SUBSCRIPTION_ID="${{ secrets.AZURE_SUBSCRIPTION_ID }}"
+          export GPT_MIN_CAPACITY=${{ env.GPT_MIN_CAPACITY }}
+          export TEXT_EMBEDDING_MIN_CAPACITY=${{ env.TEXT_EMBEDDING_MIN_CAPACITY }}
+          export AZURE_REGIONS="${{ vars.AZURE_REGIONS }}"
+
+          chmod +x scripts/checkquota.sh
+          if ! scripts/checkquota.sh; then
+            # If quota check fails due to insufficient quota, set the flag
+            if grep -q "No region with sufficient quota found" scripts/checkquota.sh; then
+              echo "quota_failed=true" >> $GITHUB_OUTPUT
+              
+              # Send notification
+              RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+              EMAIL_BODY=$(cat <<EOF
+          {
+            "body": "<p>Dear Team,</p><p>The quota check has failed, and the pipeline cannot proceed.</p><p><strong>Build URL:</strong> <a href=\"${RUN_URL}\">${RUN_URL}</a></p><p>Please take necessary action.</p><p>Best regards,<br>Your Automation Team</p>"
+          }
+          EOF
+              )
+
+              curl -X POST "${{ secrets.LOGIC_APP_URL }}" \
+                -H "Content-Type: application/json" \
+                -d "$EMAIL_BODY" || echo "Failed to send notification"
+            fi
+            exit 1  # Fail the pipeline if any other failure occurs
+          fi
+      
+      - name: Set Deployment Region
+        id: set_region
+        run: |
+          echo "Selected Region: $VALID_REGION"
+          echo "AZURE_AI_LOCATION=$VALID_REGION" >> $GITHUB_ENV
+          echo "AZURE_LOCATION=$VALID_REGION" >> $GITHUB_ENV
+          echo "AZURE_LOCATION=$VALID_REGION" >> $GITHUB_OUTPUT
+          if [ "$VALID_REGION" == "eastus" ] || [ "$VALID_REGION" == "westus3" ]; then
+            echo "AZURE_LOCATION=uksouth" >> $GITHUB_ENV
+            echo "AZURE_LOCATION=uksouth" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Generate Resource Group Name
+        id: generate_rg_name
+        run: |
+          echo "Generating a unique resource group name..."
+          ACCL_NAME="docgen"  # Account name as specified
+          SHORT_UUID=$(uuidgen | cut -d'-' -f1)
+          UNIQUE_RG_NAME="arg-${ACCL_NAME}-${SHORT_UUID}"
+          echo "RESOURCE_GROUP_NAME=${UNIQUE_RG_NAME}" >> $GITHUB_ENV
+          echo "Generated RESOURCE_GROUP_NAME: ${UNIQUE_RG_NAME}"
+
+      - name: Setup Azure Developer CLI
+        run: |
+          curl -fsSL https://aka.ms/install-azd.sh | sudo bash
+          azd version           
+
+      - name: Login to Azure
+        id: login-azure
+        run: |
+          az login --service-principal -u ${{ secrets.AZURE_CLIENT_ID }} -p ${{ secrets.AZURE_CLIENT_SECRET }} --tenant ${{ secrets.AZURE_TENANT_ID }}
+          azd auth login --client-id ${{ secrets.AZURE_CLIENT_ID }} --client-secret ${{ secrets.AZURE_CLIENT_SECRET }} --tenant-id ${{ secrets.AZURE_TENANT_ID }}
+
+      - name: Install Bicep CLI
+        run: az bicep install
+
+      - name: Check and Create Resource Group
+        id: check_create_rg
+        run: |
+          set -e  
+          echo "Checking if resource group exists..."
+          rg_exists=$(az group exists --name $RESOURCE_GROUP_NAME)
+          if [ "$rg_exists" = "false" ]; then
+            echo "Resource group does not exist. Creating..."
+            az group create --name $RESOURCE_GROUP_NAME --location $AZURE_LOCATION || { echo "Error creating resource group"; exit 1; }
+          else
+            echo "Resource group already exists."
+          fi
+          echo "RESOURCE_GROUP_NAME=$RESOURCE_GROUP_NAME" >> $GITHUB_OUTPUT
+
+      - name: Generate Unique Solution Prefix
+        id: generate_solution_prefix
+        run: |
+          set -e
+          COMMON_PART="psldg"
+          TIMESTAMP=$(date +%s)  
+          UPDATED_TIMESTAMP=$(echo $TIMESTAMP | tail -c 6) 
+          UNIQUE_SOLUTION_PREFIX="${COMMON_PART}${UPDATED_TIMESTAMP}"
+          echo "SOLUTION_PREFIX=${UNIQUE_SOLUTION_PREFIX}" >> $GITHUB_ENV
+          echo "Generated SOLUTION_PREFIX: ${UNIQUE_SOLUTION_PREFIX}" 
+
+      - name: Determine Tag
+        id: determine_tag
+        run: |
+          BRANCH=${{ github.ref_name }}
+          WAF_MODE="${{ env.WAF_ENABLED }}"
+          if [[ "$BRANCH" == "main" ]]; then 
+            if [[ "$WAF_MODE" == "true" ]]; then
+              TAG="latest_waf"
+            else
+              TAG="latest_Non-waf"
+            fi
+          elif [[ "$BRANCH" == "dev" ]]; then TAG="dev"
+          elif [[ "$BRANCH" == "demo" ]]; then TAG="demo"
+          else 
+            if [[ "$WAF_MODE" == "true" ]]; then
+              TAG="latest_waf"
+            else
+              TAG="latest_Non-waf"
+            fi
+          fi
+          echo "IMAGE_TAG=$TAG" >> $GITHUB_ENV
+          echo "Image Tag: $TAG"
+
+      - name: Generate Unique Environment Name
+        id: generate_env_name
+        run: |
+          COMMON_PART="pslc"
+          TIMESTAMP=$(date +%s)
+          UPDATED_TIMESTAMP=$(echo $TIMESTAMP | tail -c 6)
+          UNIQUE_ENV_NAME="${COMMON_PART}${UPDATED_TIMESTAMP}"
+          echo "ENV_NAME=${UNIQUE_ENV_NAME}" >> $GITHUB_ENV
+          echo "Generated Environment Name: ${UNIQUE_ENV_NAME}"
+          echo "ENV_NAME=${UNIQUE_ENV_NAME}" >> $GITHUB_OUTPUT
+
+      - name: Debug - WAF Configuration Decision
+        run: |
+          echo "=== DEBUGGING: WAF Configuration Decision ==="
+          echo "WAF_ENABLED value: '${{ env.WAF_ENABLED }}'"
+          echo "WAF comparison: [[ '${{ env.WAF_ENABLED }}' == 'true' ]]"
+          if [[ "${{ env.WAF_ENABLED }}" == "true" ]]; then
+            echo "✅ DECISION: WAF ENABLED - Will use main.waf.parameters.json"
+          else
+            echo "❌ DECISION: WAF DISABLED - Will use default main.parameters.json"
+          fi
+          echo "=== END DEBUG SECTION ==="
+
+      - name: Configure Parameters Based on WAF Setting
+        run: |
+          if [[ "${{ env.WAF_ENABLED }}" == "true" ]]; then
+            echo "🔧 Configuring WAF deployment - copying main.waf.parameters.json to main.parameters.json..."
+            cp infra/main.waf.parameters.json infra/main.parameters.json
+            echo "✅ Successfully copied WAF parameters to main parameters file"
+          else
+            echo "🔧 Configuring Non-WAF deployment - using default main.parameters.json..."
+            # Ensure we have the original parameters file if it was overwritten
+            if [[ -f infra/main.waf.parameters.json ]] && [[ ! -f infra/main.parameters.json.backup ]]; then
+              echo "Backing up original parameters file..."
+              git checkout HEAD -- infra/main.parameters.json || echo "Using existing main.parameters.json"
+            fi
+          fi
+
+      - name: Deploy using azd up and extract values
+        id: get_output
+        run: |
+          set -e
+          echo "Starting azd deployment..."
+          echo "WAF Enabled: ${{ env.WAF_ENABLED }}"
+          echo "EXP: ${{ env.EXP }}"
+          
+          # Install azd (Azure Developer CLI)
+          curl -fsSL https://aka.ms/install-azd.sh | bash
+
+          # Generate current timestamp in desired format: YYYY-MM-DDTHH:MM:SS.SSSSSSSZ
+          current_date=$(date -u +"%Y-%m-%dT%H:%M:%S.%7NZ")
+
+          echo "Creating environment..."
+          azd env new $ENV_NAME --no-prompt
+          echo "Environment created: $ENV_NAME"
+
+          echo "Setting default subscription..."
+          azd config set defaults.subscription ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        
+          # Set additional parameters
+          azd env set AZURE_SUBSCRIPTION_ID="${{ secrets.AZURE_SUBSCRIPTION_ID }}"
+          azd env set AZURE_ENV_OPENAI_LOCATION="$AZURE_LOCATION"
+          azd env set AZURE_RESOURCE_GROUP="$RESOURCE_GROUP_NAME"
+          
+          # Debug and Set EXP parameters if enabled
+          echo "=== DEBUGGING: EXP Configuration ==="
+          echo "EXP value: '${{ env.EXP }}'"
+          echo "EXP comparison: [[ '${{ env.EXP }}' == 'true' ]]"
+          if [[ "${{ env.EXP }}" == "true" ]]; then
+            echo "✅ EXP ENABLED - Setting EXP parameters..."
+            azd env set AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID="${{ secrets.EXP_LOG_ANALYTICS_WORKSPACE_ID }}"
+            azd env set AZURE_EXISTING_AI_PROJECT_RESOURCE_ID="${{ secrets.EXP_AI_PROJECT_RESOURCE_ID }}"
+            echo "✅ EXP parameters configured successfully"
+          else
+            echo "❌ EXP DISABLED - Skipping EXP parameters"
+          fi
+          echo "=== END DEBUG SECTION ==="
+
+          # Deploy using azd up
+          azd up --no-prompt
+
+          # Get deployment outputs using azd
+          echo "Extracting deployment outputs..."
+          DEPLOY_OUTPUT=$(azd env get-values --output json)
+          echo "Deployment output: $DEPLOY_OUTPUT"
+          
+          if [[ -z "$DEPLOY_OUTPUT" ]]; then
+            echo "Error: Deployment output is empty. Please check the deployment logs."
+            exit 1
+          fi
+
+          # Extract values from azd output (adjust these based on actual output variable names)
+          export AI_FOUNDRY_RESOURCE_ID=$(echo "$DEPLOY_OUTPUT" | jq -r '.AI_FOUNDRY_RESOURCE_ID // empty')
+          echo "AI_FOUNDRY_RESOURCE_ID=$AI_FOUNDRY_RESOURCE_ID" >> $GITHUB_ENV
+          export AI_SEARCH_SERVICE_NAME=$(echo "$DEPLOY_OUTPUT" | jq -r '.AI_SEARCH_SERVICE_NAME // empty')
+          echo "AI_SEARCH_SERVICE_NAME=$AI_SEARCH_SERVICE_NAME" >> $GITHUB_ENV
+          export COSMOS_DB_ACCOUNT_NAME=$(echo "$DEPLOY_OUTPUT" | jq -r '.COSMOS_DB_ACCOUNT_NAME // empty')
+          echo "COSMOS_DB_ACCOUNT_NAME=$COSMOS_DB_ACCOUNT_NAME" >> $GITHUB_ENV
+          export STORAGE_ACCOUNT_NAME=$(echo "$DEPLOY_OUTPUT" | jq -r '.STORAGE_ACCOUNT_NAME // empty')
+          echo "STORAGE_ACCOUNT_NAME=$STORAGE_ACCOUNT_NAME" >> $GITHUB_ENV
+          export STORAGE_CONTAINER_NAME=$(echo "$DEPLOY_OUTPUT" | jq -r '.STORAGE_CONTAINER_NAME // empty')
+          echo "STORAGE_CONTAINER_NAME=$STORAGE_CONTAINER_NAME" >> $GITHUB_ENV
+          export KEY_VAULT_NAME=$(echo "$DEPLOY_OUTPUT" | jq -r '.KEY_VAULT_NAME // empty')
+          echo "KEY_VAULT_NAME=$KEY_VAULT_NAME" >> $GITHUB_ENV
+          export SQL_SERVER_NAME=$(echo "$DEPLOY_OUTPUT" | jq -r '.SQLDB_SERVER_NAME // empty')
+          echo "SQL_SERVER_NAME=$SQL_SERVER_NAME" >> $GITHUB_ENV
+          export SQL_DATABASE=$(echo "$DEPLOY_OUTPUT" | jq -r '.SQLDB_DATABASE // empty')
+          echo "SQL_DATABASE=$SQL_DATABASE" >> $GITHUB_ENV
+          export CLIENT_ID=$(echo "$DEPLOY_OUTPUT" | jq -r '.MANAGEDIDENTITY_SQL_CLIENTID // empty')
+          echo "CLIENT_ID=$CLIENT_ID" >> $GITHUB_ENV
+          export CLIENT_NAME=$(echo "$DEPLOY_OUTPUT" | jq -r '.MANAGEDIDENTITY_SQL_NAME // empty')
+          echo "CLIENT_NAME=$CLIENT_NAME" >> $GITHUB_ENV
+          export MANAGEDIDENTITY_WEBAPP_CLIENTID=$(echo "$DEPLOY_OUTPUT" | jq -r '.MANAGEDIDENTITY_WEBAPP_CLIENTID // empty')
+          echo "MANAGEDIDENTITY_WEBAPP_CLIENTID=$MANAGEDIDENTITY_WEBAPP_CLIENTID" >> $GITHUB_ENV
+          export RESOURCE_GROUP_NAME=$(echo "$DEPLOY_OUTPUT" | jq -r '.RESOURCE_GROUP_NAME // .AZURE_RESOURCE_GROUP // empty')
+          [[ -z "$RESOURCE_GROUP_NAME" ]] && export RESOURCE_GROUP_NAME="$RESOURCE_GROUP_NAME"
+          echo "RESOURCE_GROUP_NAME=$RESOURCE_GROUP_NAME" >> $GITHUB_ENV
+          WEBAPP_URL=$(echo "$DEPLOY_OUTPUT" | jq -r '.WEB_APP_URL // .SERVICE_BACKEND_ENDPOINT_URL // empty')
+          echo "WEBAPP_URL=$WEBAPP_URL" >> $GITHUB_OUTPUT
+          WEB_APP_NAME=$(echo "$DEPLOY_OUTPUT" | jq -r '.WEB_APP_NAME // .SERVICE_BACKEND_NAME // empty')
+          echo "WEB_APP_NAME=$WEB_APP_NAME" >> $GITHUB_ENV
+          
+          echo "🔧 Disabling AUTH_ENABLED for the web app..."
+          if [[ -n "$WEB_APP_NAME" && -n "$RESOURCE_GROUP_NAME" ]]; then
+            az webapp config appsettings set -g "$RESOURCE_GROUP_NAME" -n "$WEB_APP_NAME" --settings AUTH_ENABLED=false
+          else
+            echo "Warning: Could not disable AUTH_ENABLED - WEB_APP_NAME or RESOURCE_GROUP_NAME not found"
+          fi
+
+          sleep 30
+      
+      - name: Run Post-Deployment Script
+        id: post_deploy
+        env: 
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        run: |
+          set -e
+          az account set --subscription "${{ secrets.AZURE_SUBSCRIPTION_ID }}"
+
+          echo "Running post-deployment script..."
+
+          bash ./infra/scripts/process_sample_data.sh \
+            "$STORAGE_ACCOUNT_NAME" \
+            "$STORAGE_CONTAINER_NAME" \
+            "$KEY_VAULT_NAME" \
+            "$COSMOS_DB_ACCOUNT_NAME" \
+            "$RESOURCE_GROUP_NAME" \
+            "$AI_SEARCH_SERVICE_NAME" \
+            "${{ secrets.AZURE_CLIENT_ID }}" \
+            "$AI_FOUNDRY_RESOURCE_ID"
+
+      - name: Logout from Azure
+        if: always()
+        run: |
+          az logout
+          echo "Logged out from Azure."
+
+  e2e-test:
+    needs: deploy
+    uses: ./.github/workflows/test-automation.yml
+    with:
+      DOCGEN_URL: ${{ needs.deploy.outputs.WEBAPP_URL }}
+    secrets: inherit
+
+  cleanup-deployment:
+    if: always() && needs.deploy.outputs.RESOURCE_GROUP_NAME != '' && (github.event.inputs.cleanup_resources == true || github.event.inputs.cleanup_resources == null)
+    needs: [deploy, e2e-test]
+    runs-on: ubuntu-latest
+    env:
+      RESOURCE_GROUP_NAME: ${{ needs.deploy.outputs.RESOURCE_GROUP_NAME }}
+      AZURE_LOCATION: ${{ needs.deploy.outputs.AZURE_LOCATION }}
+      ENV_NAME: ${{ needs.deploy.outputs.ENV_NAME }}
+    steps:
+      - name: Debug - Cleanup Job Conditions
+        run: |
+          echo "=== DEBUGGING: Cleanup Job Execution Logic ==="
+          echo "Event type: ${{ github.event_name }}"
+          echo ""
+          echo "Cleanup Input Analysis:"
+          echo "  github.event.inputs.cleanup_resources: '${{ github.event.inputs.cleanup_resources }}'"
+          echo "  Global CLEANUP_RESOURCES env: '${{ env.CLEANUP_RESOURCES }}'"
+          echo ""
+          echo "Job Execution Conditions:"
+          echo "  always(): true (this job will attempt to run)"
+          echo "  needs.deploy.outputs.RESOURCE_GROUP_NAME != '': ${{ needs.deploy.outputs.RESOURCE_GROUP_NAME != '' }}"
+          echo "  Resource group name: '${{ needs.deploy.outputs.RESOURCE_GROUP_NAME }}'"
+          echo ""
+          echo "Cleanup Logic Evaluation:"
+          echo "  github.event.inputs.cleanup_resources == true: ${{ github.event.inputs.cleanup_resources == true }}"
+          echo "  github.event.inputs.cleanup_resources == null: ${{ github.event.inputs.cleanup_resources == null }}"
+          echo "  Combined condition result: ${{ github.event.inputs.cleanup_resources == true || github.event.inputs.cleanup_resources == null }}"
+          echo ""
+          echo "Job Results:"
+          echo "  Deploy job result: ${{ needs.deploy.result }}"
+          echo "  E2E test job result: ${{ needs.e2e-test.result }}"
+          echo ""
+          echo "DECISION: $(if [[ '${{ github.event.inputs.cleanup_resources == true || github.event.inputs.cleanup_resources == null }}' == 'true' ]]; then echo '✅ CLEANUP WILL PROCEED'; else echo '❌ CLEANUP WILL BE SKIPPED'; fi)"
+          echo "=== END DEBUG SECTION ==="
+
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Azure Developer CLI
+        run: |
+          curl -fsSL https://aka.ms/install-azd.sh | sudo bash
+          azd version
+
+      - name: Login to Azure
+        run: |
+          azd auth login --client-id ${{ secrets.AZURE_CLIENT_ID }} --client-secret ${{ secrets.AZURE_CLIENT_SECRET }} --tenant-id ${{ secrets.AZURE_TENANT_ID }}
+          azd config set defaults.subscription ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Select Environment
+        run: |
+          # Try to select the environment if it exists, otherwise create a minimal environment for cleanup
+          azd env list
+          if azd env list | grep -q "${{ env.ENV_NAME }}"; then
+            echo "Environment ${{ env.ENV_NAME }} found, selecting it..."
+            azd env select ${{ env.ENV_NAME }}
+          else
+            echo "Environment ${{ env.ENV_NAME }} not found, creating minimal environment for cleanup..."
+            azd env new ${{ env.ENV_NAME }} --no-prompt
+            azd env set AZURE_RESOURCE_GROUP "${{ env.RESOURCE_GROUP_NAME }}"
+            azd env set AZURE_SUBSCRIPTION_ID "${{ secrets.AZURE_SUBSCRIPTION_ID }}"
+            azd env set AZURE_ENV_OPENAI_LOCATION="${{ env.AZURE_LOCATION }}"
+            azd env set AZURE_LOCATION="${{ env.AZURE_LOCATION }}"
+          fi
+
+      - name: Delete deployment using azd
+        run: |
+          set -e
+          echo "Deleting deployment..."
+          azd down --purge --force --no-prompt
+          echo "Deployment deleted successfully."
+
+      - name: Send Notification on Failure
+        if: always() && (failure() || needs.deploy.result == 'failure')
+        run: |
+          RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          
+          # Get deployment configuration for notification
+          WAF_STATUS="${{ github.event.inputs.waf_enabled || true }}"
+          EXP_STATUS="${{ github.event.inputs.EXP || false }}"
+          CLEANUP_STATUS="${{ github.event.inputs.cleanup_resources || true }}"
+
+          # Construct the email body
+          EMAIL_BODY=$(cat <<EOF
+          {
+            "body": "<p>Dear Team,</p><p>We would like to inform you that the document-generation-solution-accelerator Unified Deployment process has encountered an issue and has failed to complete successfully.</p><p><strong>Configuration:</strong><br>- WAF Enabled: ${WAF_STATUS}<br>- EXP: ${EXP_STATUS}<br>- Cleanup: ${CLEANUP_STATUS}</p><p><strong>Build URL:</strong> <a href=\"${RUN_URL}\">${RUN_URL}</a></p><p>Please investigate the matter at your earliest convenience.</p><p>Best regards,<br>Your Automation Team</p>"
+          }
+          EOF
+          )
+
+          # Send the notification
+          curl -X POST "${{ secrets.LOGIC_APP_URL }}" \
+            -H "Content-Type: application/json" \
+            -d "$EMAIL_BODY" || echo "Failed to send notification"
+
+      - name: Logout from Azure
+        if: always()
+        run: |
+          azd auth logout
+          echo "Logged out from Azure."
