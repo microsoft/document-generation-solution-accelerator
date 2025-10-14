@@ -12,34 +12,30 @@ aif_resource_id="${8}"
 
 # Global variables to track original network access states
 original_storage_public_access=""
-original_storage_default_action=""
 original_keyvault_public_access=""
 original_foundry_public_access=""
 aif_resource_group=""
 aif_account_resource_id=""
+aif_subscription_id=""
 
 # Function to enable public network access temporarily
 enable_public_access() {
     echo "=== Temporarily enabling public network access for services ==="
     
     # Enable public access for Storage Account
-    echo "Enabling public access for Storage Account: $storageAccount"
     original_storage_public_access=$(az storage account show \
         --name "$storageAccount" \
         --resource-group "$resourceGroupName" \
         --query "publicNetworkAccess" \
         -o tsv)
-    original_storage_default_action=$(az storage account show \
-        --name "$storageAccount" \
-        --resource-group "$resourceGroupName" \
-        --query "networkRuleSet.defaultAction" \
-        -o tsv)
     
     if [ "$original_storage_public_access" != "Enabled" ]; then
+        echo "Enabling public access for Storage Account: $storageAccount"
         az storage account update \
             --name "$storageAccount" \
             --resource-group "$resourceGroupName" \
             --public-network-access Enabled \
+            --default-action Allow \
             --output none
         if [ $? -eq 0 ]; then
             echo "✓ Storage Account public access enabled"
@@ -50,49 +46,28 @@ enable_public_access() {
     else
         echo "✓ Storage Account public access already enabled"
     fi
-    
-    # Also ensure the default network action allows access
-    if [ "$original_storage_default_action" != "Allow" ]; then
-        echo "Setting Storage Account network default action to Allow"
-        az storage account update \
-            --name "$storageAccount" \
-            --resource-group "$resourceGroupName" \
-            --default-action Allow \
-            --output none
-        if [ $? -eq 0 ]; then
-            echo "✓ Storage Account network default action set to Allow"
-        else
-            echo "✗ Failed to set Storage Account network default action"
-            return 1
-        fi
-    else
-        echo "✓ Storage Account network default action already set to Allow"
-    fi
 
     # Enable public access for AI Foundry
-    # Extract the account resource ID (remove /projects/... part if present)
     aif_account_resource_id=$(echo "$aif_resource_id" | sed 's|/projects/.*||')
-    aif_resource_name=$(basename "$aif_account_resource_id")
-    # Extract resource group from the AI Foundry account resource ID
     aif_resource_group=$(echo "$aif_account_resource_id" | sed -n 's|.*/resourceGroups/\([^/]*\)/.*|\1|p')
-    # Extract subscription ID from the AI Foundry account resource ID
+    # Extract subscription ID from AI Foundry resource ID
     aif_subscription_id=$(echo "$aif_account_resource_id" | sed -n 's|.*/subscriptions/\([^/]*\)/.*|\1|p')
-    
-    original_foundry_public_access=$(az cognitiveservices account show \
-        --name "$aif_resource_name" \
-        --resource-group "$aif_resource_group" \
+
+    original_foundry_public_access=$(MSYS_NO_PATHCONV=1 az resource show \
+        --ids "$aif_account_resource_id" \
         --subscription "$aif_subscription_id" \
+        --api-version 2024-10-01 \
         --query "properties.publicNetworkAccess" \
         --output tsv)
     if [ -z "$original_foundry_public_access" ] || [ "$original_foundry_public_access" = "null" ]; then
         echo "⚠ Info: Could not retrieve AI Foundry network access status."
         echo "  AI Foundry network access might be managed differently."
     elif [ "$original_foundry_public_access" != "Enabled" ]; then
-        echo "Current AI Foundry public access: $original_foundry_public_access"
-        echo "Enabling public access for AI Foundry resource: $aif_resource_name (Resource Group: $aif_resource_group)"
+        echo "Enabling public access for AI Foundry: $aif_resource_group"
         if MSYS_NO_PATHCONV=1 az resource update \
             --ids "$aif_account_resource_id" \
             --api-version 2024-10-01 \
+            --subscription "$aif_subscription_id" \
             --set properties.publicNetworkAccess=Enabled \
             --set properties.apiProperties.qnaAzureSearchEndpointKey="" \
             --output none; then
@@ -103,13 +78,8 @@ enable_public_access() {
     else
         echo "✓ AI Foundry public access already enabled"
     fi
-
-    # Wait a bit for changes to take effect
-    echo "Waiting for network access changes to propagate..."
-    sleep 10
     
     # Enable public access for Key Vault
-    echo "Enabling public access for Key Vault: $keyvaultName"
     original_keyvault_public_access=$(az keyvault show \
         --name "$keyvaultName" \
         --resource-group "$resourceGroupName" \
@@ -117,10 +87,12 @@ enable_public_access() {
         -o tsv)
     
     if [ "$original_keyvault_public_access" != "Enabled" ]; then
+        echo "Enabling public access for Key Vault: $keyvaultName"
         az keyvault update \
             --name "$keyvaultName" \
             --resource-group "$resourceGroupName" \
             --public-network-access Enabled \
+            --default-action Allow \
             --output none
         if [ $? -eq 0 ]; then
             echo "✓ Key Vault public access enabled"
@@ -134,7 +106,6 @@ enable_public_access() {
     
     # Additional wait for all changes to propagate fully
     echo "Allowing additional time for all network access changes to propagate..."
-    echo "Note: Changes may take up to 5 minutes to fully appear in Azure Portal"
     sleep 30
     echo "=== Public network access configuration completed ==="
     return 0
@@ -157,6 +128,7 @@ restore_network_access() {
             --name "$storageAccount" \
             --resource-group "$resourceGroupName" \
             --public-network-access "$restore_value" \
+            --default-action Deny \
             --output none
         if [ $? -eq 0 ]; then
             echo "✓ Storage Account access restored"
@@ -165,23 +137,6 @@ restore_network_access() {
         fi
     else
         echo "Storage Account access unchanged (already at desired state)"
-    fi
-    
-    # Restore Storage Account network default action
-    if [ -n "$original_storage_default_action" ] && [ "$original_storage_default_action" != "Allow" ]; then
-        echo "Restoring Storage Account network default action to: $original_storage_default_action"
-        az storage account update \
-            --name "$storageAccount" \
-            --resource-group "$resourceGroupName" \
-            --default-action "$original_storage_default_action" \
-            --output none
-        if [ $? -eq 0 ]; then
-            echo "✓ Storage Account network default action restored"
-        else
-            echo "✗ Failed to restore Storage Account network default action"
-        fi
-    else
-        echo "Storage Account network default action unchanged (already at desired state)"
     fi
     
     # Restore Key Vault access
@@ -197,6 +152,7 @@ restore_network_access() {
             --name "$keyvaultName" \
             --resource-group "$resourceGroupName" \
             --public-network-access "$restore_value" \
+            --default-action Deny \
             --output none
         if [ $? -eq 0 ]; then
             echo "✓ Key Vault access restored"
@@ -214,6 +170,7 @@ restore_network_access() {
         if MSYS_NO_PATHCONV=1 az resource update \
             --ids "$aif_account_resource_id" \
             --api-version 2024-10-01 \
+            --subscription "$aif_subscription_id" \
             --set properties.publicNetworkAccess="$original_foundry_public_access" \
             --set properties.apiProperties.qnaAzureSearchEndpointKey="" \
             --set properties.networkAcls.bypass="AzureServices" \
@@ -275,7 +232,6 @@ if [ -z "$aif_resource_id" ]; then
 fi
 
 # Get subscription id from azd env or from environment variable
-
 azSubscriptionId=$(azd env get-value AZURE_SUBSCRIPTION_ID) || azSubscriptionId="$AZURE_SUBSCRIPTION_ID"
 
 # Check if all required arguments are provided
