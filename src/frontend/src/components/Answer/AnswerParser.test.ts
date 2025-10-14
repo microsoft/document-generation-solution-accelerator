@@ -41,7 +41,7 @@ const sampleCitations: Citation[] = [
 ]
 
 const sampleAnswer: AskResponse = {
-  answer: 'This is an example answer with citations [doc1] and [doc2].',
+  answer: 'This is an example answer with citations [1] and [2].',
   citations: cloneDeep(sampleCitations)
 }
 
@@ -57,13 +57,13 @@ describe('enumerateCitations', () => {
 describe('parseAnswer', () => {
   it('reformats the answer text and reindexes citations', () => {
     const parsed: ParsedAnswer = parseAnswer(sampleAnswer)
-    expect(parsed.markdownFormatText).toBe('This is an example answer with citations [doc1] and [doc2].')
-    expect(parsed.citations.length).toBe(3)
+    expect(parsed.markdownFormatText).toBe('This is an example answer with citations  ^1^  and  ^2^ .')
+    expect(parsed.citations.length).toBe(2)
     expect(parsed.citations[0].id).toBe('doc1')
-    // expect(parsed.citations[0].reindex_id).toBe('1')
-    // expect(parsed.citations[1].id).toBe('2')
-    // // expect(parsed.citations[1].reindex_id).toBe('2')
-    // expect(parsed.citations[0].part_index).toBe(1)
-    // expect(parsed.citations[1].part_index).toBe(2)
+    expect(parsed.citations[0].reindex_id).toBe('1')
+    expect(parsed.citations[1].id).toBe('doc2')
+    expect(parsed.citations[1].reindex_id).toBe('2')
+    expect(parsed.citations[0].part_index).toBe(1)
+    expect(parsed.citations[1].part_index).toBe(2)
   })
 })

@@ -1,5 +1,6 @@
 import React from 'react'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { act } from 'react'
 import '@testing-library/jest-dom'
 import SectionCard from './SectionCard'
 import { AppStateContext } from '../../state/AppProvider'
@@ -7,7 +8,6 @@ import { sectionGenerate } from '../../api'
 import { MemoryRouter } from 'react-router-dom'
 
 import { ChatHistoryLoadingState } from '../../api/models'
-import { act } from 'react-dom/test-utils'
 
 import {defaultMockState} from '../../test/test.utils';
 
@@ -77,6 +77,9 @@ describe('SectionCard Component', () => {
   })
 
   it('When context not available throws an error', async () => {
+    // Suppress console.error for this test to avoid cluttering test output
+    const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
+    
     expect(() =>
       render(
         <MemoryRouter>
@@ -84,10 +87,17 @@ describe('SectionCard Component', () => {
         </MemoryRouter>
       )
     ).toThrow('useAppState must be used within a AppStateProvider')
+    
+    consoleSpy.mockRestore()
   })
 
   it('When no section available in context throws an error', async () => {
+    // Suppress console.error for this test to avoid cluttering test output
+    const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
+    
     expect(() => renderWithContext(2)).toThrow('Section not found')
+    
+    consoleSpy.mockRestore()
   })
 
   it('renders section title and description', async () => {
