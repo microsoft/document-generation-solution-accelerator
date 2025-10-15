@@ -73,7 +73,7 @@ const mockCitations: Citation[] = [
     }
 ]
 let mockAnswerProps: AskResponse = {
-    answer: 'This is an example answer with citations [doc1] and [doc2] and [doc3].',
+    answer: 'This is an example answer with citations [1] and [2] and [3].',
     message_id: '123',
     feedback: Feedback.Neutral,
     citations: cloneDeep(mockCitations)
@@ -133,7 +133,7 @@ describe('Answer Component', () => {
 
         const answerWithMissingFeedback = {
            ...mockAnswerProps,
-           answer: 'This is an example answer with citations [doc1]',
+           answer: 'This is an example answer with citations [1]',
            citations: [mockCitations[0]] // Only include one citation
         }
         

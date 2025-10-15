@@ -357,6 +357,8 @@ class _BaseSettings(BaseSettings):
     auth_enabled: bool = False
     sanitize_answer: bool = False
     use_promptflow: bool = False
+    solution_name: Optional[str] = Field(default=None)
+    azure_client_id: Optional[str] = Field(default=None, env="AZURE_CLIENT_ID")
 
 
 class _AppSettings(BaseModel):

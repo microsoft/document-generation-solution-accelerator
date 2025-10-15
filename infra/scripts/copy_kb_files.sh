@@ -98,10 +98,12 @@ unzip -o $zipUrl1 -d infra/data/"$extractedFolder1"
 echo "Uploading files to Azure Blob Storage"
 az storage blob upload-batch --account-name "$storageAccount" --destination "$fileSystem"/"$extractedFolder1" --source infra/data/"$extractedFolder1" --auth-mode login --pattern '*' --overwrite --output none
 if [ $? -ne 0 ]; then
-    retries=3
+    maxRetries=5
+    retries=$maxRetries
     sleepTime=10
-    echo "Error: Failed to upload files to Azure Blob Storage. Retrying upload...($((4 - retries)) of 3)"
+    attempt=1
     while [ $retries -gt 0 ]; do
+        echo "Error: Failed to upload files to Azure Blob Storage. Retrying upload...$attempt of $maxRetries in $sleepTime seconds"
         sleep $sleepTime
         az storage blob upload-batch --account-name "$storageAccount" --destination "$fileSystem"/"$extractedFolder1" --source infra/data/"$extractedFolder1" --auth-mode login --pattern '*' --overwrite --output none
         if [ $? -eq 0 ]; then
@@ -109,12 +111,15 @@ if [ $? -ne 0 ]; then
             break
         else
             ((retries--))
-            echo "Retrying upload... ($((4 - retries)) of 3)"
+            ((attempt++))
             sleepTime=$((sleepTime * 2))
-            sleep $sleepTime
         fi
     done
-    exit 1
+
+    if [ $retries -eq 0 ]; then
+        echo "Error: Failed to upload files after all retry attempts."
+        exit 1
+    fi
 else
     echo "Files uploaded successfully to Azure Blob Storage."
 fi

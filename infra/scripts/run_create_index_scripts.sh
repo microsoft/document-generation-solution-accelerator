@@ -4,9 +4,9 @@
 # baseUrl="$1"
 keyvaultName="$1"
 resourceGroupName="$2"
-aiFoundryName="$3"
-aiSearchName="$4"
-managedIdentityClientId="$5"
+aiSearchName="$3"
+managedIdentityClientId="$4"
+aif_resource_id="$5"
 # requirementFile="infra/scripts/index_scripts/requirements.txt"
 # requirementFileUrl=${baseUrl}"infra/scripts/index_scripts/requirements.txt"
 
@@ -65,8 +65,7 @@ fi
 
 ### Assign Azure AI User role to the signed in user ###
 
-    echo "Getting Azure AI resource id"
-    aif_resource_id=$(az cognitiveservices account show --name $aiFoundryName --resource-group $resourceGroupName --query id --output tsv)
+    echo "Using provided Azure AI resource id: $aif_resource_id"
 
     # Check if the user has the Azure AI User role
     echo "Checking if user has the Azure AI User role"
@@ -126,9 +125,9 @@ if [ -n "$managedIdentityClientId" ]; then
 fi
 
 # Determine the correct Python command
-if command -v python3 &> /dev/null; then
+if command -v python3 && python3 --version &> /dev/null; then
     PYTHON_CMD="python3"
-elif command -v python &> /dev/null; then
+elif command -v python && python --version &> /dev/null; then
     PYTHON_CMD="python"
 else
     echo "Python is not installed on this system. Or it is not added in the PATH."

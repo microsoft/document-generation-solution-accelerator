@@ -2,7 +2,7 @@ import argparse
 import json
 from asyncio import sleep
 
-from azure.identity import DefaultAzureCredential
+from azure.identity import AzureCliCredential
 from azure.keyvault.secrets import SecretClient
 from data_utils import get_embedding
 
@@ -19,8 +19,7 @@ if __name__ == "__main__":
     with open(args.config_file) as f:
         config = json.load(f)
 
-    credential = DefaultAzureCredential()
-
+    credential = AzureCliCredential()
     if type(config) is not list:
         config = [config]
 

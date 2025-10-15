@@ -7,7 +7,7 @@ from io import BytesIO
 from azure.search.documents import SearchClient
 from azure.storage.filedatalake import DataLakeServiceClient
 from azure.search.documents.indexes import SearchIndexClient
-from azure.identity import (DefaultAzureCredential, get_bearer_token_provider)
+from azure.identity import (AzureCliCredential, get_bearer_token_provider)
 
 
 key_vault_name = 'kv_to-be-replaced'
@@ -22,11 +22,11 @@ def get_secrets_from_kv(secret_name: str) -> str:
     Retrieves a secret value from Azure Key Vault.
     Args:
         secret_name (str): Name of the secret.
-        credential (DefaultAzureCredential): Credential with access to Key Vault.
+        credential (AzureCliCredential): Credential with access to Key Vault.
     Returns:
         str: The secret value.
     """
-    kv_credential = DefaultAzureCredential(managed_identity_client_id=managed_identity_client_id)
+    kv_credential = AzureCliCredential()
     secret_client = SecretClient(
         vault_url=f"https://{key_vault_name}.vault.azure.net/",
         credential=kv_credential
@@ -44,7 +44,7 @@ print("Secrets retrieved from Key Vault.")
 
 # Azure Data Lake settings
 account_url = f"https://{account_name}.dfs.core.windows.net"
-credential = DefaultAzureCredential(managed_identity_client_id=managed_identity_client_id)
+credential = AzureCliCredential()
 service_client = DataLakeServiceClient(account_url, credential=credential, api_version='2023-01-03')
 file_system_client = service_client.get_file_system_client(file_system_client_name)
 directory_name = directory
