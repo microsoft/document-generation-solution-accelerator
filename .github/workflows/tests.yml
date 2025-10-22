@@ -19,11 +19,11 @@ jobs:
     runs-on: ubuntu-latest  # Use the latest Ubuntu runner
 
     steps:
-      - uses: actions/checkout@v4  # Checkout the repository
+      - uses: actions/checkout@v5  # Checkout the repository
 
       # Set up Python environment for Backend
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.11"  # Set Python version
 
@@ -62,11 +62,11 @@ jobs:
     runs-on: ubuntu-latest  # Use the latest Ubuntu runner
 
     steps:
-      - uses: actions/checkout@v4  # Checkout the repository
+      - uses: actions/checkout@v5  # Checkout the repository
 
       # Set up Node.js environment for Frontend
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: '20'  # Set the Node.js version
       
