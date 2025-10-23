@@ -28,6 +28,11 @@ export const parseCitationFromMessage = (message: ChatMessage) => {
 
 export const cleanJSON = (jsonString: string) => {
     try {
+        // Check if the string contains JSON-like patterns before processing
+        if (!jsonString.includes('{') || !jsonString.includes('}')) {
+            return ''
+        }
+        
         let lines: string[]
         let cleanString = ''
         lines = jsonString.split('\n')
