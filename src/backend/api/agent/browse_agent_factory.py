@@ -48,7 +48,7 @@ class BrowseAgentFactory(BaseAgentFactory):
         project_index = await project_client.indexes.create_or_update(
             name=index_name,
             version=index_version,
-            body={
+            index={
                 "connectionName": app_settings.datasource.connection_name,
                 "indexName": app_settings.datasource.index,
                 "type": "AzureSearch",
