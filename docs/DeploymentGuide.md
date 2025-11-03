@@ -87,7 +87,7 @@ You can run this solution using GitHub Codespaces. The button will open a web-ba
 </details>
 
 <details>
-  <summary><b>Deploy in VS Code</b></summary>
+  <summary><b>Deploy in VS Code Dev Containers</b></summary>
 
 ### VS Code Dev Containers
 
@@ -135,24 +135,7 @@ Consider the following settings during your deployment to modify specific settin
 <details>
   <summary><b>Configurable Deployment Settings</b></summary>
 
-When you start the deployment, most parameters will have **default values**, but you can update the following settings:[here](../docs/CustomizingAzdParameters.md):
-
-| **Setting**                          | **Description**                                                                               | **Default Value**        |
-| ------------------------------------ | --------------------------------------------------------------------------------------------- | ------------------------ |
-| **Azure Region**                     | The region where resources will be created.                                                   | `eastus`                 |
-| **Environment Name**                 | A **3–20 character alphanumeric** value used to generate a unique ID to prefix the resources. | `byctemplate`            |
-| **Secondary Location**               | A **less busy** region for **CosmosDB**, useful in case of availability constraints.          | `eastus2`                |
-| **Deployment Type**                  | Model deployment type (allowed: `Standard`, `GlobalStandard`).                                | `GlobalStandard`         |
-| **GPT Model**                        | The GPT model used by the app                                                                 | `gpt-4.1`                |
-| **GPT Model Version**                | The GPT Version used by the app                                                               | `2024-05-13`             |
-| **OpenAI API Version**               | Azure OpenAI API version used for deployments.                                                | `2024-05-01-preview`     |
-| **GPT Model Deployment Capacity**    | Configure the capacity for **GPT model deployments** (in thousands).                          | `30k`                    |
-| **Embedding Model**                  | The embedding model used by the app.                                                          | `text-embedding-ada-002` |
-| **Embedding Model Capacity**         | Configure the capacity for **embedding model deployments** (in thousands).                    | `80k`                    |
-| **Image Tag**                        | Image version for deployment (allowed: `latest_waf`, `dev`, `hotfix`).                            | `latest_waf`                 |
-| **Existing Log Analytics Workspace** | If reusing a Log Analytics Workspace, specify the ID.                                         | *(none)*                 |
-
-
+When you start the deployment, most parameters will have **default values**, but you can update the following settings [here](../docs/CustomizingAzdParameters.md)
 
 </details>
 
@@ -212,10 +195,10 @@ Once you've opened the project in [Codespaces](#github-codespaces), [Dev Contain
 
 3. Provide an `azd` environment name (e.g., "dgapp").
 4. Select a subscription from your Azure account and choose a location that has quota for all the resources. 
-    - This deployment will take *7-10 minutes* to provision the resources in your account and set up the solution with sample data.
+    - This deployment generally takes *7-10 minutes* to provision the resources in your account and set up the solution with sample data.
     - If you encounter an error or timeout during deployment, changing the location may help, as there could be availability constraints for the resources.
 
-5. Once the deployment has completed successfully and you would like to use the sample data, run the bash command printed in the terminal. The bash command will look like the following: 
+5. Once the deployment has completed successfully and you would like to use the sample data, please open a **Git Bash** terminal and run the bash command printed below. The bash command will look like the following: 
     ```shell 
     bash ./infra/scripts/process_sample_data.sh
     ```
