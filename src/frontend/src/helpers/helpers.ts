@@ -1,4 +1,4 @@
-import { Conversation, ChatMessage, ToolMessageContent } from '../api/models'
+import { Conversation, ChatMessage, ToolMessageContent, Citation } from '../api/models'
 
 
 // -------------Chat.tsx-------------
@@ -8,16 +8,18 @@ const enum contentTemplateSections {
     Intro = 'The proposal will include the following sections:',
     Closing = 'Does this look good? If so, you can **generate the document** now. You can also ask me to **add an item** or **change the order of the sections**.',
     JSONParseError = 'I was unable to find content related to your query and could not generate a template. Please try again.',
-    JSONStructureError = 'Unable to render the sections within the template. Please try again.'
+    JSONStructureError = 'Unable to render the sections within the template. Please try again.',
+    EmptySectionsError = 'No sections have been selected to include in the proposal.'
 }
 
 
 export const parseCitationFromMessage = (message: ChatMessage) => {
     if (message?.role && message?.role === 'tool') {
         try {
-            const toolMessage = JSON.parse(message.content) as ToolMessageContent
-            return toolMessage.citations
+            const toolMessage = JSON.parse(message.content)
+            return toolMessage
         } catch {
+           console.error('Error parsing tool message content:', message.content)
             return []
         }
     }
@@ -26,6 +28,11 @@ export const parseCitationFromMessage = (message: ChatMessage) => {
 
 export const cleanJSON = (jsonString: string) => {
     try {
+        // Check if the string contains JSON-like patterns before processing
+        if (!jsonString.includes('{') || !jsonString.includes('}')) {
+            return ''
+        }
+        
         let lines: string[]
         let cleanString = ''
         lines = jsonString.split('\n')
@@ -51,6 +58,10 @@ export const generateTemplateSections = (jsonString: string) => {
 
     if (!Array.isArray(jsonResponse.template)) {
         return contentTemplateSections.JSONStructureError
+    }
+
+    if (jsonResponse.template.length === 0) {
+        return contentTemplateSections.EmptySectionsError
     }
 
     let sections = `${contentTemplateSections.Intro}${contentTemplateSections.NewLine}`

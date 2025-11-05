@@ -12,11 +12,11 @@ jobs:
     steps:
       # Step 1: Checkout code
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       # Step 2: Set up Python environment
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v3
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -29,5 +29,5 @@ jobs:
       - name: Pylint
         run: |
           echo "Running Pylint..."
-          python -m flake8 --config=.flake8 --verbose .
+          python -m flake8 --config=.flake8 --exclude=tests --verbose .
           

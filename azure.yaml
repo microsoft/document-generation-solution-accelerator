@@ -6,6 +6,9 @@ name: document-generation
 metadata:
   template: document-generation@1.0
 
+requiredVersions:
+  azd: '>= 1.18.0'
+
 parameters:
   solutionPrefix:
     type: string

@@ -32,7 +32,6 @@ NOTE: You may find you need to set: MacOS: `export NODE_OPTIONS="--max-old-space
     - `DATASOURCE_TYPE` (should be set to `AzureCognitiveSearch`)
     - `AZURE_SEARCH_SERVICE`
     - `AZURE_SEARCH_INDEX`
-    - `AZURE_SEARCH_KEY`
 
     These variables are optional:
     - `AZURE_SEARCH_USE_SEMANTIC_SEARCH`
@@ -178,7 +177,6 @@ Note: settings starting with `AZURE_SEARCH` are only needed when using Azure Ope
 |AZURE_AI_AGENT_MODEL_DEPLOYMENT_NAME||The name of the gpt model|
 |AZURE_SEARCH_SERVICE||The name of your Azure AI Search resource|
 |AZURE_SEARCH_INDEX||The name of your Azure AI Search Index|
-|AZURE_SEARCH_KEY||An **admin key** for your Azure AI Search resource|
 |AZURE_SEARCH_USE_SEMANTIC_SEARCH|False|Whether or not to use semantic search|
 |AZURE_SEARCH_QUERY_TYPE|simple|Query type: simple, semantic, vector, vectorSimpleHybrid, or vectorSemanticHybrid. Takes precedence over AZURE_SEARCH_USE_SEMANTIC_SEARCH|
 |AZURE_SEARCH_SEMANTIC_SEARCH_CONFIG||The name of the semantic search configuration to use if using semantic search.|
@@ -212,7 +210,6 @@ Note: settings starting with `AZURE_SEARCH` are only needed when using Azure Ope
 |UI_SHOW_SHARE_BUTTON|True|Share button (right-top)
 |SANITIZE_ANSWER|False|Whether to sanitize the answer from Azure OpenAI. Set to True to remove any HTML tags from the response.|
 |USE_PROMPTFLOW|False|Use existing Promptflow deployed endpoint. If set to `True` then both `PROMPTFLOW_ENDPOINT` and `PROMPTFLOW_API_KEY` also need to be set.|
-|USE_AI_FOUNDRY_SDK|False|Boolean flag to determine whether to use the AI Foundry SDK instead of the OpenAI SDK.|
 |PROMPTFLOW_ENDPOINT||URL of the deployed Promptflow endpoint e.g. https://pf-deployment-name.region.inference.ml.azure.com/score|
 |PROMPTFLOW_API_KEY||Auth key for deployed Promptflow endpoint. Note: only Key-based authentication is supported.|
 |PROMPTFLOW_RESPONSE_TIMEOUT|120|Timeout value in seconds for the Promptflow endpoint to respond.|

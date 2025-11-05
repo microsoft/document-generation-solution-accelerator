@@ -24,6 +24,7 @@ class HomePage(BasePage):
         self.page.wait_for_timeout(5000)
 
     def validate_home_page(self):
+        self.page.wait_for_timeout(5000)
         expect(self.page.locator(self.HOME_TITLE)).to_be_visible()
         expect(self.page.locator(self.BROWSE_TEXT)).to_be_visible()
         expect(self.page.locator(self.GENERATE_TEXT)).to_be_visible()

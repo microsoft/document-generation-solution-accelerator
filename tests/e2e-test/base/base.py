@@ -45,10 +45,10 @@ class BasePage:
             "response code is " + str(response.status) + " " + str(response.json())
         )
 
-    def validate_response_status_draft_section(self, sectionTitle):
+    def validate_generate_response_status(self, question_api=""):
         load_dotenv()  # Ensure environment variables are loaded
         # URL of the API endpoint
-        url = f"{URL}/section/generate"
+        url = f"{URL}/history/generate"
 
         # Prepare headers
         headers = {
@@ -56,11 +56,20 @@ class BasePage:
             "Accept": "*/*",
         }
 
-        payload = {"sectionTitle": sectionTitle}
+        # Payload (data) to be sent in the POST request
+        payload = {
+            "chat_type": "template",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": question_api,  # Use the passed question
+                }
+            ],
+        }
 
         # Make the POST request
         response = self.page.request.post(
-            url, headers=headers, data=json.dumps(payload), timeout=200000
+            url, headers=headers, data=json.dumps(payload), timeout=120000
         )
         assert response.status == 200, (
             "response code is " + str(response.status) + " " + str(response.json())

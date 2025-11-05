@@ -1,22 +1,25 @@
 name: DocGen Deploy-Test-Cleanup Pipeline
 
 on:
-    workflow_run:
-      workflows: ["Build Docker and Optional Push"]
-      types:
-        - completed
-      branches:
-        - main
-        - dev
-        - demo
+  pull_request:
+    branches:
+      - main
+  workflow_run:
+    workflows: ["Build Docker and Optional Push"]
+    types:
+      - completed
+    branches:
+      - main
+      - dev
+      - demo
 
-    schedule:
-      - cron: '0 9,21 * * *'  # Runs at 9:00 AM and 9:00 PM GMT
+  schedule:
+    - cron: '0 9,21 * * *'  # Runs at 9:00 AM and 9:00 PM GMT
 
 env:
-  GPT_MIN_CAPACITY: 250
-  TEXT_EMBEDDING_MIN_CAPACITY: 40
-  BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
+  GPT_MIN_CAPACITY: 150
+  TEXT_EMBEDDING_MIN_CAPACITY: 80
+  BRANCH_NAME: ${{ github.event.workflow_run.head_branch || github.head_ref || github.ref_name }}
 
 jobs:
   deploy:
@@ -26,7 +29,7 @@ jobs:
       WEBAPP_URL: ${{ steps.get_output.outputs.WEBAPP_URL }}
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v5
 
       - name: Setup Azure CLI
         run: |
@@ -83,7 +86,11 @@ jobs:
       - name: Set Deployment Region
         run: |
           echo "Selected Region: $VALID_REGION"
+          echo "AZURE_AI_LOCATION=$VALID_REGION" >> $GITHUB_ENV
           echo "AZURE_LOCATION=$VALID_REGION" >> $GITHUB_ENV
+          if [ "$VALID_REGION" == "eastus" ] || [ "$VALID_REGION" == "westus3" ]; then
+            echo "AZURE_LOCATION=uksouth" >> $GITHUB_ENV
+          fi
 
       - name: Generate Resource Group Name
         id: generate_rg_name
@@ -126,29 +133,32 @@ jobs:
           set -e
           # set image tag based on branch
           if [[ "${{ env.BRANCH_NAME }}" == "main" ]]; then
-            IMAGE_TAG="latest"
+            IMAGE_TAG="latest_waf"
           elif [[ "${{ env.BRANCH_NAME }}" == "dev" ]]; then
             IMAGE_TAG="dev"
           elif [[ "${{ env.BRANCH_NAME }}" == "demo" ]]; then
             IMAGE_TAG="demo"
           else
-            IMAGE_TAG="latest"
+            IMAGE_TAG="latest_waf"
           fi
+
+          # Generate current timestamp in desired format: YYYY-MM-DDTHH:MM:SS.SSSSSSSZ
+            current_date=$(date -u +"%Y-%m-%dT%H:%M:%S.%7NZ")
 
           az deployment group create \
             --name ${{ env.SOLUTION_PREFIX }}-deployment \
             --resource-group ${{ env.RESOURCE_GROUP_NAME }} \
-            --template-file infra/main.json \
+            --template-file infra/main.bicep \
             --parameters \
-                environmentName="${{ env.SOLUTION_PREFIX }}" \
-                secondaryLocation="northcentralus" \
-                deploymentType="GlobalStandard" \
-                gptModelName="gpt-4.1" \
-                azureOpenaiAPIVersion="2024-05-01-preview" \
-                gptDeploymentCapacity=${{ env.GPT_MIN_CAPACITY }} \
-                embeddingModel="text-embedding-ada-002" \
+                solutionName="${{ env.SOLUTION_PREFIX }}" \
+                secondaryLocation="${{ env.AZURE_LOCATION }}" \
+                location="${{ env.AZURE_LOCATION }}" \
+                gptModelCapacity=${{ env.GPT_MIN_CAPACITY }} \
                 embeddingDeploymentCapacity=${{ env.TEXT_EMBEDDING_MIN_CAPACITY }} \
-                imageTag="${IMAGE_TAG}"
+                azureAiServiceLocation=${{ env.AZURE_AI_LOCATION }} \
+                imageTag="${IMAGE_TAG}"\
+                createdBy="Pipeline" \
+                tags="{'SecurityControl':'Ignore','Purpose':'Deploying and Cleaning Up Resources for Validation','CreatedDate':'$current_date'}"
 
       - name: Get Deployment Output and extract Values
         id: get_output
@@ -167,22 +177,31 @@ jobs:
           echo "KEY_VAULT_NAME=$KEY_VAULT_NAME" >> $GITHUB_ENV
           COSMOSDB_ACCOUNT_NAME=$(echo $BICEP_OUTPUT | jq -r '.cosmosdB_ACCOUNT_NAME.value')
           echo "COSMOSDB_ACCOUNT_NAME=$COSMOSDB_ACCOUNT_NAME" >> $GITHUB_ENV
+          AI_FOUNDRY_RESOURCE_ID=$(echo $BICEP_OUTPUT | jq -r '.aI_FOUNDRY_RESOURCE_ID.value')
+          echo "AI_FOUNDRY_RESOURCE_ID=$AI_FOUNDRY_RESOURCE_ID" >> $GITHUB_ENV
+          AI_SEARCH_SERVICE_NAME=$(echo $BICEP_OUTPUT | jq -r '.aI_SEARCH_SERVICE_NAME.value')
+          echo "AI_SEARCH_SERVICE_NAME=$AI_SEARCH_SERVICE_NAME" >> $GITHUB_ENV
           echo "Deployment output: $BICEP_OUTPUT"
 
       - name: Run Post-Deployment Script
         id: post_deploy
+        env: 
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
         run: |
           set -e
           az account set --subscription "${{ secrets.AZURE_SUBSCRIPTION_ID }}"
 
           echo "Running post-deployment script..."
-          bash ./infra/scripts/copy_kb_files.sh \
+
+          bash ./infra/scripts/process_sample_data.sh \
             "${{ env.STORAGE_ACCOUNT_NAME }}" \
             "${{ env.STORAGE_CONTAINER_NAME }}" \
-            "${{ secrets.AZURE_CLIENT_ID }}"
-          bash ./infra/scripts/run_create_index_scripts.sh \
             "${{ env.KEY_VAULT_NAME }}" \
-            "${{ secrets.AZURE_CLIENT_ID }}"
+            "${{ env.COSMOSDB_ACCOUNT_NAME }}" \
+            "${{ env.RESOURCE_GROUP_NAME }}" \
+            "${{ env.AI_SEARCH_SERVICE_NAME }}" \
+            "${{ secrets.AZURE_CLIENT_ID }}" \
+            "${{ env.AI_FOUNDRY_RESOURCE_ID }}"
 
       - name: Logout from Azure
         if: always()
