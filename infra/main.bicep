@@ -1249,7 +1249,7 @@ output AI_FOUNDRY_NAME string = aiFoundryAiProjectResourceName
 output AI_FOUNDRY_RG_NAME string = aiFoundryAiServicesResourceGroupName
 
 @description('Contains AI Foundry Resource ID')
-output AI_FOUNDRY_RESOURCE_ID string = useExistingAiFoundryAiProject ? azureExistingAIProjectResourceId : aiFoundryAiServices!.outputs.resourceId
+output AI_FOUNDRY_RESOURCE_ID string = useExistingAiFoundryAiProject ? existingAiFoundryAiServices.id : aiFoundryAiServices!.outputs.resourceId
 
 @description('Contains AI Search Service Name')
 output AI_SEARCH_SERVICE_NAME string = aiSearch.outputs.name
