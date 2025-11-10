@@ -40,6 +40,12 @@
     },
     "azureExistingAIProjectResourceId":{
       "value": "${AZURE_EXISTING_AI_PROJECT_RESOURCE_ID}"
+    },
+    "acrName": {
+      "value": "${AZURE_ENV_ACR_NAME}"
+    },
+    "azureAiServiceLocation": {
+      "value": "${AZURE_ENV_OPENAI_LOCATION}"
     }
   }
 }
