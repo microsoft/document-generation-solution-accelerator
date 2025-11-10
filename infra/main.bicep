@@ -1127,7 +1127,8 @@ module webServerFarm 'br/public:avm/res/web/serverfarm:0.5.0' = {
     diagnosticSettings: enableMonitoring ? [{ workspaceResourceId: logAnalyticsWorkspaceResourceId }] : null
     // WAF aligned configuration for Scalability
     skuName: enableScalability || enableRedundancy ? 'P1v3' : 'B3'
-    skuCapacity: enableScalability ? 3 : 1
+    // skuCapacity: enableScalability ? 3 : 1
+    skuCapacity: 1 // skuCapacity set to 1 (not 3) due to multiple agents created per type during WAF deployment
     // WAF aligned configuration for Redundancy
     zoneRedundant: enableRedundancy ? true : false
   }
@@ -1249,7 +1250,7 @@ output AI_FOUNDRY_NAME string = aiFoundryAiProjectResourceName
 output AI_FOUNDRY_RG_NAME string = aiFoundryAiServicesResourceGroupName
 
 @description('Contains AI Foundry Resource ID')
-output AI_FOUNDRY_RESOURCE_ID string = useExistingAiFoundryAiProject ? azureExistingAIProjectResourceId : aiFoundryAiServices!.outputs.resourceId
+output AI_FOUNDRY_RESOURCE_ID string = useExistingAiFoundryAiProject ? existingAiFoundryAiServices.id : aiFoundryAiServices!.outputs.resourceId
 
 @description('Contains AI Search Service Name')
 output AI_SEARCH_SERVICE_NAME string = aiSearch.outputs.name

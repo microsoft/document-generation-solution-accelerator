@@ -2,6 +2,8 @@
 
 To help you get started, here are some **Sample Prompts** you can ask in the app:
 
+> _Note: Average response time is 07 -16 seconds._ <br>
+
 ## **Sections**
 
 ### **Browse**
