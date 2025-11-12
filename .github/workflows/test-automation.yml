@@ -11,6 +11,13 @@ on:
           EMAILNOTIFICATION_LOGICAPP_URL_TA:
             required: false
             description: "Logic App URL for email notifications"
+        outputs:
+          TEST_SUCCESS:
+            description: "Whether tests passed"
+            value: ${{ jobs.test.outputs.TEST_SUCCESS }}
+          TEST_REPORT_URL:
+            description: "URL to test report artifact"
+            value: ${{ jobs.test.outputs.TEST_REPORT_URL }}
 
 env:
     url: ${{ inputs.DOCGEN_URL }}
@@ -19,6 +26,9 @@ env:
 jobs:
   test:
     runs-on: ubuntu-latest
+    outputs:
+      TEST_SUCCESS: ${{ steps.test1.outcome == 'success' || steps.test2.outcome == 'success' || steps.test3.outcome == 'success' }}
+      TEST_REPORT_URL: ${{ steps.upload_report.outputs.artifact-url }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -85,32 +95,49 @@ jobs:
           name: test-report
           path: tests/e2e-test/report/*
 
-      - name: Send Notification
+
+            
+      - name: Generate E2E Test Summary
         if: always()
         run: |
-          RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          REPORT_URL=${{ steps.upload_report.outputs.artifact-url }}
-          IS_SUCCESS=${{ steps.test1.outcome == 'success' || steps.test2.outcome == 'success' || steps.test3.outcome == 'success' }}
-          # Construct the email body
-          if [ "$IS_SUCCESS" = "true" ]; then
-            EMAIL_BODY=$(cat <<EOF
-            {
-              "body": "<p>Dear Team,</p><p>We would like to inform you that the ${{ env.accelerator_name }} Test Automation process has completed successfully.</p><p><strong>Run URL:</strong> <a href=\"${RUN_URL}\">${RUN_URL}</a><br></p><p><strong>Test Report:</strong> <a href=\"${REPORT_URL}\">${REPORT_URL}</a></p><p>Best regards,<br>Your Automation Team</p>",
-              "subject": "${{ env.accelerator_name }} Test Automation - Success"
-            }
-          EOF
-            )
+          echo "## 🧪 E2E Test Job Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          
+          # Determine overall test result
+          OVERALL_SUCCESS="${{ steps.test1.outcome == 'success' || steps.test2.outcome == 'success' || steps.test3.outcome == 'success' }}"
+          if [[ "$OVERALL_SUCCESS" == "true" ]]; then
+            echo "| **Job Status** | ✅ Success |" >> $GITHUB_STEP_SUMMARY
           else
-            EMAIL_BODY=$(cat <<EOF
-            {
-              "body": "<p>Dear Team,</p><p>We would like to inform you that the ${{ env.accelerator_name }} Test Automation process  has encountered an issue and has failed to complete successfully.</p><p><strong>Run URL:</strong> <a href=\"${RUN_URL}\">${RUN_URL}</a><br> ${OUTPUT}</p><p><strong>Test Report:</strong> <a href=\"${REPORT_URL}\">${REPORT_URL}</a></p><p>Please investigate the matter at your earliest convenience.</p><p>Best regards,<br>Your Automation Team</p>",
-              "subject": "${{ env.accelerator_name }} Test Automation - Failure"
-            }
-          EOF
-            )
+            echo "| **Job Status** | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
           fi
-
-          # Send the notification
-          curl -X POST "${{ secrets.EMAILNOTIFICATION_LOGICAPP_URL_TA }}" \
-            -H "Content-Type: application/json" \
-            -d "$EMAIL_BODY" || echo "Failed to send notification"
+          
+          echo "| **Target URL** | [${{ env.url }}](${{ env.url }}) |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Test Report** | [Download Artifact](${{ steps.upload_report.outputs.artifact-url }}) |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          echo "### 📋 Test Execution Details" >> $GITHUB_STEP_SUMMARY
+          echo "| Attempt | Status | Notes |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Test Run 1** | ${{ steps.test1.outcome == 'success' && '✅ Passed' || '❌ Failed' }} | Initial test execution |" >> $GITHUB_STEP_SUMMARY
+          
+          if [[ "${{ steps.test1.outcome }}" == "failure" ]]; then
+            echo "| **Test Run 2** | ${{ steps.test2.outcome == 'success' && '✅ Passed' || steps.test2.outcome == 'failure' && '❌ Failed' || '⏸️ Skipped' }} | Retry after 30s delay |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [[ "${{ steps.test2.outcome }}" == "failure" ]]; then
+            echo "| **Test Run 3** | ${{ steps.test3.outcome == 'success' && '✅ Passed' || steps.test3.outcome == 'failure' && '❌ Failed' || '⏸️ Skipped' }} | Final retry after 60s delay |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [[ "$OVERALL_SUCCESS" == "true" ]]; then
+            echo "### ✅ Test Results" >> $GITHUB_STEP_SUMMARY
+            echo "- End-to-end tests completed successfully" >> $GITHUB_STEP_SUMMARY
+            echo "- Application is functioning as expected" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "### ❌ Test Results" >> $GITHUB_STEP_SUMMARY
+            echo "- All test attempts failed" >> $GITHUB_STEP_SUMMARY
+            echo "- Check the e2e-test/test job for detailed error information" >> $GITHUB_STEP_SUMMARY
+          fi
