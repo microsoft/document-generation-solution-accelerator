@@ -8,10 +8,6 @@ import requests
 import uuid
 import time
 
-DEBUG = os.environ.get("DEBUG", "false")
-if DEBUG.lower() == "true":
-    logging.basicConfig(level=logging.DEBUG)
-
 AZURE_SEARCH_PERMITTED_GROUPS_COLUMN = os.environ.get(
     "AZURE_SEARCH_PERMITTED_GROUPS_COLUMN"
 )
@@ -153,3 +149,37 @@ def comma_separated_string_to_list(s: str) -> List[str]:
     Split comma-separated values into a list.
     """
     return s.strip().replace(" ", "").split(",")
+
+
+def configure_logging(logging_settings):
+    """
+    Configure logging based on the provided logging settings.
+    
+    Args:
+        logging_settings: Instance of _LoggingSettings containing logging configuration
+    """
+    # Configure basic logging
+    logging.basicConfig(
+        level=logging_settings.get_log_level(),
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        force=True  # Override any existing configuration
+    )
+
+    # Configure Azure package logging
+    azure_loggers = [
+        "azure.core.pipeline.policies.http_logging_policy",
+        "azure.identity.aio._internal",
+        "azure.monitor.opentelemetry.exporter.export._base",
+        "azure.ai.projects",
+        "azure.ai.agents",
+        "azure.cosmosdb",
+        "azure.search",
+        "azure.storage"
+    ]
+
+    # Set Azure package loggers to the specified level
+    azure_log_level = logging_settings.get_azure_package_log_level()
+    for logger_name in azure_loggers:
+        logging.getLogger(logger_name).setLevel(azure_log_level)
+
+    logging.info(f"Logging configured - Basic: {logging_settings.level}, Azure packages: {logging_settings.azure_package_level}")

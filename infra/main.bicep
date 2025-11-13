@@ -124,10 +124,10 @@ param enableRedundancy bool = false
 param enablePrivateNetworking bool = false
 
 @description('Optional. The Container Registry hostname where the docker images are located.')
-param acrName string = 'byocgacontainerreg'
+param acrName string = 'testapwaf'
 
 @description('Optional. Image Tag.')
-param imageTag string = 'latest_waf_2025-09-18_736'
+param imageTag string = 'logs'
 
 @description('Optional. Enable/Disable usage telemetry for module.')
 param enableTelemetry bool = true
