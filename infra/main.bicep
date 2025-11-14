@@ -124,10 +124,10 @@ param enableRedundancy bool = false
 param enablePrivateNetworking bool = false
 
 @description('Optional. The Container Registry hostname where the docker images are located.')
-param acrName string = 'testapwaf'
+param acrName string = 'byocgacontainerreg'
 
 @description('Optional. Image Tag.')
-param imageTag string = 'logs'
+param imageTag string = 'latest_waf_2025-09-18_736'
 
 @description('Optional. Enable/Disable usage telemetry for module.')
 param enableTelemetry bool = true
@@ -1204,6 +1204,8 @@ module webSite 'modules/web-sites.bicep' = {
           UWSGI_THREADS: '2'
           APP_ENV: appEnvironment
           AZURE_CLIENT_ID: userAssignedIdentity.outputs.clientId
+          AZURE_BASIC_LOGGING_LEVEL: 'INFO'
+          AZURE_PACKAGE_LOGGING_LEVEL: 'WARNING'
         }
         // WAF aligned configuration for Monitoring
         applicationInsightResourceId: enableMonitoring ? applicationInsights!.outputs.resourceId : null
