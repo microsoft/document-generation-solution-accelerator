@@ -154,7 +154,7 @@ def comma_separated_string_to_list(s: str) -> List[str]:
 def configure_logging(logging_settings):
     """
     Configure logging based on the provided logging settings.
-    
+
     Args:
         logging_settings: Instance of _LoggingSettings containing logging configuration
     """
