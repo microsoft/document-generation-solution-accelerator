@@ -36,21 +36,19 @@ class _UiSettings(BaseSettings):
 
 class _LoggingSettings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_prefix="LOGGING_", env_file=DOTENV_PATH, extra="ignore", env_ignore_empty=True
+        env_prefix="AZURE_", env_file=DOTENV_PATH, extra="ignore", env_ignore_empty=True
     )
 
-    level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
-    azure_package_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = Field(
-        default="WARNING", env="AZURE_PACKAGE_LOGGING_LEVEL"
-    )
+    basic_logging_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
+    package_logging_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "WARNING"
 
-    def get_log_level(self) -> int:
+    def get_basic_log_level(self) -> int:
         """Convert string log level to logging constant"""
-        return getattr(logging, self.level.upper())
+        return getattr(logging, self.basic_logging_level.upper())
 
-    def get_azure_package_log_level(self) -> int:
-        """Convert string Azure package log level to logging constant"""
-        return getattr(logging, self.azure_package_level.upper())
+    def get_package_log_level(self) -> int:
+        """Convert string package log level to logging constant"""
+        return getattr(logging, self.package_logging_level.upper())
 
 
 class _ChatHistorySettings(BaseSettings):

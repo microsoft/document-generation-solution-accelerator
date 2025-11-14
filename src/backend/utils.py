@@ -160,7 +160,7 @@ def configure_logging(logging_settings):
     """
     # Configure basic logging
     logging.basicConfig(
-        level=logging_settings.get_log_level(),
+        level=logging_settings.get_basic_log_level(),
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         force=True  # Override any existing configuration
     )
@@ -169,17 +169,12 @@ def configure_logging(logging_settings):
     azure_loggers = [
         "azure.core.pipeline.policies.http_logging_policy",
         "azure.identity.aio._internal",
-        "azure.monitor.opentelemetry.exporter.export._base",
-        "azure.ai.projects",
-        "azure.ai.agents",
-        "azure.cosmosdb",
-        "azure.search",
-        "azure.storage"
+        "azure.monitor.opentelemetry.exporter.export._base"
     ]
 
     # Set Azure package loggers to the specified level
-    azure_log_level = logging_settings.get_azure_package_log_level()
+    azure_log_level = logging_settings.get_package_log_level()
     for logger_name in azure_loggers:
         logging.getLogger(logger_name).setLevel(azure_log_level)
 
-    logging.info(f"Logging configured - Basic: {logging_settings.level}, Azure packages: {logging_settings.azure_package_level}")
+    logging.info(f"Logging configured - Basic: {logging_settings.basic_logging_level}, Azure packages: {logging_settings.package_logging_level}")
