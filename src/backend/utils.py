@@ -166,7 +166,8 @@ def configure_logging(logging_settings):
     )
 
     # Configure Azure package logging
-    azure_loggers = [
+    # Use custom packages if specified, otherwise use default Azure packages
+    azure_loggers = logging_settings.logging_packages or [
         "azure.core.pipeline.policies.http_logging_policy",
         "azure.identity.aio._internal",
         "azure.monitor.opentelemetry.exporter.export._base"
@@ -177,4 +178,4 @@ def configure_logging(logging_settings):
     for logger_name in azure_loggers:
         logging.getLogger(logger_name).setLevel(azure_log_level)
 
-    logging.info(f"Logging configured - Basic: {logging_settings.basic_logging_level}, Azure packages: {logging_settings.package_logging_level}")
+    logging.info(f"Logging configured - Basic: {logging_settings.basic_logging_level}, Azure packages: {logging_settings.package_logging_level}, Packages: {azure_loggers}")
