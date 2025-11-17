@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+name: document-generation
+metadata:
+  template: document-generation@1.0
+
+requiredVersions:
+  azd: '>= 1.18.0'
+
+# No services defined - Container App is fully managed by Bicep
+# This prevents azd from trying to use its broken Container Apps integration
+
+hooks:
+  preprovision:
+    windows:
+      shell: pwsh
+      run: |
+        ./scripts/auth_init.ps1
+        Write-Host "Building and pushing Docker image to ACR..." -ForegroundColor Yellow
+        ./scripts/build-push-acr.ps1
+      interactive: true
+      continueOnError: false
+    posix:
+      shell: sh
+      run: |
+        ./scripts/auth_init.sh
+        echo "Building and pushing Docker image to ACR..."
+        bash ./scripts/build-push-acr.sh
+      interactive: true
+      continueOnError: false
+  postprovision:
+    windows:
+      run: |
+        ./scripts/auth_update.ps1
+        Write-Host "Web app URL: "
+        Write-Host "$env:WEB_APP_URL" -ForegroundColor Cyan
+        Write-Host "`nIf you want to use the Sample Data, run the following command in the Bash terminal to process it:"
+        Write-Host "bash ./infra/scripts/process_sample_data.sh" -ForegroundColor Cyan
+      shell: pwsh
+      continueOnError: false
+      interactive: true
+    posix:
+      run: |
+        ./scripts/auth_update.sh
+        echo "Web app URL: "
+        echo $WEB_APP_URL
+        echo ""
+        echo "If you want to use the Sample Data, run the following command in the bash terminal to process it:"
+        echo "bash ./infra/scripts/process_sample_data.sh"
+      shell: sh
+      continueOnError: false
+      interactive: true
