@@ -41,14 +41,14 @@ class _LoggingSettings(BaseSettings):
 
     basic_logging_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
     package_logging_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "WARNING"
-    logging_packages: List[str] = []
+    logging_packages: Optional[List[str]] = []
 
     @field_validator("logging_packages", mode="before")
     @classmethod
-    def split_logging_packages(cls, packages: str) -> List[str]:
+    def split_logging_packages(cls, packages) -> Optional[List[str]]:
         if isinstance(packages, str) and len(packages.strip()) > 0:
             return [pkg.strip() for pkg in packages.split(",") if pkg.strip()]
-        return []
+        return None
 
     def get_basic_log_level(self) -> int:
         """Convert string log level to logging constant"""
