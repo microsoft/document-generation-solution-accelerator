@@ -168,5 +168,5 @@ def configure_logging(logging_settings):
     azure_log_level = logging_settings.get_package_log_level()
     for logger_name in logging_settings.logging_packages or []:
         logging.getLogger(logger_name).setLevel(azure_log_level)
-    
+
     logging.info(f"Logging configured - Basic: {logging_settings.basic_logging_level}, Azure packages: {logging_settings.package_logging_level}, Packages: {logging_settings.logging_packages}")
