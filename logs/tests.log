@@ -1,0 +1,17 @@
+INFO     tests.test_st_docgen_tc:test_st_docgen_tc.py:628 Step 1: Verify login is successful and Document Generation page is displayed
+INFO     tests.test_st_docgen_tc:test_st_docgen_tc.py:633 Execution Time for 'Validate home page is loaded': 9.17s
+INFO     tests.test_st_docgen_tc:test_st_docgen_tc.py:636 Step 2: Navigate to Generate page
+INFO     tests.test_st_docgen_tc:test_st_docgen_tc.py:640 Generate chat conversation page is displayed successfully
+INFO     tests.test_st_docgen_tc:test_st_docgen_tc.py:642 Execution Time for 'Navigate to Generate page': 11.32s
+INFO     tests.test_st_docgen_tc:test_st_docgen_tc.py:645 Step 3: Click on 'Show template history' button
+INFO     tests.test_st_docgen_tc:test_st_docgen_tc.py:650 Template history window with saved history threads is displayed
+INFO     tests.test_st_docgen_tc:test_st_docgen_tc.py:652 Execution Time for 'Show template history': 2.26s
+INFO     tests.test_st_docgen_tc:test_st_docgen_tc.py:655 Step 4: Select a session thread and click on Delete icon
+INFO     pages.generatePage:generatePage.py:193 Clicked delete icon on thread at index 0
+INFO     pages.generatePage:generatePage.py:198 Delete confirmation dialog appeared
+INFO     pages.generatePage:generatePage.py:203 Delete confirmation text verified
+INFO     pages.generatePage:generatePage.py:209 Clicked Delete in confirmation dialog
+INFO     pages.generatePage:generatePage.py:213 Delete confirmation dialog closed
+INFO     pages.generatePage:generatePage.py:220 Thread at index 0 successfully deleted. Thread count decreased from 4 to 3
+INFO     tests.test_st_docgen_tc:test_st_docgen_tc.py:665 Execution Time for 'Click delete icon': 7.71s
+INFO     tests.test_st_docgen_tc:test_st_docgen_tc.py:667 Test - Template history delete functionality completed successfully

@@ -2,7 +2,7 @@ import os
 from dotenv import load_dotenv
 
 load_dotenv()
-URL = os.getenv("url")
+URL = 'https://app-pridgst5927lzz.azurewebsites.net/'
 
 if URL.endswith("/"):
     URL = URL[:-1]
@@ -21,3 +21,12 @@ add_section = "Add Payment acceleration clause after the payment terms sections"
 # Response Text Data
 invalid_response = "I was unable to find content related to your query and could not generate a template. Please try again."
 invalid_response1 = "An error occurred. Answers can't be saved at this time. If the problem persists, please contact the site administrator."
+
+
+# Construct the absolute path to the JSON file
+# Note: This section is commented out as prompts.json file doesn't exist
+# All required constants are defined above
+# json_file_path = os.path.join(repo_root, 'tests/e2e-test', 'testdata', 'prompts.json')
+# with open(json_file_path, 'r') as file:
+#     data = json.load(file)
+#     questions = data['questions']

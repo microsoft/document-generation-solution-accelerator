@@ -2,9 +2,9 @@ environment:
   name: document-generation
   location: eastus
 
-name: document-generation
-metadata:
-  template: document-generation@1.0
+# name: document-generation
+# metadata:
+#   template: document-generation@1.0
 
 requiredVersions:
   azd: '>= 1.18.0'

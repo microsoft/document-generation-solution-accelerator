@@ -140,10 +140,12 @@ def test_generate_prompt(setup_pages, question, request):
             else:
                 logger.warning(f"Invalid response received on attempt {attempt}")
                 if attempt == MAX_RETRIES:
-                    check.not_equal(
-                        latest_response not in [invalid_response, invalid_response1],
-                        f"FAILED: Invalid response received after {MAX_RETRIES} attempts for: {question}",
-                    )
+                    with check:
+                        # pylint: disable=no-member
+                        check.not_equal(latest_response, invalid_response, 
+                            f"FAILED: Invalid response received after {MAX_RETRIES} attempts for: {question}")
+                        check.not_equal(latest_response, invalid_response1, 
+                            f"FAILED: Invalid response received after {MAX_RETRIES} attempts for: {question}")
                 else:
                     time.sleep(RETRY_DELAY)
             attempt += 1
