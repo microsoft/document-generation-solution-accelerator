@@ -1,4 +1,6 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+environment:
+  name: document-generation
+  location: eastus
 
 name: document-generation
 metadata:
@@ -7,32 +9,33 @@ metadata:
 requiredVersions:
   azd: '>= 1.18.0'
 
-# No services defined - Container App is fully managed by Bicep
-# This prevents azd from trying to use its broken Container Apps integration
+parameters:
+  solutionPrefix:
+    type: string
+    default: bs-azdtest  
+  otherLocation:
+    type: string
+    default: eastus2
+  baseUrl:
+    type: string
+    default: 'https://github.com/microsoft/document-generation-solution-accelerator'
+
+deployment:
+  mode: Incremental
+  template: ./infra/main.bicep  # Path to the main.bicep file inside the 'deployment' folder
+  parameters:
+    solutionPrefix: ${parameters.solutionPrefix}
+    otherLocation: ${parameters.otherLocation}
+    baseUrl: ${parameters.baseUrl}
 
 hooks:
-  preprovision:
-    windows:
-      shell: pwsh
-      run: |
-        ./scripts/auth_init.ps1
-        Write-Host "Building and pushing Docker image to ACR..." -ForegroundColor Yellow
-        ./scripts/build-push-acr.ps1
-      interactive: true
-      continueOnError: false
-    posix:
-      shell: sh
-      run: |
-        ./scripts/auth_init.sh
-        echo "Building and pushing Docker image to ACR..."
-        bash ./scripts/build-push-acr.sh
-      interactive: true
-      continueOnError: false
   postprovision:
     windows:
       run: |
         ./scripts/auth_update.ps1
-        Write-Host "Web app URL: "
+        Write-Host "`nBuilding and pushing Docker image to ACR..." -ForegroundColor Yellow
+        ./scripts/build-push-acr.ps1
+        Write-Host "`nWeb app URL: "
         Write-Host "$env:WEB_APP_URL" -ForegroundColor Cyan
         Write-Host "`nIf you want to use the Sample Data, run the following command in the Bash terminal to process it:"
         Write-Host "bash ./infra/scripts/process_sample_data.sh" -ForegroundColor Cyan
@@ -42,6 +45,10 @@ hooks:
     posix:
       run: |
         ./scripts/auth_update.sh
+        echo ""
+        echo "Building and pushing Docker image to ACR..."
+        bash ./scripts/build-push-acr.sh
+        echo ""
         echo "Web app URL: "
         echo $WEB_APP_URL
         echo ""
