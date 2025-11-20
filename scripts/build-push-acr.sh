@@ -36,7 +36,7 @@ IMAGE_NAME="document-generation/backend"
 FULL_IMAGE_NAME="${REGISTRY_NAME}.azurecr.io/${IMAGE_NAME}:${IMAGE_TAG}"
 
 echo "Building Docker image: $FULL_IMAGE_NAME"
-docker build -f Dockerfile.backend -t "$FULL_IMAGE_NAME" --platform linux/amd64 .
+docker build -f src/WebApp.Dockerfile -t "$FULL_IMAGE_NAME" --platform linux/amd64 ./src
 if [ $? -ne 0 ]; then
     echo "ERROR: Docker build failed"
     exit 1

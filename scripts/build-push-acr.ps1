@@ -37,7 +37,7 @@ $imageName = "document-generation/backend"
 $fullImageName = "${registryName}.azurecr.io/${imageName}:${imageTag}"
 
 Write-Host "Building Docker image: $fullImageName" -ForegroundColor Yellow
-docker build -f Dockerfile.backend -t $fullImageName --platform linux/amd64 .
+docker build -f src/WebApp.Dockerfile -t $fullImageName --platform linux/amd64 ./src
 if ($LASTEXITCODE -ne 0) {
     Write-Host "ERROR: Docker build failed" -ForegroundColor Red
     exit 1
