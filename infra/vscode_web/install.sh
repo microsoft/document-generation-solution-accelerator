@@ -1,3 +1,3 @@
 pip install -r requirements.txt --user -q
 
-azd init -t microsoft/agentic-applications-for-unified-data-foundation-solution-accelerator -b fb-vscodeweb
+azd init -t microsoft/document-generation-solution-accelerator -b dgvscodeweb
