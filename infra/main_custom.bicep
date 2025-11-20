@@ -1176,23 +1176,21 @@ module webSite 'modules/web-sites.bicep' = {
   name: take('module.web-sites.${webSiteResourceName}', 64)
   params: {
     name: webSiteResourceName
-    tags: tags
+    tags: union(tags, { 'azd-service-name': 'webapp' })
     location: solutionLocation
-    kind: 'app,linux,container'
+    kind: 'app,linux'
     serverFarmResourceId: webServerFarm.outputs.resourceId
     managedIdentities: { userAssignedResourceIds: [userAssignedIdentity!.outputs.resourceId] }
     siteConfig: {
-      linuxFxVersion: 'DOCKER|${containerRegistryName}.azurecr.io/document-generation/backend:${imageTag}'
+      linuxFxVersion: 'PYTHON|3.11'
       minTlsVersion: '1.2'
-      acrUseManagedIdentityCreds: true
-      acrUserManagedIdentityID: userAssignedIdentity.outputs.clientId
+      appCommandLine: 'gunicorn -b 0.0.0.0:8000 app:app'
     }
     configs: concat([
       {
         name: 'appsettings'
         properties: {
-          SCM_DO_BUILD_DURING_DEPLOYMENT: 'true'
-          DOCKER_REGISTRY_SERVER_URL: 'https://${containerRegistryName}.azurecr.io'
+          SCM_DO_BUILD_DURING_DEPLOYMENT: 'false'
           AUTH_ENABLED: 'false'
           AZURE_SEARCH_SERVICE: aiSearch.outputs.name
           AZURE_SEARCH_INDEX: azureSearchIndex
