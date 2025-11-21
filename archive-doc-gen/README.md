@@ -1,7 +1,9 @@
-# Content generation solution accelerator
+# Document generation solution accelerator
 
-This solution accelerator is an internal chatbot that can interpret and
-understand context and direction from a creative brief to create multi-modal text and image content for a marketing ad campaign.​ 
+This solution accelerator is a powerful tool that helps you create your own AI assistant for document generation. The accelerator can be used by any customer looking for reusable architecture and code snippets to build an AI assistant to generate a sample template and content grounded on their own enterprise data. 
+
+This example focuses on a generic use case - chat with your own data, generate a document template using your own data, and exporting the document in a docx format.
+
 <br/>
 
 <div align="center">
@@ -14,7 +16,7 @@ understand context and direction from a creative brief to create multi-modal tex
 **Note:** With any AI solutions you create using these templates, you are responsible for assessing all associated risks and for complying with all applicable laws and safety standards. Learn more in the transparency documents for [Agent Service](https://learn.microsoft.com/en-us/azure/ai-foundry/responsible-ai/agents/transparency-note) and [Agent Framework](https://github.com/microsoft/agent-framework/blob/main/TRANSPARENCY_FAQ.md).
 <br/>
 
-<h2><img src="./docs/images/readme/solution_overview.png" width="48" />
+<h2><img src="./docs/images/readme/solution-overview.png" width="48" />
 Solution overview
 </h2>
 
@@ -23,7 +25,7 @@ It leverages Azure OpenAI Service and Azure AI Search, to identify relevant docu
 The sample data is sourced from generic AI-generated promissory notes. The documents are intended for use as sample data only.
 
 ### Solution architecture
-|TBD|
+|![image](./docs/images/DocGen_Azure_AI_Foundry_Architecture.png)|
 |---|
 
 
@@ -44,13 +46,21 @@ The sample data is sourced from generic AI-generated promissory notes. The docum
 <details open>
   <summary>Click to learn more about the key features this solution enables</summary>
 
-  - **TBD** <br/>
-  Azure...​
-       
+  - **Semantic search** <br/>
+  Azure AI Search to enable RAG and grounding of the application on the processed dataset.​
+  
+  - **Summarization** <br/>
+  Azure OpenAI Service and GPT models to help summarize the search content and answer questions.​
+
+  - **Content generation** <br/>
+  Azure OpenAI Service and GPT models to help generate relevant content with Prompt Flow.​
+     
 </details>
 
+
+
 <br /><br />
-<h2><img src="./docs/images/readme/quick_deploy.png" width="48" />
+<h2><img src="./docs/images/readme/quick-deploy.png" width="48" />
 Quick deploy
 </h2>
 
@@ -147,7 +157,7 @@ Put your data to work by reducing blank page anxiety, speeding up document draft
 
 <br /><br />
 
-<h2><img src="./docs/images/readme/supporting_documentation.png" width="48" />
+<h2><img src="./docs/images/readme/supporting-documentation.png" width="48" />
 Supporting documentation
 </h2>
 
