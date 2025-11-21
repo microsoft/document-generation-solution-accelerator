@@ -1,5 +1,5 @@
 from azure.keyvault.secrets import SecretClient
-from openai import AzureOpenAI
+from azure.ai.inference import EmbeddingsClient
 import re
 import time
 import pypdf
@@ -7,7 +7,7 @@ from io import BytesIO
 from azure.search.documents import SearchClient
 from azure.storage.filedatalake import DataLakeServiceClient
 from azure.search.documents.indexes import SearchIndexClient
-from azure.identity import (AzureCliCredential, get_bearer_token_provider)
+from azure.identity import AzureCliCredential
 
 
 key_vault_name = 'kv_to-be-replaced'
@@ -60,16 +60,14 @@ print("Azure Search setup complete.")
 # Function: Get Embeddings
 def get_embeddings(text: str, openai_api_base, openai_api_version):
     model_id = "text-embedding-ada-002"
-    ad_token_provider = get_bearer_token_provider(
-        credential, "https://cognitiveservices.azure.com/.default"
-    )
-    client = AzureOpenAI(
-        api_version=openai_api_version,
-        azure_endpoint=openai_api_base,
-        azure_ad_token_provider=ad_token_provider
+    client = EmbeddingsClient(
+        endpoint=f"{openai_api_base}/openai/deployments/{model_id}",
+        credential=credential,
+        credential_scopes=["https://cognitiveservices.azure.com/.default"]
     )
 
-    embedding = client.embeddings.create(input=text, model=model_id).data[0].embedding
+    response = client.embed(input=[text])
+    embedding = response.data[0].embedding
     return embedding
 
 

@@ -20,6 +20,7 @@ import requests
 import tiktoken
 from azure.ai.documentintelligence import DocumentIntelligenceClient
 from azure.ai.documentintelligence.models import AnalyzeDocumentRequest
+from azure.ai.inference import EmbeddingsClient
 from azure.core.credentials import AzureKeyCredential
 from azure.storage.blob import ContainerClient
 from bs4 import BeautifulSoup
@@ -28,7 +29,6 @@ from langchain.text_splitter import (MarkdownTextSplitter,
                                      PythonCodeTextSplitter,
                                      RecursiveCharacterTextSplitter,
                                      TextSplitter)
-from openai import AzureOpenAI
 from tqdm import tqdm
 
 # Configure environment variables
@@ -844,22 +844,26 @@ def get_embedding(
             api_version = "2024-02-01"
 
             if azure_credential is not None:
-                api_key = azure_credential.get_token(
-                    "https://cognitiveservices.azure.com/.default"
-                ).token
+                # Use managed identity credential with credential_scopes parameter
+                client = EmbeddingsClient(
+                    endpoint=f"{endpoint}/openai/deployments/{deployment_id}",
+                    credential=azure_credential,
+                    credential_scopes=["https://cognitiveservices.azure.com/.default"]
+                )
             else:
+                # Use API key credential
                 api_key = (
                     embedding_model_key
                     if embedding_model_key
                     else os.getenv("AZURE_OPENAI_API_KEY")
                 )
-
-            client = AzureOpenAI(
-                api_version=api_version, azure_endpoint=endpoint, api_key=api_key
-            )
-            embeddings = client.embeddings.create(model=deployment_id, input=text)
-
-            return embeddings.model_dump()["data"][0]["embedding"]
+                client = EmbeddingsClient(
+                    endpoint=f"{endpoint}/openai/deployments/{deployment_id}",
+                    credential=AzureKeyCredential(api_key)
+                )
+            
+            response = client.embed(input=[text])
+            return response.data[0].embedding
 
     except Exception as e:
         raise Exception(
