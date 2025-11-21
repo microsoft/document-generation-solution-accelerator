@@ -43,7 +43,7 @@ key_vault_name = 'kv_to-be-replaced'
 
 def get_secrets_from_kv(secret_name: str) -> str:
     """Retrieves a secret value from Azure Key Vault.
-    
+
     Args:
         secret_name: Name of the secret
 
