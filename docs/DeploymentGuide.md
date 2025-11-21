@@ -226,6 +226,22 @@ Once you've opened the project in [Codespaces](#github-codespaces), [Dev Contain
 
      - Follow steps in [Delete Resource Group](./DeleteResourceGroup.md) if your deployment fails and/or you need to clean up the resources.
 
+## Deploy Your Local Changes
+
+To deploy your local changes, rename the below files:
+
+1. **Rename configuration files in the root directory:**
+   - Rename `azure.yaml` to `azure_original.yaml`
+   - Rename `azure_custom.yaml` to `azure.yaml`
+
+2. **Go to `infra` directory and rename Bicep files:**
+   - Rename `main.bicep` to `main_original.bicep`
+   - Rename `main_custom.bicep` to `main.bicep`
+
+3. Continue with the [deploying steps](#deploying-with-azd).
+
+> **Note:** After deployment, you may want to revert these file name changes or commit your custom files to version control.
+
 ## Environment configuration for local development & debugging
 > Set APP_ENV in your .env file to control Azure authentication. Set the environment variable to dev to use Azure CLI credentials, or to prod to use Managed Identity for production. **Ensure you're logged in via az login when using dev in local**.
 To configure your environment, follow these steps:
