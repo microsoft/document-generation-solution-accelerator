@@ -240,8 +240,6 @@ To deploy your local changes, rename the below files:
 
 3. Continue with the [deploying steps](#deploying-with-azd).
 
-> **Note:** After deployment, you may want to revert these file name changes or commit your custom files to version control.
-
 ## Environment configuration for local development & debugging
 > Set APP_ENV in your .env file to control Azure authentication. Set the environment variable to dev to use Azure CLI credentials, or to prod to use Managed Identity for production. **Ensure you're logged in via az login when using dev in local**.
 To configure your environment, follow these steps:
