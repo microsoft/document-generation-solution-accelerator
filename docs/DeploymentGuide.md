@@ -230,8 +230,7 @@ Once you've opened the project in [Codespaces](#github-codespaces), [Dev Contain
 
 To deploy your local changes, rename the below files:
 
-1. **Rename configuration files:**
-   - Rename `azure.yaml` to `azure_custom2.yaml` and `azure_custom.yaml` to `azure.yaml`.
+1.  Rename `azure.yaml` to `azure_custom2.yaml` and `azure_custom.yaml` to `azure.yaml`.
 
 2. **Go to `infra` directory:**
    - Rename `main.bicep` to `main_custom2.bicep` and `main_custom.bicep` to `main.bicep`.
