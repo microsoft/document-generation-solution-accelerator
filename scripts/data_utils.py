@@ -13,6 +13,7 @@ from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
 from functools import partial
 from typing import Any, Callable, Dict, Generator, List, Optional, Tuple, Union
+from urllib.parse import urlparse
 
 import fitz
 import markdown
@@ -22,6 +23,8 @@ from azure.ai.documentintelligence import DocumentIntelligenceClient
 from azure.ai.documentintelligence.models import AnalyzeDocumentRequest
 from azure.ai.inference import EmbeddingsClient
 from azure.core.credentials import AzureKeyCredential
+from azure.identity import AzureCliCredential
+from azure.keyvault.secrets import SecretClient
 from azure.storage.blob import ContainerClient
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
@@ -33,6 +36,27 @@ from tqdm import tqdm
 
 # Configure environment variables
 load_dotenv()  # take environment variables from .env.
+
+# Key Vault name - replaced during deployment
+key_vault_name = 'kv_to-be-replaced'
+
+
+def get_secrets_from_kv(secret_name: str) -> str:
+    """Retrieves a secret value from Azure Key Vault.
+    
+    Args:
+        secret_name: Name of the secret
+    
+    Returns:
+        The secret value
+    """
+    kv_credential = AzureCliCredential()
+    secret_client = SecretClient(
+        vault_url=f"https://{key_vault_name}.vault.azure.net/",
+        credential=kv_credential
+    )
+    return secret_client.get_secret(secret_name).value
+
 
 FILE_FORMAT_DICT = {
     "md": "markdown",
@@ -825,47 +849,33 @@ def get_payload_and_headers_cohere(text, aad_token) -> Tuple[Dict, Dict]:
 def get_embedding(
     text, embedding_model_endpoint=None, embedding_model_key=None, azure_credential=None
 ):
-    endpoint = (
-        embedding_model_endpoint
-        if embedding_model_endpoint
-        else os.environ.get("EMBEDDING_MODEL_ENDPOINT")
-    )
-
-    FLAG_EMBEDDING_MODEL = os.getenv("FLAG_EMBEDDING_MODEL", "AOAI")
-
-    if azure_credential is None and (endpoint is None):
-        raise Exception(
-            "EMBEDDING_MODEL_ENDPOINT and EMBEDDING_MODEL_KEY are required for embedding"
-        )
+    # Get AI Project endpoint from Key Vault
+    ai_project_endpoint = get_secrets_from_kv("AZURE-AI-AGENT-ENDPOINT")
+    
+    # Construct inference endpoint: https://aif-xyz.services.ai.azure.com/models
+    inference_endpoint = f"https://{urlparse(ai_project_endpoint).netloc}/models"
+    embedding_model = "text-embedding-ada-002"
 
     try:
-        if FLAG_EMBEDDING_MODEL == "AOAI":
-            deployment_id = "embedding"
-
-            if azure_credential is not None:
-                # Use managed identity credential with credential_scopes parameter
-                client = EmbeddingsClient(
-                    endpoint=f"{endpoint}/openai/deployments/{deployment_id}",
-                    credential=azure_credential,
-                    credential_scopes=["https://cognitiveservices.azure.com/.default"]
-                )
-            else:
-                # Use API key credential
-                api_key = (
-                    embedding_model_key
-                    if embedding_model_key
-                    else os.getenv("AZURE_OPENAI_API_KEY")
-                )
-                client = EmbeddingsClient(
-                    endpoint=f"{endpoint}/openai/deployments/{deployment_id}",
-                    credential=AzureKeyCredential(api_key)
-                )
-            response = client.embed(input=[text])
-            return response.data[0].embedding
+        if azure_credential is not None:
+            embeddings_client = EmbeddingsClient(
+                endpoint=inference_endpoint,
+                credential=azure_credential,
+                credential_scopes=["https://cognitiveservices.azure.com/.default"]
+            )
+        else:
+            api_key = embedding_model_key or os.getenv("AZURE_OPENAI_API_KEY")
+            embeddings_client = EmbeddingsClient(
+                endpoint=inference_endpoint,
+                credential=AzureKeyCredential(api_key)
+            )
+        
+        response = embeddings_client.embed(model=embedding_model, input=[text])
+        return response.data[0].embedding
 
     except Exception as e:
         raise Exception(
-            f"Error getting embeddings with endpoint={endpoint} with error={e}"
+            f"Error getting embeddings with endpoint={inference_endpoint} with error={e}"
         )
 
 

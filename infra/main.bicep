@@ -1105,6 +1105,11 @@ module keyvault 'br/public:avm/res/key-vault/vault:0.12.1' = {
       {name: 'AZURE-OPENAI-PREVIEW-API-VERSION', value: azureOpenaiAPIVersion}
       {name: 'AZURE-OPEN-AI-DEPLOYMENT-MODEL', value: gptModelName}
       {name: 'TENANT-ID', value: subscription().tenantId}
+      {
+        name: 'AZURE-AI-AGENT-ENDPOINT'
+        value: aiFoundryAiProjectEndpoint
+      }
+      
     ]
   }
   dependsOn:[

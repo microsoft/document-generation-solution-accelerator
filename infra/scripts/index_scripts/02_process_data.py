@@ -4,6 +4,7 @@ import re
 import time
 import pypdf
 from io import BytesIO
+from urllib.parse import urlparse
 from azure.search.documents import SearchClient
 from azure.storage.filedatalake import DataLakeServiceClient
 from azure.search.documents.indexes import SearchIndexClient
@@ -36,9 +37,7 @@ def get_secrets_from_kv(secret_name: str) -> str:
 
 # Retrieve secrets from Key Vault
 search_endpoint = get_secrets_from_kv("AZURE-SEARCH-ENDPOINT")
-openai_api_base = get_secrets_from_kv("AZURE-OPENAI-ENDPOINT")
-openai_api_version = get_secrets_from_kv("AZURE-OPENAI-PREVIEW-API-VERSION")
-deployment = get_secrets_from_kv("AZURE-OPEN-AI-DEPLOYMENT-MODEL")
+ai_project_endpoint = get_secrets_from_kv("AZURE-AI-AGENT-ENDPOINT")
 account_name = get_secrets_from_kv("ADLS-ACCOUNT-NAME")
 print("Secrets retrieved from Key Vault.")
 
@@ -58,15 +57,29 @@ print("Azure Search setup complete.")
 
 
 # Function: Get Embeddings
-def get_embeddings(text: str, openai_api_base, openai_api_version):
-    model_id = "text-embedding-ada-002"
-    client = EmbeddingsClient(
-        endpoint=f"{openai_api_base}/openai/deployments/{model_id}",
+def get_embeddings(text: str, ai_project_endpoint: str):
+    """Get embeddings using Azure AI Foundry SDK.
+    
+    Args:
+        text: Text to embed
+        ai_project_endpoint: Azure AI Project endpoint from Key Vault
+                            (e.g., https://aif-xyz.services.ai.azure.com/api/projects/proj-xyz)
+    
+    Returns:
+        List of embedding values
+    """
+    embedding_model = "text-embedding-ada-002"
+    
+    # Construct inference endpoint with /models path
+    inference_endpoint = f"https://{urlparse(ai_project_endpoint).netloc}/models"
+    
+    embeddings_client = EmbeddingsClient(
+        endpoint=inference_endpoint,
         credential=credential,
         credential_scopes=["https://cognitiveservices.azure.com/.default"]
     )
 
-    response = client.embed(input=[text])
+    response = embeddings_client.embed(model=embedding_model, input=[text])
     embedding = response.data[0].embedding
     return embedding
 
@@ -124,12 +137,12 @@ def prepare_search_doc(content, document_id):
         chunk_id = f"{document_id}_{str(idx).zfill(2)}"
 
         try:
-            v_contentVector = get_embeddings(str(chunk), openai_api_base, openai_api_version)
+            v_contentVector = get_embeddings(str(chunk), ai_project_endpoint)
         except Exception as e:
             print(f"Error occurred: {e}. Retrying after 30 seconds...")
             time.sleep(30)
             try:
-                v_contentVector = get_embeddings(str(chunk), openai_api_base, openai_api_version)
+                v_contentVector = get_embeddings(str(chunk), ai_project_endpoint)
             except Exception as e:
                 print(f"Retry failed: {e}. Setting v_contentVector to an empty list.")
                 v_contentVector = []
