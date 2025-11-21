@@ -58,21 +58,10 @@ print("Azure Search setup complete.")
 
 # Function: Get Embeddings
 def get_embeddings(text: str, ai_project_endpoint: str):
-    """Get embeddings using Azure AI Foundry SDK.
-    
-    Args:
-        text: Text to embed
-        ai_project_endpoint: Azure AI Project endpoint from Key Vault
-                            (e.g., https://aif-xyz.services.ai.azure.com/api/projects/proj-xyz)
-    
-    Returns:
-        List of embedding values
-    """
     embedding_model = "text-embedding-ada-002"
-    
     # Construct inference endpoint with /models path
     inference_endpoint = f"https://{urlparse(ai_project_endpoint).netloc}/models"
-    
+
     embeddings_client = EmbeddingsClient(
         endpoint=inference_endpoint,
         credential=credential,

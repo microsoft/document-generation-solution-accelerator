@@ -46,7 +46,7 @@ def get_secrets_from_kv(secret_name: str) -> str:
     
     Args:
         secret_name: Name of the secret
-    
+
     Returns:
         The secret value
     """
@@ -851,7 +851,7 @@ def get_embedding(
 ):
     # Get AI Project endpoint from Key Vault
     ai_project_endpoint = get_secrets_from_kv("AZURE-AI-AGENT-ENDPOINT")
-    
+
     # Construct inference endpoint: https://aif-xyz.services.ai.azure.com/models
     inference_endpoint = f"https://{urlparse(ai_project_endpoint).netloc}/models"
     embedding_model = "text-embedding-ada-002"
@@ -869,7 +869,7 @@ def get_embedding(
                 endpoint=inference_endpoint,
                 credential=AzureKeyCredential(api_key)
             )
-        
+
         response = embeddings_client.embed(model=embedding_model, input=[text])
         return response.data[0].embedding
 
