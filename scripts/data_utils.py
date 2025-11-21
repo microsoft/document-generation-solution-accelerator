@@ -841,7 +841,6 @@ def get_embedding(
     try:
         if FLAG_EMBEDDING_MODEL == "AOAI":
             deployment_id = "embedding"
-            api_version = "2024-02-01"
 
             if azure_credential is not None:
                 # Use managed identity credential with credential_scopes parameter
@@ -861,7 +860,6 @@ def get_embedding(
                     endpoint=f"{endpoint}/openai/deployments/{deployment_id}",
                     credential=AzureKeyCredential(api_key)
                 )
-            
             response = client.embed(input=[text])
             return response.data[0].embedding
 
