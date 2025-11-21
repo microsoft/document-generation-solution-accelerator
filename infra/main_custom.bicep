@@ -1109,36 +1109,6 @@ module keyvault 'br/public:avm/res/key-vault/vault:0.12.1' = {
   ]
 }
 
-// ========== Container Registry ========== //
-var containerRegistryName = take('acr${solutionSuffix}', 50) // ACR names must be 5-50 characters
-module containerRegistry 'br/public:avm/res/container-registry/registry:0.7.1' = {
-  name: take('avm.res.container-registry.registry.${containerRegistryName}', 64)
-  params: {
-    name: containerRegistryName
-    location: solutionLocation
-    tags: tags
-    acrSku: 'Basic'
-    acrAdminUserEnabled: true
-    enableTelemetry: enableTelemetry
-    roleAssignments: [
-      {
-        roleDefinitionIdOrName: 'AcrPull'
-        principalId: userAssignedIdentity.outputs.principalId
-        principalType: 'ServicePrincipal'
-      }
-      {
-        roleDefinitionIdOrName: 'AcrPush'
-        principalId: userAssignedIdentity.outputs.principalId
-        principalType: 'ServicePrincipal'
-      }
-    ]
-    // WAF aligned configuration for Monitoring
-    diagnosticSettings: enableMonitoring ? [{ workspaceResourceId: logAnalyticsWorkspaceResourceId }] : null
-    // WAF aligned configuration for Private Networking
-    publicNetworkAccess: enablePrivateNetworking ? 'Disabled' : 'Enabled'
-  }
-}
-
 // ========== Frontend server farm ========== //
 var webServerFarmResourceName = 'asp-${solutionSuffix}'
 module webServerFarm 'br/public:avm/res/web/serverfarm:0.5.0' = {
@@ -1260,9 +1230,6 @@ output STORAGE_ACCOUNT_NAME string = storageAccount.outputs.name
 
 @description('Contains Storage Container Name')
 output STORAGE_CONTAINER_NAME string = azureSearchContainer
-
-@description('Contains Container Registry Name')
-output AZURE_CONTAINER_REGISTRY_NAME string = containerRegistry.outputs.name
 
 @description('Contains KeyVault Name')
 output KEY_VAULT_NAME string = keyvault.outputs.name
