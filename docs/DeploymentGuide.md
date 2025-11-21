@@ -230,13 +230,11 @@ Once you've opened the project in [Codespaces](#github-codespaces), [Dev Contain
 
 To deploy your local changes, rename the below files:
 
-1. **Rename configuration files in the root directory:**
-   - Rename `azure.yaml` to `azure_original.yaml`
-   - Rename `azure_custom.yaml` to `azure.yaml`
+1. **Rename configuration files:**
+   - Rename `azure.yaml` to `azure_custom2.yaml` and `azure_custom.yaml` to `azure.yaml`.
 
-2. **Go to `infra` directory and rename Bicep files:**
-   - Rename `main.bicep` to `main_original.bicep`
-   - Rename `main_custom.bicep` to `main.bicep`
+2. **Go to `infra` directory:**
+   - Rename `main.bicep` to `main_custom2.bicep` and `main_custom.bicep` to `main.bicep`.
 
 3. Continue with the [deploying steps](#deploying-with-azd).
 
