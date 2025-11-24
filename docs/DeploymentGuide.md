@@ -209,10 +209,11 @@ Once you've opened the project in [Codespaces](#github-codespaces), [Dev Contain
 
 6. Open the [Azure Portal](https://portal.azure.com/), go to the deployed resource group, find the App Service and get the app URL from `Default domain`.
 
-7. You can now delete the resources by running `azd down`, if you are done trying out the application. 
+7. You can now delete the resources by running `azd down`, if you are done trying out the application.
+   > **Note:** If you deployed with `enableRedundancy=true` and Log Analytics workspace replication is enabled, you must first disable replication before running `azd down` else resource group delete will fail. Follow the steps in [Handling Log Analytics Workspace Deletion with Replication Enabled](./LogAnalyticsReplicationDisable.md), wait until replication returns `false`, then run `azd down`.
 
 ### 🛠️ Troubleshooting
- If you encounter any issues during the deployment process, please refer  [troubleshooting](../docs/TroubleShootingSteps.md) document for detailed steps and solutions
+ If you encounter any issues during the deployment process, please refer [troubleshooting](../docs/TroubleShootingSteps.md) document for detailed steps and solutions
 
 ## Post Deployment Steps
 
@@ -225,6 +226,17 @@ Once you've opened the project in [Codespaces](#github-codespaces), [Dev Contain
 2. **Deleting Resources After a Failed Deployment**  
 
      - Follow steps in [Delete Resource Group](./DeleteResourceGroup.md) if your deployment fails and/or you need to clean up the resources.
+
+## Deploy Your Local Changes
+
+To deploy your local changes, rename the below files:
+
+1.  Rename `azure.yaml` to `azure_custom2.yaml` and `azure_custom.yaml` to `azure.yaml`.
+
+2. **Go to `infra` directory:**
+   - Rename `main.bicep` to `main_custom2.bicep` and `main_custom.bicep` to `main.bicep`.
+
+3. Continue with the [deploying steps](#deploying-with-azd).
 
 ## Environment configuration for local development & debugging
 > Set APP_ENV in your .env file to control Azure authentication. Set the environment variable to dev to use Azure CLI credentials, or to prod to use Managed Identity for production. **Ensure you're logged in via az login when using dev in local**.
