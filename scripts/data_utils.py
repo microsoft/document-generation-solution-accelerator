@@ -857,18 +857,12 @@ def get_embedding(
     embedding_model = "text-embedding-ada-002"
 
     try:
-        if azure_credential is not None:
-            embeddings_client = EmbeddingsClient(
-                endpoint=inference_endpoint,
-                credential=azure_credential,
-                credential_scopes=["https://cognitiveservices.azure.com/.default"]
-            )
-        else:
-            api_key = embedding_model_key or os.getenv("AZURE_OPENAI_API_KEY")
-            embeddings_client = EmbeddingsClient(
-                endpoint=inference_endpoint,
-                credential=AzureKeyCredential(api_key)
-            )
+        credential = azure_credential if azure_credential is not None else AzureCliCredential()
+        embeddings_client = EmbeddingsClient(
+            endpoint=inference_endpoint,
+            credential=credential,
+            credential_scopes=["https://cognitiveservices.azure.com/.default"]
+        )
 
         response = embeddings_client.embed(model=embedding_model, input=[text])
         return response.data[0].embedding
