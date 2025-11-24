@@ -13,10 +13,15 @@ repo_root = os.getenv("GITHUB_WORKSPACE", os.getcwd())
 # browse input data
 browse_question1 = "What are typical sections in a promissory note?"
 browse_question2 = "List the details of two promissory notes governed by the laws of the state of California"
+browse_question3 = "List all documents and their value"
+browse_question4 = "list each promissory note, the borrower name, the lender name, the amount, and the interest rate in table format where the interest rate is not 5%"
+browse_question5 = "list each promissory note, the borrower name, the lender name, the amount, and the interest rate in tabular format where the interest rate is not 5%"
 
 # Generate input data
 generate_question1 = "Generate promissory note for Washington State"
 add_section = "Add Payment acceleration clause after the payment terms sections"
+
+remove_section = "Remove Borrower Information Promissory note"
 
 # Response Text Data
 invalid_response = "I was unable to find content related to your query and could not generate a template. Please try again."
