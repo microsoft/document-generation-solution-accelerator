@@ -1,3 +1,3 @@
 pip install -r requirements.txt --user -q
 
-azd init -t microsoft/document-generation-solution-accelerator
+azd init -t microsoft/document-generation-solution-accelerator -b docgen-vscodeweb
