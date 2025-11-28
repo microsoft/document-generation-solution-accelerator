@@ -34,6 +34,31 @@ class _UiSettings(BaseSettings):
     show_share_button: bool = False
 
 
+class _LoggingSettings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="AZURE_", env_file=DOTENV_PATH, extra="ignore", env_ignore_empty=True
+    )
+
+    basic_logging_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
+    package_logging_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "WARNING"
+    logging_packages: Optional[List[str]] = []
+
+    @field_validator("logging_packages", mode="before")
+    @classmethod
+    def split_logging_packages(cls, packages) -> Optional[List[str]]:
+        if isinstance(packages, str) and len(packages.strip()) > 0:
+            return [pkg.strip() for pkg in packages.split(",") if pkg.strip()]
+        return None
+
+    def get_basic_log_level(self) -> int:
+        """Convert string log level to logging constant"""
+        return getattr(logging, self.basic_logging_level.upper())
+
+    def get_package_log_level(self) -> int:
+        """Convert string package log level to logging constant"""
+        return getattr(logging, self.package_logging_level.upper())
+
+
 class _ChatHistorySettings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="AZURE_COSMOSDB_",
@@ -367,6 +392,7 @@ class _AppSettings(BaseModel):
     azure_ai: _AzureAISettings = _AzureAISettings()
     search: _SearchCommonSettings = _SearchCommonSettings()
     ui: Optional[_UiSettings] = _UiSettings()
+    logging: _LoggingSettings = _LoggingSettings()
 
     # Constructed properties
     chat_history: Optional[_ChatHistorySettings] = None

@@ -1209,6 +1209,9 @@ module webSite 'modules/web-sites.bicep' = {
           UWSGI_THREADS: '2'
           APP_ENV: appEnvironment
           AZURE_CLIENT_ID: userAssignedIdentity.outputs.clientId
+          AZURE_BASIC_LOGGING_LEVEL: 'INFO'
+          AZURE_PACKAGE_LOGGING_LEVEL: 'WARNING'
+          AZURE_LOGGING_PACKAGES: ''
         }
         // WAF aligned configuration for Monitoring
         applicationInsightResourceId: enableMonitoring ? applicationInsights!.outputs.resourceId : null
