@@ -83,6 +83,24 @@ fi
         echo "User already has the Azure AI User role."
     fi
 
+### Assign Cognitive Services OpenAI User role to the signed in user ###
+
+    # Check if the user has the Cognitive Services OpenAI User role
+    echo "Checking if user has the Cognitive Services OpenAI User role"
+    role_assignment=$(MSYS_NO_PATHCONV=1 az role assignment list --role 5e0bd9bd-7b93-4f28-af87-19fc36ad61bd --scope $aif_resource_id --assignee $signed_user_id --query "[].roleDefinitionId" -o tsv)
+    if [ -z "$role_assignment" ]; then
+        echo "User does not have the Cognitive Services OpenAI User role. Assigning the role."
+        MSYS_NO_PATHCONV=1 az role assignment create --assignee $signed_user_id --role 5e0bd9bd-7b93-4f28-af87-19fc36ad61bd --scope $aif_resource_id --output none
+        if [ $? -eq 0 ]; then
+            echo "Cognitive Services OpenAI User role assigned successfully."
+        else
+            echo "Failed to assign Cognitive Services OpenAI User role."
+            exit 1
+        fi
+    else
+        echo "User already has the Cognitive Services OpenAI User role."
+    fi
+
 ### Assign Search Index Data Contributor role to the signed in user ###
 
     echo "Getting Azure Search resource id"
