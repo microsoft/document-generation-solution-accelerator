@@ -6,7 +6,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.37.4.10188",
-      "templateHash": "248859536639134473"
+      "templateHash": "15752320925479265002"
     },
     "name": "Document Generation Solution Accelerator",
     "description": "CSA CTO Gold Standard Solution Accelerator for Document Generation.\n"
@@ -23418,9 +23418,9 @@
         }
       },
       "dependsOn": [
+        "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').aiServices)]",
         "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').cognitiveServices)]",
         "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').openAI)]",
-        "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').aiServices)]",
         "logAnalyticsWorkspace",
         "userAssignedIdentity",
         "virtualNetwork"
@@ -35885,6 +35885,10 @@
               {
                 "name": "TENANT-ID",
                 "value": "[subscription().tenantId]"
+              },
+              {
+                "name": "AZURE-AI-AGENT-ENDPOINT",
+                "value": "[if(variables('useExistingAiFoundryAiProject'), format('https://{0}.services.ai.azure.com/api/projects/{1}', variables('aiFoundryAiServicesResourceName'), variables('aiFoundryAiProjectResourceName')), reference('aiFoundryAiServicesProject').outputs.apiEndpoint.value)]"
               }
             ]
           }
@@ -39007,6 +39011,7 @@
         }
       },
       "dependsOn": [
+        "aiFoundryAiServicesProject",
         "aiSearch",
         "avmPrivateDnsZones",
         "cosmosDB",
