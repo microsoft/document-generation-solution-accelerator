@@ -1,0 +1,51 @@
+environment:
+  name: content-generation
+  location: eastus
+
+name: content-generation
+metadata:
+  template: content-generation@1.0
+
+requiredVersions:
+  azd: '>= 1.18.0'
+
+parameters:
+  solutionPrefix:
+    type: string
+    default: contentgen
+  otherLocation:
+    type: string
+    default: eastus2
+  baseUrl:
+    type: string
+    default: 'https://github.com/microsoft/content-generation-solution-accelerator'
+
+deployment:
+  mode: Incremental
+  template: ./infra/main.bicep
+  parameters:
+    solutionPrefix: ${parameters.solutionPrefix}
+    otherLocation: ${parameters.otherLocation}
+    baseUrl: ${parameters.baseUrl}
+
+hooks:
+  postprovision:
+    windows:
+      run: |
+        Write-Host "Web app URL: "
+        Write-Host "$env:WEB_APP_URL" -ForegroundColor Cyan
+        Write-Host "`nTo upload product data, run:"
+        Write-Host "python ./scripts/product_ingestion.py" -ForegroundColor Cyan
+      shell: pwsh
+      continueOnError: false
+      interactive: true
+    posix:
+      run: |
+        echo "Web app URL: "
+        echo $WEB_APP_URL
+        echo ""
+        echo "To upload product data, run:"
+        echo "python ./scripts/product_ingestion.py"
+      shell: sh
+      continueOnError: false
+      interactive: true

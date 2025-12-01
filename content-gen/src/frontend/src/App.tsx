@@ -1,0 +1,303 @@
+import { useState, useCallback } from 'react';
+import {
+  Title1,
+  Subtitle1,
+  Divider,
+  tokens,
+} from '@fluentui/react-components';
+import {
+  Sparkle24Regular,
+} from '@fluentui/react-icons';
+import { v4 as uuidv4 } from 'uuid';
+
+import { ChatPanel } from './components/ChatPanel';
+import { BriefConfirmation } from './components/BriefConfirmation';
+import { ContentPreview } from './components/ContentPreview';
+import { ProductSelector } from './components/ProductSelector';
+import type { ChatMessage, CreativeBrief, Product, GeneratedContent } from './types';
+
+function App() {
+  const [conversationId] = useState<string>(() => uuidv4());
+  const [userId] = useState<string>('demo-user');
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  
+  // Brief confirmation flow
+  const [pendingBrief, setPendingBrief] = useState<CreativeBrief | null>(null);
+  const [confirmedBrief, setConfirmedBrief] = useState<CreativeBrief | null>(null);
+  
+  // Product selection
+  const [selectedProducts, setSelectedProducts] = useState<Product[]>([]);
+  
+  // Generated content
+  const [generatedContent, setGeneratedContent] = useState<GeneratedContent | null>(null);
+
+  const handleSendMessage = useCallback(async (content: string) => {
+    const userMessage: ChatMessage = {
+      id: uuidv4(),
+      role: 'user',
+      content,
+      timestamp: new Date().toISOString(),
+    };
+    
+    setMessages(prev => [...prev, userMessage]);
+    setIsLoading(true);
+    
+    try {
+      // Import dynamically to avoid SSR issues
+      const { streamChat, parseBrief } = await import('./api');
+      
+      // Check if this looks like a creative brief
+      const briefKeywords = ['campaign', 'marketing', 'target audience', 'objective', 'deliverable'];
+      const isBriefLike = briefKeywords.some(kw => content.toLowerCase().includes(kw));
+      
+      if (isBriefLike && !confirmedBrief) {
+        // Parse as a creative brief
+        const parsed = await parseBrief(content);
+        setPendingBrief(parsed.brief);
+        
+        const assistantMessage: ChatMessage = {
+          id: uuidv4(),
+          role: 'assistant',
+          content: 'I\'ve parsed your creative brief. Please review and confirm the details before we proceed.',
+          agent: 'PlanningAgent',
+          timestamp: new Date().toISOString(),
+        };
+        setMessages(prev => [...prev, assistantMessage]);
+      } else {
+        // Stream chat response
+        let fullContent = '';
+        let currentAgent = '';
+        let messageAdded = false;
+        
+        for await (const response of streamChat(content, conversationId, userId)) {
+          if (response.type === 'agent_response') {
+            fullContent = response.content;
+            currentAgent = response.agent || '';
+            
+            // Add message when final OR when requiring user input (interactive response)
+            if ((response.is_final || response.requires_user_input) && !messageAdded) {
+              const assistantMessage: ChatMessage = {
+                id: uuidv4(),
+                role: 'assistant',
+                content: fullContent,
+                agent: currentAgent,
+                timestamp: new Date().toISOString(),
+              };
+              setMessages(prev => [...prev, assistantMessage]);
+              messageAdded = true;
+            }
+          } else if (response.type === 'error') {
+            // Handle error responses
+            const errorMessage: ChatMessage = {
+              id: uuidv4(),
+              role: 'assistant',
+              content: response.content || 'An error occurred while processing your request.',
+              timestamp: new Date().toISOString(),
+            };
+            setMessages(prev => [...prev, errorMessage]);
+            messageAdded = true;
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
+      const errorMessage: ChatMessage = {
+        id: uuidv4(),
+        role: 'assistant',
+        content: 'Sorry, there was an error processing your request. Please try again.',
+        timestamp: new Date().toISOString(),
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [conversationId, userId, confirmedBrief]);
+
+  const handleBriefConfirm = useCallback(async (brief: CreativeBrief) => {
+    try {
+      const { confirmBrief } = await import('./api');
+      await confirmBrief(brief, conversationId, userId);
+      setConfirmedBrief(brief);
+      setPendingBrief(null);
+      
+      const assistantMessage: ChatMessage = {
+        id: uuidv4(),
+        role: 'assistant',
+        content: 'Great! Your creative brief has been confirmed. Now you can select products to feature and generate content.',
+        agent: 'TriageAgent',
+        timestamp: new Date().toISOString(),
+      };
+      setMessages(prev => [...prev, assistantMessage]);
+    } catch (error) {
+      console.error('Error confirming brief:', error);
+    }
+  }, [conversationId, userId]);
+
+  const handleBriefCancel = useCallback(() => {
+    setPendingBrief(null);
+    const assistantMessage: ChatMessage = {
+      id: uuidv4(),
+      role: 'assistant',
+      content: 'No problem. Please provide your creative brief again or ask me any questions.',
+      timestamp: new Date().toISOString(),
+    };
+    setMessages(prev => [...prev, assistantMessage]);
+  }, []);
+
+  const handleGenerateContent = useCallback(async () => {
+    if (!confirmedBrief) return;
+    
+    setIsLoading(true);
+    try {
+      const { streamGenerateContent } = await import('./api');
+      
+      for await (const response of streamGenerateContent(
+        confirmedBrief,
+        selectedProducts,
+        true,
+        conversationId
+      )) {
+        if (response.is_final && response.type !== 'error') {
+          try {
+            const rawContent = JSON.parse(response.content);
+            
+            // Parse text_content if it's a string (from orchestrator)
+            let textContent = rawContent.text_content;
+            if (typeof textContent === 'string') {
+              try {
+                textContent = JSON.parse(textContent);
+              } catch {
+                // Keep as string if not valid JSON
+              }
+            }
+            
+            // Build image_url: prefer blob URL, fallback to base64 data URL
+            let imageUrl: string | undefined;
+            if (rawContent.image_url) {
+              imageUrl = rawContent.image_url;
+            } else if (rawContent.image_base64) {
+              imageUrl = `data:image/png;base64,${rawContent.image_base64}`;
+            }
+            
+            const content: GeneratedContent = {
+              text_content: typeof textContent === 'object' ? {
+                headline: textContent?.headline,
+                body: textContent?.body,
+                cta_text: textContent?.cta,
+                tagline: textContent?.tagline,
+              } : undefined,
+              image_content: (imageUrl || rawContent.image_prompt) ? {
+                image_url: imageUrl,
+                prompt_used: rawContent.image_prompt,
+                alt_text: rawContent.image_revised_prompt || 'Generated marketing image',
+              } : undefined,
+              violations: rawContent.violations || [],
+              requires_modification: rawContent.requires_modification || false,
+            };
+            setGeneratedContent(content);
+            
+            // Add a message to chat showing content was generated
+            const assistantMessage: ChatMessage = {
+              id: uuidv4(),
+              role: 'assistant',
+              content: `Content generated successfully! ${textContent?.headline ? `Headline: "${textContent.headline}"` : ''}`,
+              agent: 'ContentAgent',
+              timestamp: new Date().toISOString(),
+            };
+            setMessages(prev => [...prev, assistantMessage]);
+          } catch (parseError) {
+            console.error('Error parsing generated content:', parseError);
+          }
+        } else if (response.type === 'error') {
+          const errorMessage: ChatMessage = {
+            id: uuidv4(),
+            role: 'assistant',
+            content: `Error generating content: ${response.content}`,
+            timestamp: new Date().toISOString(),
+          };
+          setMessages(prev => [...prev, errorMessage]);
+        }
+      }
+    } catch (error) {
+      console.error('Error generating content:', error);
+      const errorMessage: ChatMessage = {
+        id: uuidv4(),
+        role: 'assistant',
+        content: 'Sorry, there was an error generating content. Please try again.',
+        timestamp: new Date().toISOString(),
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [confirmedBrief, selectedProducts, conversationId]);
+
+  return (
+    <div className="app-container">
+      {/* Header */}
+      <header style={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        gap: '12px',
+        padding: '16px 0',
+        marginBottom: '8px'
+      }}>
+        <Sparkle24Regular style={{ color: tokens.colorBrandForeground1 }} />
+        <div>
+          <Title1>Content Generation Accelerator</Title1>
+          <Subtitle1 style={{ color: tokens.colorNeutralForeground3 }}>
+            AI-powered marketing content creation
+          </Subtitle1>
+        </div>
+      </header>
+      
+      <Divider />
+      
+      {/* Main Content */}
+      <div className="main-content" style={{ marginTop: '16px' }}>
+        {/* Chat Panel */}
+        <div className="chat-panel">
+          <ChatPanel
+            messages={messages}
+            onSendMessage={handleSendMessage}
+            isLoading={isLoading}
+          />
+        </div>
+        
+        {/* Sidebar */}
+        <div className="sidebar-panel">
+          {/* Brief Confirmation */}
+          {pendingBrief && (
+            <BriefConfirmation
+              brief={pendingBrief}
+              onConfirm={handleBriefConfirm}
+              onCancel={handleBriefCancel}
+              onEdit={setPendingBrief}
+            />
+          )}
+          
+          {/* Product Selector */}
+          {confirmedBrief && !generatedContent && (
+            <ProductSelector
+              selectedProducts={selectedProducts}
+              onProductsChange={setSelectedProducts}
+              onGenerate={handleGenerateContent}
+              isLoading={isLoading}
+            />
+          )}
+          
+          {/* Generated Content Preview */}
+          {generatedContent && (
+            <ContentPreview
+              content={generatedContent}
+              onRegenerate={handleGenerateContent}
+            />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default App;
