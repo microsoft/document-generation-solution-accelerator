@@ -47,10 +47,11 @@ if (-not (Test-Path ".azure/config.json")) {
 Write-Host ""
 Write-Host "Starting deployment..." -ForegroundColor Green
 Write-Host "This will deploy the following resources:" -ForegroundColor White
-Write-Host "  - Azure AI Foundry (GPT-5, DALL-E 3)" -ForegroundColor White
+Write-Host "  - Azure AI Foundry (GPT-5.1 for text generation)" -ForegroundColor White
+Write-Host "  - Azure OpenAI (DALL-E 3 for image generation - may require separate resource)" -ForegroundColor White
 Write-Host "  - Azure Cosmos DB (products, conversations)" -ForegroundColor White
-Write-Host "  - Azure Blob Storage (images)" -ForegroundColor White
-Write-Host "  - Azure AI Search" -ForegroundColor White
+Write-Host "  - Azure Blob Storage (product-images, generated-images)" -ForegroundColor White
+Write-Host "  - Azure AI Search (products index, product-images index)" -ForegroundColor White
 Write-Host "  - Azure App Service" -ForegroundColor White
 Write-Host "  - Azure Key Vault" -ForegroundColor White
 Write-Host ""
@@ -80,21 +81,30 @@ if ($continue -eq "y" -or $continue -eq "Y") {
         Write-Host ""
     }
     
-    # Load sample data
-    $loadData = Read-Host "Load sample product data? (y/n)"
+    # Upload product images and create search indexes
+    $loadData = Read-Host "Upload sample product images and create search indexes? (y/n)"
     if ($loadData -eq "y" -or $loadData -eq "Y") {
-        Write-Host "Loading sample data..." -ForegroundColor Yellow
-        Set-Location src
-        python ../scripts/load_sample_data.py
-        Set-Location ..
-        Write-Host "Sample data loaded successfully!" -ForegroundColor Green
+        Write-Host "Uploading product images to blob storage..." -ForegroundColor Yellow
+        python scripts/upload_images.py
+        Write-Host ""
+        Write-Host "Creating product search index..." -ForegroundColor Yellow
+        python scripts/index_products.py
+        Write-Host ""
+        Write-Host "Creating image search index with vector embeddings..." -ForegroundColor Yellow
+        python scripts/create_image_search_index.py
+        Write-Host ""
+        Write-Host "Sample data and indexes created successfully!" -ForegroundColor Green
     }
     
     Write-Host ""
     Write-Host "Next steps:" -ForegroundColor White
     Write-Host "1. Visit the application URL to start using the Content Generation Accelerator" -ForegroundColor White
-    Write-Host "2. Configure brand guidelines in the Azure Portal or .env file" -ForegroundColor White
-    Write-Host "3. Add your product catalog via the API or CosmosDB" -ForegroundColor White
+    Write-Host "2. Configure brand guidelines in the .env file or Azure App Configuration" -ForegroundColor White
+    Write-Host "3. If DALL-E is in a separate resource, set AZURE_OPENAI_DALLE_ENDPOINT in .env" -ForegroundColor White
+    Write-Host "4. Add your product catalog via the API or CosmosDB" -ForegroundColor White
+    Write-Host "5. Ensure RBAC roles are assigned for Azure OpenAI access:" -ForegroundColor White
+    Write-Host "   - Cognitive Services OpenAI User on GPT resource" -ForegroundColor White
+    Write-Host "   - Cognitive Services OpenAI User on DALL-E resource (if separate)" -ForegroundColor White
     Write-Host ""
 } else {
     Write-Host "Deployment cancelled." -ForegroundColor Yellow

@@ -44,10 +44,11 @@ fi
 echo ""
 echo "Starting deployment..."
 echo "This will deploy the following resources:"
-echo "  - Azure AI Foundry (GPT-5, DALL-E 3)"
+echo "  - Azure AI Foundry (GPT-5.1 for text generation)"
+echo "  - Azure OpenAI (DALL-E 3 for image generation - may require separate resource)"
 echo "  - Azure Cosmos DB (products, conversations)"
-echo "  - Azure Blob Storage (images)"
-echo "  - Azure AI Search"
+echo "  - Azure Blob Storage (product-images, generated-images)"
+echo "  - Azure AI Search (products index, product-images index)"
 echo "  - Azure App Service"
 echo "  - Azure Key Vault"
 echo ""
@@ -76,22 +77,31 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
         echo ""
     fi
     
-    # Load sample data
-    read -p "Load sample product data? (y/n) " -n 1 -r
+    # Upload product images and create search indexes
+    read -p "Upload sample product images and create search indexes? (y/n) " -n 1 -r
     echo ""
     if [[ $REPLY =~ ^[Yy]$ ]]; then
-        echo "Loading sample data..."
-        cd src
-        python ../scripts/load_sample_data.py
-        cd ..
-        echo "Sample data loaded successfully!"
+        echo "Uploading product images to blob storage..."
+        python scripts/upload_images.py
+        echo ""
+        echo "Creating product search index..."
+        python scripts/index_products.py
+        echo ""
+        echo "Creating image search index with vector embeddings..."
+        python scripts/create_image_search_index.py
+        echo ""
+        echo "Sample data and indexes created successfully!"
     fi
     
     echo ""
     echo "Next steps:"
     echo "1. Visit the application URL to start using the Content Generation Accelerator"
-    echo "2. Configure brand guidelines in the Azure Portal or .env file"
-    echo "3. Add your product catalog via the API or CosmosDB"
+    echo "2. Configure brand guidelines in the .env file or Azure App Configuration"
+    echo "3. If DALL-E is in a separate resource, set AZURE_OPENAI_DALLE_ENDPOINT in .env"
+    echo "4. Add your product catalog via the API or CosmosDB"
+    echo "5. Ensure RBAC roles are assigned for Azure OpenAI access:"
+    echo "   - Cognitive Services OpenAI User on GPT resource"
+    echo "   - Cognitive Services OpenAI User on DALL-E resource (if separate)"
     echo ""
 else
     echo "Deployment cancelled."
