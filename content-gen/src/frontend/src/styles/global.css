@@ -26,7 +26,7 @@ html, body, #root {
   display: flex;
   flex-direction: column;
   height: 100%;
-  max-width: 1400px;
+  max-width: 1600px;
   margin: 0 auto;
   padding: 16px;
 }
@@ -38,6 +38,13 @@ html, body, #root {
   overflow: hidden;
 }
 
+.history-panel {
+  width: 280px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 .chat-panel {
   flex: 1;
   display: flex;
@@ -45,13 +52,42 @@ html, body, #root {
   background: white;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  min-width: 400px;
 }
 
 .sidebar-panel {
   width: 360px;
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+/* Responsive layout for smaller screens */
+@media (max-width: 1200px) {
+  .history-panel {
+    width: 240px;
+  }
+  .sidebar-panel {
+    width: 320px;
+  }
+}
+
+@media (max-width: 992px) {
+  .main-content {
+    flex-direction: column;
+  }
+  .history-panel {
+    width: 100%;
+    max-height: 200px;
+  }
+  .chat-panel {
+    min-width: unset;
+    flex: 1;
+  }
+  .sidebar-panel {
+    width: 100%;
+  }
 }
 
 .panel-card {

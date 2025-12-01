@@ -11,13 +11,14 @@ import {
 import { v4 as uuidv4 } from 'uuid';
 
 import { ChatPanel } from './components/ChatPanel';
+import { ChatHistory } from './components/ChatHistory';
 import { BriefConfirmation } from './components/BriefConfirmation';
 import { ContentPreview } from './components/ContentPreview';
 import { ProductSelector } from './components/ProductSelector';
 import type { ChatMessage, CreativeBrief, Product, GeneratedContent } from './types';
 
 function App() {
-  const [conversationId] = useState<string>(() => uuidv4());
+  const [conversationId, setConversationId] = useState<string>(() => uuidv4());
   const [userId] = useState<string>('demo-user');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -31,6 +32,37 @@ function App() {
   
   // Generated content
   const [generatedContent, setGeneratedContent] = useState<GeneratedContent | null>(null);
+
+  // Handle selecting a conversation from history
+  const handleSelectConversation = useCallback(async (selectedConversationId: string) => {
+    setIsLoading(true);
+    try {
+      const response = await fetch(`/api/conversations/${selectedConversationId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setConversationId(selectedConversationId);
+        setMessages(data.messages || []);
+        setPendingBrief(null);
+        setConfirmedBrief(data.brief || null);
+        setGeneratedContent(null);
+        setSelectedProducts([]);
+      }
+    } catch (error) {
+      console.error('Error loading conversation:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Handle starting a new conversation
+  const handleNewConversation = useCallback(() => {
+    setConversationId(uuidv4());
+    setMessages([]);
+    setPendingBrief(null);
+    setConfirmedBrief(null);
+    setGeneratedContent(null);
+    setSelectedProducts([]);
+  }, []);
 
   const handleSendMessage = useCallback(async (content: string) => {
     const userMessage: ChatMessage = {
@@ -256,6 +288,15 @@ function App() {
       
       {/* Main Content */}
       <div className="main-content" style={{ marginTop: '16px' }}>
+        {/* Chat History Sidebar */}
+        <div className="history-panel">
+          <ChatHistory
+            currentConversationId={conversationId}
+            onSelectConversation={handleSelectConversation}
+            onNewConversation={handleNewConversation}
+          />
+        </div>
+        
         {/* Chat Panel */}
         <div className="chat-panel">
           <ChatPanel
