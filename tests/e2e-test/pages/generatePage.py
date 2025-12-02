@@ -73,6 +73,12 @@ class GeneratePage(BasePage):
         # Type a question in the text area
         self.page.locator(self.GENERATE_DRAFT).click()
         self.page.wait_for_timeout(15000)
+    
+    def click_browse_button(self):
+        # click on BROWSE
+        self.page.wait_for_timeout(3000)
+        self.page.locator(self.BROWSE_BUTTON).click()
+        self.page.wait_for_timeout(5000)
 
     def show_chat_history(self):
         """Click to show chat history if the button is visible."""
@@ -120,13 +126,20 @@ class GeneratePage(BasePage):
             self.page.wait_for_timeout(2000)
 
     def validate_draft_button_enabled(self):
+        """
+        Check if Generate Draft button is enabled.
+        Returns True if enabled, False if disabled.
+        """
         self.page.wait_for_timeout(5000)
         generate_draft_button = self.page.locator(self.GENERATE_DRAFT)
-        with check:
-            if not generate_draft_button.is_enabled():
-                logger.error("❌ 'Generate Draft' button is disabled.")
-            else:
-                logger.info("✅ 'Generate Draft' button is enabled.")
+        is_enabled = generate_draft_button.is_enabled()
+        
+        if not is_enabled:
+            logger.info("✅ 'Generate Draft' button is disabled (as expected on launch).")
+        else:
+            logger.info("✅ 'Generate Draft' button is enabled.")
+        
+        return is_enabled
     
     def select_history_thread(self, thread_index=0):
         """Select a history thread from the template history panel."""
@@ -157,29 +170,27 @@ class GeneratePage(BasePage):
         logger.info("New Chat button clicked successfully")
     
     def verify_saved_chat(self, expected_text: str):
-        """Verify that the saved chat contains specific expected text."""
-        
-        # Locator for all chat messages (user + GPT)
-        chat_messages = self.page.locator(
-            '._chatMessageUserMessage_1dc7g_87, ._answerText_1qm4u_14'
-        )
 
-        # Fail if there are no messages at all
+        chat_messages_locator = '._chatMessageUserMessage_1dc7g_87, ._answerText_1qm4u_14'
+
+        # Wait for first message to load (up to 5 seconds)
+        try:
+            self.page.locator(chat_messages_locator).first.wait_for(timeout=5000)
+        except:
+            assert False, "Chat messages did not load within timeout."
+
+        chat_messages = self.page.locator(chat_messages_locator)
+
         assert chat_messages.count() > 0, "No chat messages found — saved chat did not load."
 
-        # Check if expected text exists in any message
-        found = False
-        count = chat_messages.count()
-        
-        for i in range(count):
-            message_text = chat_messages.nth(i).inner_text()
-            if expected_text in message_text:
-                found = True
-                break
+        # Search messages for expected text
+        found = any(
+            expected_text in chat_messages.nth(i).inner_text()
+            for i in range(chat_messages.count())
+        )
 
         assert found, f"Expected text '{expected_text}' not found in saved chat."
-        logger.info(f"Verified saved chat contains expected text: {expected_text}")
-                
+            
     def delete_thread_by_index(self, thread_index: int = 0):
         """
         Delete a session thread based on its index and verify it is removed.

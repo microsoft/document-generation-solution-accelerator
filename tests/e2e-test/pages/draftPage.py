@@ -542,3 +542,82 @@ class DraftPage(BasePage):
             raise
         
         return actual_length
+
+    def enter_document_title(self, title):
+        """
+        Enter a title in the document title text box on the Draft page
+        
+        Args:
+            title: The title to enter in the document title field
+        """
+        try:
+            logger.info(f"🔹 Entering document title: '{title}'")
+            
+            # Primary locator: by placeholder text
+            title_input = self.page.locator("input[placeholder='Enter title here']")
+            
+            # Check if input field is visible
+            if not title_input.is_visible(timeout=5000):
+                # Try alternative locator: by class name
+                logger.warning("⚠️ Title input not found by placeholder, trying by class")
+                title_input = self.page.locator("input.ms-TextField-field")
+            
+            # Wait for the input to be editable
+            title_input.wait_for(state="visible", timeout=5000)
+            
+            # Scroll to the input field if needed
+            title_input.scroll_into_view_if_needed()
+            self.page.wait_for_timeout(500)
+            
+            # Clear any existing title
+            title_input.clear()
+            self.page.wait_for_timeout(300)
+            
+            # Enter new title
+            title_input.fill(title)
+            self.page.wait_for_timeout(500)
+            
+            # Verify the title was entered correctly
+            entered_value = title_input.input_value()
+            if entered_value == title:
+                logger.info(f"✅ Successfully entered document title: '{title}'")
+            else:
+                logger.warning(f"⚠️ Title mismatch - Expected: '{title}', Got: '{entered_value}'")
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to enter document title: {e}")
+            # Take screenshot for debugging
+            try:
+                screenshot_path = "screenshots/title_input_error.png"
+                os.makedirs("screenshots", exist_ok=True)
+                self.page.screenshot(path=screenshot_path)
+                logger.error(f"📸 Screenshot saved: {screenshot_path}")
+            except:
+                pass
+            raise
+
+    def click_export_document_button(self):
+        """
+        Click the 'Export Document' button at the bottom of the Draft page
+        """
+        try:
+            # Locate the Export Document button using the class and text
+            # Button structure: <button class="ms-Button ms-Button--commandBar _exportDocumentIcon_1x53n_11 root-239" aria-label="export document">
+            export_button = self.page.locator("button[aria-label='export document']")
+            
+            if not export_button.is_visible(timeout=5000):
+                # Try alternative locator by text
+                export_button = self.page.locator("button:has-text('Export Document')")
+            
+            # Scroll to button if needed
+            export_button.scroll_into_view_if_needed()
+            self.page.wait_for_timeout(500)
+            
+            # Click the button
+            export_button.click()
+            
+            logger.info("✅ Clicked 'Export Document' button")
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to click Export Document button: {e}")
+            raise
