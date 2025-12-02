@@ -328,6 +328,8 @@ async def generate_content():
                 cosmos_service = await get_cosmos_service()
                 text_content = response.get("text_content", {})
                 headline = text_content.get("headline", "") if isinstance(text_content, dict) else ""
+                
+                # Save the message
                 await cosmos_service.add_message_to_conversation(
                     conversation_id=conversation_id,
                     user_id=user_id,
@@ -337,6 +339,21 @@ async def generate_content():
                         "agent": "ContentAgent",
                         "timestamp": datetime.now(timezone.utc).isoformat()
                     }
+                )
+                
+                # Save the full generated content for restoration
+                generated_content_to_save = {
+                    "text_content": response.get("text_content"),
+                    "image_url": response.get("image_url"),
+                    "image_prompt": response.get("image_prompt"),
+                    "image_revised_prompt": response.get("image_revised_prompt"),
+                    "violations": response.get("violations", []),
+                    "requires_modification": response.get("requires_modification", False)
+                }
+                await cosmos_service.save_generated_content(
+                    conversation_id=conversation_id,
+                    user_id=user_id,
+                    generated_content=generated_content_to_save
                 )
             except Exception as e:
                 logger.warning(f"Failed to save generated content to CosmosDB: {e}")

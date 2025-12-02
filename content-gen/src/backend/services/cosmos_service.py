@@ -255,7 +255,8 @@ class CosmosDBService:
         user_id: str,
         messages: List[dict],
         brief: Optional[CreativeBrief] = None,
-        metadata: Optional[dict] = None
+        metadata: Optional[dict] = None,
+        generated_content: Optional[dict] = None
     ) -> dict:
         """
         Save or update a conversation.
@@ -266,6 +267,7 @@ class CosmosDBService:
             messages: List of conversation messages
             brief: Associated creative brief
             metadata: Additional metadata
+            generated_content: Generated marketing content
         
         Returns:
             The saved conversation document
@@ -278,10 +280,47 @@ class CosmosDBService:
             "messages": messages,
             "brief": brief.model_dump() if brief else None,
             "metadata": metadata or {},
+            "generated_content": generated_content,
             "updated_at": datetime.now(timezone.utc).isoformat()
         }
         
         result = await self._conversations_container.upsert_item(item)
+        return result
+    
+    async def save_generated_content(
+        self,
+        conversation_id: str,
+        user_id: str,
+        generated_content: dict
+    ) -> dict:
+        """
+        Save generated content to an existing conversation.
+        
+        Args:
+            conversation_id: Unique conversation identifier
+            user_id: User ID for partition key
+            generated_content: The generated content to save
+        
+        Returns:
+            Updated conversation document
+        """
+        await self.initialize()
+        
+        conversation = await self.get_conversation(conversation_id, user_id)
+        
+        if conversation:
+            conversation["generated_content"] = generated_content
+            conversation["updated_at"] = datetime.now(timezone.utc).isoformat()
+        else:
+            conversation = {
+                "id": conversation_id,
+                "user_id": user_id,
+                "messages": [],
+                "generated_content": generated_content,
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+        
+        result = await self._conversations_container.upsert_item(conversation)
         return result
     
     async def add_message_to_conversation(

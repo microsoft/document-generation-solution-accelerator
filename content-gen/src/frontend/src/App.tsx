@@ -52,7 +52,40 @@ function App() {
         setMessages(loadedMessages);
         setPendingBrief(null);
         setConfirmedBrief(data.brief || null);
-        setGeneratedContent(null);
+        
+        // Restore generated content if it exists
+        if (data.generated_content) {
+          const gc = data.generated_content;
+          // Parse text_content if it's a string
+          let textContent = gc.text_content;
+          if (typeof textContent === 'string') {
+            try {
+              textContent = JSON.parse(textContent);
+            } catch {
+              // Keep as string if not valid JSON
+            }
+          }
+          
+          const restoredContent: GeneratedContent = {
+            text_content: typeof textContent === 'object' && textContent ? {
+              headline: textContent?.headline,
+              body: textContent?.body,
+              cta_text: textContent?.cta,
+              tagline: textContent?.tagline,
+            } : undefined,
+            image_content: (gc.image_url || gc.image_prompt) ? {
+              image_url: gc.image_url,
+              prompt_used: gc.image_prompt,
+              alt_text: gc.image_revised_prompt || 'Generated marketing image',
+            } : undefined,
+            violations: gc.violations || [],
+            requires_modification: gc.requires_modification || false,
+          };
+          setGeneratedContent(restoredContent);
+        } else {
+          setGeneratedContent(null);
+        }
+        
         setSelectedProducts([]);
       }
     } catch (error) {
