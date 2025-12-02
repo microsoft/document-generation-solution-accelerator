@@ -14,21 +14,49 @@ import {
   Person24Regular,
 } from '@fluentui/react-icons';
 import ReactMarkdown from 'react-markdown';
-import type { ChatMessage } from '../types';
+import type { ChatMessage, CreativeBrief, Product, GeneratedContent } from '../types';
+import { InlineBriefConfirmation } from './InlineBriefConfirmation';
+import { InlineProductSelector } from './InlineProductSelector';
+import { InlineContentPreview } from './InlineContentPreview';
 
 interface ChatPanelProps {
   messages: ChatMessage[];
   onSendMessage: (message: string) => void;
   isLoading: boolean;
+  // Inline component props
+  pendingBrief?: CreativeBrief | null;
+  confirmedBrief?: CreativeBrief | null;
+  generatedContent?: GeneratedContent | null;
+  selectedProducts?: Product[];
+  onBriefConfirm?: (brief: CreativeBrief) => void;
+  onBriefCancel?: () => void;
+  onBriefEdit?: (brief: CreativeBrief) => void;
+  onProductsChange?: (products: Product[]) => void;
+  onGenerateContent?: () => void;
+  onRegenerateContent?: () => void;
 }
 
-export function ChatPanel({ messages, onSendMessage, isLoading }: ChatPanelProps) {
+export function ChatPanel({ 
+  messages, 
+  onSendMessage, 
+  isLoading,
+  pendingBrief,
+  confirmedBrief,
+  generatedContent,
+  selectedProducts = [],
+  onBriefConfirm,
+  onBriefCancel,
+  onBriefEdit,
+  onProductsChange,
+  onGenerateContent,
+  onRegenerateContent,
+}: ChatPanelProps) {
   const [inputValue, setInputValue] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, pendingBrief, confirmedBrief, generatedContent]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,6 +65,11 @@ export function ChatPanel({ messages, onSendMessage, isLoading }: ChatPanelProps
       setInputValue('');
     }
   };
+
+  // Determine if we should show inline components
+  const showBriefConfirmation = pendingBrief && onBriefConfirm && onBriefCancel && onBriefEdit;
+  const showProductSelector = confirmedBrief && !generatedContent && onProductsChange && onGenerateContent;
+  const showContentPreview = generatedContent && onRegenerateContent;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -49,7 +82,7 @@ export function ChatPanel({ messages, onSendMessage, isLoading }: ChatPanelProps
         flexDirection: 'column',
         gap: '16px'
       }}>
-        {messages.length === 0 && (
+        {messages.length === 0 && !showBriefConfirmation && !showProductSelector && !showContentPreview && (
           <div style={{ 
             textAlign: 'center', 
             padding: '48px',
@@ -69,7 +102,36 @@ export function ChatPanel({ messages, onSendMessage, isLoading }: ChatPanelProps
           <MessageBubble key={message.id} message={message} />
         ))}
         
-        {isLoading && (
+        {/* Inline Brief Confirmation */}
+        {showBriefConfirmation && (
+          <InlineBriefConfirmation
+            brief={pendingBrief}
+            onConfirm={onBriefConfirm}
+            onCancel={onBriefCancel}
+            onEdit={onBriefEdit}
+          />
+        )}
+        
+        {/* Inline Product Selector */}
+        {showProductSelector && (
+          <InlineProductSelector
+            selectedProducts={selectedProducts}
+            onProductsChange={onProductsChange}
+            onGenerate={onGenerateContent}
+            isLoading={isLoading}
+          />
+        )}
+        
+        {/* Inline Content Preview */}
+        {showContentPreview && (
+          <InlineContentPreview
+            content={generatedContent}
+            onRegenerate={onRegenerateContent}
+            isLoading={isLoading}
+          />
+        )}
+        
+        {isLoading && !showProductSelector && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Spinner size="tiny" />
             <Text size={200}>Generating response...</Text>

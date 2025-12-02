@@ -53,12 +53,14 @@ html, body, #root {
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   min-width: 400px;
+  max-width: 900px;
 }
 
+/* Sidebar panel - kept for backwards compatibility but hidden by default */
 .sidebar-panel {
   width: 360px;
   flex-shrink: 0;
-  display: flex;
+  display: none;
   flex-direction: column;
   gap: 16px;
 }

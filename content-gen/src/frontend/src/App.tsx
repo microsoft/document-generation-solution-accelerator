@@ -12,9 +12,6 @@ import { v4 as uuidv4 } from 'uuid';
 
 import { ChatPanel } from './components/ChatPanel';
 import { ChatHistory } from './components/ChatHistory';
-import { BriefConfirmation } from './components/BriefConfirmation';
-import { ContentPreview } from './components/ContentPreview';
-import { ProductSelector } from './components/ProductSelector';
 import type { ChatMessage, CreativeBrief, Product, GeneratedContent } from './types';
 
 function App() {
@@ -314,44 +311,23 @@ function App() {
           />
         </div>
         
-        {/* Chat Panel */}
-        <div className="chat-panel">
+        {/* Chat Panel - now includes inline product selector and content preview */}
+        <div className="chat-panel" style={{ flex: 1 }}>
           <ChatPanel
             messages={messages}
             onSendMessage={handleSendMessage}
             isLoading={isLoading}
+            pendingBrief={pendingBrief}
+            confirmedBrief={confirmedBrief}
+            generatedContent={generatedContent}
+            selectedProducts={selectedProducts}
+            onBriefConfirm={handleBriefConfirm}
+            onBriefCancel={handleBriefCancel}
+            onBriefEdit={setPendingBrief}
+            onProductsChange={setSelectedProducts}
+            onGenerateContent={handleGenerateContent}
+            onRegenerateContent={handleGenerateContent}
           />
-        </div>
-        
-        {/* Sidebar */}
-        <div className="sidebar-panel">
-          {/* Brief Confirmation */}
-          {pendingBrief && (
-            <BriefConfirmation
-              brief={pendingBrief}
-              onConfirm={handleBriefConfirm}
-              onCancel={handleBriefCancel}
-              onEdit={setPendingBrief}
-            />
-          )}
-          
-          {/* Product Selector */}
-          {confirmedBrief && !generatedContent && (
-            <ProductSelector
-              selectedProducts={selectedProducts}
-              onProductsChange={setSelectedProducts}
-              onGenerate={handleGenerateContent}
-              isLoading={isLoading}
-            />
-          )}
-          
-          {/* Generated Content Preview */}
-          {generatedContent && (
-            <ContentPreview
-              content={generatedContent}
-              onRegenerate={handleGenerateContent}
-            />
-          )}
         </div>
       </div>
     </div>
