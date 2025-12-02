@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Card,
   CardHeader,
@@ -19,6 +19,7 @@ import {
   Delete24Regular,
   MoreHorizontal24Regular,
   Add24Regular,
+  ArrowSync24Regular,
 } from '@fluentui/react-icons';
 
 interface ConversationSummary {
@@ -31,28 +32,30 @@ interface ConversationSummary {
 
 interface ChatHistoryProps {
   currentConversationId: string;
+  userId: string;
+  currentMessages?: { role: string; content: string }[]; // Current session messages
   onSelectConversation: (conversationId: string) => void;
   onNewConversation: () => void;
+  refreshTrigger?: number; // Increment to trigger refresh
 }
 
 export function ChatHistory({ 
   currentConversationId, 
+  userId,
+  currentMessages = [],
   onSelectConversation,
-  onNewConversation 
+  onNewConversation,
+  refreshTrigger = 0
 }: ChatHistoryProps) {
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadConversations();
-  }, []);
-
-  const loadConversations = async () => {
+  const loadConversations = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetch('/api/conversations');
+      const response = await fetch(`/api/conversations?user_id=${encodeURIComponent(userId)}`);
       if (response.ok) {
         const data = await response.json();
         setConversations(data.conversations || []);
@@ -67,16 +70,54 @@ export function ChatHistory({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [userId]);
+
+  useEffect(() => {
+    loadConversations();
+  }, [loadConversations, refreshTrigger]);
+
+  // Build the current session conversation summary if it has messages
+  const currentSessionConversation: ConversationSummary | null = currentMessages.length > 0 ? {
+    id: currentConversationId,
+    title: currentMessages.find(m => m.role === 'user')?.content?.substring(0, 50) || 'Current Conversation',
+    lastMessage: currentMessages[currentMessages.length - 1]?.content?.substring(0, 100) || '',
+    timestamp: new Date().toISOString(),
+    messageCount: currentMessages.length,
+  } : null;
+
+  // Merge current session with saved conversations, updating the current one with live data
+  const displayConversations = (() => {
+    // Find if current conversation exists in saved list
+    const existingIndex = conversations.findIndex(c => c.id === currentConversationId);
+    
+    if (existingIndex >= 0 && currentSessionConversation) {
+      // Update the saved conversation with current session data (live message count)
+      const updated = [...conversations];
+      updated[existingIndex] = {
+        ...updated[existingIndex],
+        messageCount: currentMessages.length,
+        lastMessage: currentMessages[currentMessages.length - 1]?.content?.substring(0, 100) || updated[existingIndex].lastMessage,
+      };
+      return updated;
+    } else if (currentSessionConversation) {
+      // Add current session at the top if it has messages and isn't saved yet
+      return [currentSessionConversation, ...conversations];
+    }
+    return conversations;
+  })();
 
   const handleDeleteConversation = async (conversationId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     try {
-      const response = await fetch(`/api/conversations/${conversationId}`, {
+      const response = await fetch(`/api/conversations/${conversationId}?user_id=${encodeURIComponent(userId)}`, {
         method: 'DELETE',
       });
       if (response.ok) {
         setConversations(prev => prev.filter(c => c.id !== conversationId));
+        // If deleting current conversation, start a new one
+        if (conversationId === currentConversationId) {
+          onNewConversation();
+        }
       }
     } catch (err) {
       console.error('Error deleting conversation:', err);
@@ -116,14 +157,23 @@ export function ChatHistory({
           </div>
         }
         action={
-          <Button
-            appearance="primary"
-            icon={<Add24Regular />}
-            size="small"
-            onClick={onNewConversation}
-          >
-            New Chat
-          </Button>
+          <div style={{ display: 'flex', gap: '4px' }}>
+            <Button
+              appearance="subtle"
+              icon={<ArrowSync24Regular />}
+              size="small"
+              onClick={loadConversations}
+              title="Refresh"
+            />
+            <Button
+              appearance="primary"
+              icon={<Add24Regular />}
+              size="small"
+              onClick={onNewConversation}
+            >
+              New Chat
+            </Button>
+          </div>
         }
       />
 
@@ -157,7 +207,7 @@ export function ChatHistory({
               Retry
             </Button>
           </div>
-        ) : conversations.length === 0 ? (
+        ) : displayConversations.length === 0 ? (
           <div style={{ 
             textAlign: 'center', 
             padding: '32px',
@@ -171,7 +221,7 @@ export function ChatHistory({
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {conversations.map((conversation) => (
+            {displayConversations.map((conversation) => (
               <ConversationItem
                 key={conversation.id}
                 conversation={conversation}

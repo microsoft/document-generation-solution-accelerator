@@ -17,11 +17,19 @@ const API_BASE = '/api';
 /**
  * Parse a free-text creative brief into structured format
  */
-export async function parseBrief(briefText: string): Promise<ParsedBriefResponse> {
+export async function parseBrief(
+  briefText: string,
+  conversationId?: string,
+  userId?: string
+): Promise<ParsedBriefResponse> {
   const response = await fetch(`${API_BASE}/brief/parse`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ brief_text: briefText }),
+    body: JSON.stringify({
+      brief_text: briefText,
+      conversation_id: conversationId,
+      user_id: userId || 'anonymous',
+    }),
   });
 
   if (!response.ok) {
@@ -117,7 +125,8 @@ export async function* streamGenerateContent(
   brief: CreativeBrief,
   products?: Product[],
   generateImages: boolean = true,
-  conversationId?: string
+  conversationId?: string,
+  userId?: string
 ): AsyncGenerator<AgentResponse> {
   const response = await fetch(`${API_BASE}/generate`, {
     method: 'POST',
@@ -127,6 +136,7 @@ export async function* streamGenerateContent(
       products: products || [],
       generate_images: generateImages,
       conversation_id: conversationId,
+      user_id: userId || 'anonymous',
     }),
   });
 

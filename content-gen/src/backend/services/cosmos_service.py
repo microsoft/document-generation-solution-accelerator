@@ -325,20 +325,20 @@ class CosmosDBService:
         limit: int = 20
     ) -> List[dict]:
         """
-        Get all conversations for a user.
+        Get all conversations for a user with summary data.
         
         Args:
             user_id: User ID
             limit: Maximum number of conversations
         
         Returns:
-            List of conversations
+            List of conversation summaries
         """
         await self.initialize()
         
+        # Get conversations with messages to extract title and last message
         query = """
-            SELECT TOP @limit c.id, c.user_id, c.updated_at, 
-                   ARRAY_LENGTH(c.messages) as message_count
+            SELECT TOP @limit c.id, c.user_id, c.updated_at, c.messages, c.brief
             FROM c 
             WHERE c.user_id = @user_id
             ORDER BY c.updated_at DESC
@@ -353,9 +353,61 @@ class CosmosDBService:
             query=query,
             parameters=params
         ):
-            conversations.append(item)
+            messages = item.get("messages", [])
+            brief = item.get("brief", {})
+            
+            # Extract title from brief overview or first user message
+            title = "Untitled Conversation"
+            if brief and brief.get("overview"):
+                title = brief["overview"][:50]
+            elif messages:
+                for msg in messages:
+                    if msg.get("role") == "user":
+                        title = msg.get("content", "")[:50]
+                        break
+            
+            # Get last message preview
+            last_message = ""
+            if messages:
+                last_msg = messages[-1]
+                last_message = last_msg.get("content", "")[:100]
+            
+            conversations.append({
+                "id": item["id"],
+                "title": title,
+                "lastMessage": last_message,
+                "timestamp": item.get("updated_at", ""),
+                "messageCount": len(messages)
+            })
         
         return conversations
+    
+    async def delete_conversation(
+        self,
+        conversation_id: str,
+        user_id: str
+    ) -> bool:
+        """
+        Delete a conversation.
+        
+        Args:
+            conversation_id: Unique conversation identifier
+            user_id: User ID for partition key
+        
+        Returns:
+            True if deleted successfully
+        """
+        await self.initialize()
+        
+        try:
+            await self._conversations_container.delete_item(
+                item=conversation_id,
+                partition_key=user_id
+            )
+            return True
+        except Exception as e:
+            logger.warning(f"Failed to delete conversation {conversation_id}: {e}")
+            raise
 
 
 # Singleton instance

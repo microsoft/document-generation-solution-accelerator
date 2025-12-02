@@ -95,22 +95,23 @@ async def chat():
             ):
                 yield f"data: {json.dumps(response)}\n\n"
                 
-                # Try to save assistant responses
-                if response.get("is_final"):
-                    try:
-                        cosmos_service = await get_cosmos_service()
-                        await cosmos_service.add_message_to_conversation(
-                            conversation_id=conversation_id,
-                            user_id=user_id,
-                            message={
-                                "role": "assistant",
-                                "content": response.get("content", ""),
-                                "agent": response.get("agent", ""),
-                                "timestamp": datetime.now(timezone.utc).isoformat()
-                            }
-                        )
-                    except Exception as e:
-                        logger.warning(f"Failed to save response to CosmosDB: {e}")
+                # Save assistant responses when final OR when requiring user input
+                if response.get("is_final") or response.get("requires_user_input"):
+                    if response.get("content"):
+                        try:
+                            cosmos_service = await get_cosmos_service()
+                            await cosmos_service.add_message_to_conversation(
+                                conversation_id=conversation_id,
+                                user_id=user_id,
+                                message={
+                                    "role": "assistant",
+                                    "content": response.get("content", ""),
+                                    "agent": response.get("agent", ""),
+                                    "timestamp": datetime.now(timezone.utc).isoformat()
+                                }
+                            )
+                        except Exception as e:
+                            logger.warning(f"Failed to save response to CosmosDB: {e}")
         except Exception as e:
             logger.exception(f"Error in orchestrator: {e}")
             yield f"data: {json.dumps({'type': 'error', 'content': str(e), 'is_final': True})}\n\n"
@@ -136,7 +137,9 @@ async def parse_brief():
     
     Request body:
     {
-        "brief_text": "Free-form creative brief text"
+        "brief_text": "Free-form creative brief text",
+        "conversation_id": "optional-uuid",
+        "user_id": "user identifier"
     }
     
     Returns:
@@ -144,16 +147,50 @@ async def parse_brief():
     """
     data = await request.get_json()
     brief_text = data.get("brief_text", "")
+    conversation_id = data.get("conversation_id") or str(uuid.uuid4())
+    user_id = data.get("user_id", "anonymous")
     
     if not brief_text:
         return jsonify({"error": "Brief text is required"}), 400
     
+    # Save the user's brief text as a message to CosmosDB
+    try:
+        cosmos_service = await get_cosmos_service()
+        await cosmos_service.add_message_to_conversation(
+            conversation_id=conversation_id,
+            user_id=user_id,
+            message={
+                "role": "user",
+                "content": brief_text,
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            }
+        )
+    except Exception as e:
+        logger.warning(f"Failed to save brief message to CosmosDB: {e}")
+    
     orchestrator = get_orchestrator()
     parsed_brief = await orchestrator.parse_brief(brief_text)
+    
+    # Save the assistant's parsing response
+    try:
+        cosmos_service = await get_cosmos_service()
+        await cosmos_service.add_message_to_conversation(
+            conversation_id=conversation_id,
+            user_id=user_id,
+            message={
+                "role": "assistant",
+                "content": "I've parsed your creative brief. Please review and confirm the details before we proceed.",
+                "agent": "PlanningAgent",
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            }
+        )
+    except Exception as e:
+        logger.warning(f"Failed to save parsing response to CosmosDB: {e}")
     
     return jsonify({
         "brief": parsed_brief.model_dump(),
         "requires_confirmation": True,
+        "conversation_id": conversation_id,
         "message": "Please review and confirm the parsed creative brief"
     })
 
@@ -183,13 +220,26 @@ async def confirm_brief():
     except Exception as e:
         return jsonify({"error": f"Invalid brief format: {str(e)}"}), 400
     
-    # Try to save the confirmed brief to CosmosDB, but don't fail if unavailable
+    # Try to save the confirmed brief to CosmosDB, preserving existing messages
     try:
         cosmos_service = await get_cosmos_service()
+        
+        # Get existing conversation to preserve messages
+        existing = await cosmos_service.get_conversation(conversation_id, user_id)
+        existing_messages = existing.get("messages", []) if existing else []
+        
+        # Add confirmation message
+        existing_messages.append({
+            "role": "assistant",
+            "content": "Great! Your creative brief has been confirmed. Now you can select products to feature and generate content.",
+            "agent": "TriageAgent",
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        })
+        
         await cosmos_service.save_conversation(
             conversation_id=conversation_id,
             user_id=user_id,
-            messages=[],
+            messages=existing_messages,
             brief=brief,
             metadata={"status": "brief_confirmed"}
         )
@@ -227,11 +277,28 @@ async def generate_content():
     products_data = data.get("products", [])
     generate_images = data.get("generate_images", True)
     conversation_id = data.get("conversation_id") or str(uuid.uuid4())
+    user_id = data.get("user_id", "anonymous")
     
     try:
         brief = CreativeBrief(**brief_data)
     except Exception as e:
         return jsonify({"error": f"Invalid brief format: {str(e)}"}), 400
+    
+    # Save user request for content generation
+    try:
+        cosmos_service = await get_cosmos_service()
+        product_names = [p.get("product_name", "product") for p in products_data[:3]]
+        await cosmos_service.add_message_to_conversation(
+            conversation_id=conversation_id,
+            user_id=user_id,
+            message={
+                "role": "user",
+                "content": f"Generate content for: {', '.join(product_names) if product_names else 'the campaign'}",
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            }
+        )
+    except Exception as e:
+        logger.warning(f"Failed to save generation request to CosmosDB: {e}")
     
     orchestrator = get_orchestrator()
     
@@ -255,6 +322,24 @@ async def generate_content():
                     response["image_url"] = image_url
             except Exception as e:
                 logger.warning(f"Failed to save image to blob storage: {e}")
+            
+            # Save generated content to conversation
+            try:
+                cosmos_service = await get_cosmos_service()
+                text_content = response.get("text_content", {})
+                headline = text_content.get("headline", "") if isinstance(text_content, dict) else ""
+                await cosmos_service.add_message_to_conversation(
+                    conversation_id=conversation_id,
+                    user_id=user_id,
+                    message={
+                        "role": "assistant",
+                        "content": f"Content generated successfully! {f'Headline: "{headline}"' if headline else ''}",
+                        "agent": "ContentAgent",
+                        "timestamp": datetime.now(timezone.utc).isoformat()
+                    }
+                )
+            except Exception as e:
+                logger.warning(f"Failed to save generated content to CosmosDB: {e}")
             
             # Format response to match what frontend expects
             yield f"data: {json.dumps({'type': 'agent_response', 'content': json.dumps(response), 'is_final': True})}\n\n"
@@ -439,6 +524,28 @@ async def get_conversation(conversation_id: str):
         return jsonify({"error": "Conversation not found"}), 404
     
     return jsonify(conversation)
+
+
+@app.route("/api/conversations/<conversation_id>", methods=["DELETE"])
+async def delete_conversation(conversation_id: str):
+    """
+    Delete a specific conversation.
+    
+    Query params:
+        user_id: User identifier (required)
+    """
+    user_id = request.args.get("user_id")
+    
+    if not user_id:
+        return jsonify({"error": "user_id is required"}), 400
+    
+    try:
+        cosmos_service = await get_cosmos_service()
+        await cosmos_service.delete_conversation(conversation_id, user_id)
+        return jsonify({"success": True, "message": "Conversation deleted"})
+    except Exception as e:
+        logger.warning(f"Failed to delete conversation: {e}")
+        return jsonify({"error": "Failed to delete conversation"}), 500
 
 
 # ==================== Brand Guidelines Endpoints ====================

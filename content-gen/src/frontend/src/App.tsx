@@ -33,15 +33,26 @@ function App() {
   // Generated content
   const [generatedContent, setGeneratedContent] = useState<GeneratedContent | null>(null);
 
+  // Trigger for refreshing chat history
+  const [historyRefreshTrigger, setHistoryRefreshTrigger] = useState(0);
+
   // Handle selecting a conversation from history
   const handleSelectConversation = useCallback(async (selectedConversationId: string) => {
     setIsLoading(true);
     try {
-      const response = await fetch(`/api/conversations/${selectedConversationId}`);
+      const response = await fetch(`/api/conversations/${selectedConversationId}?user_id=${encodeURIComponent(userId)}`);
       if (response.ok) {
         const data = await response.json();
         setConversationId(selectedConversationId);
-        setMessages(data.messages || []);
+        // Map messages to ChatMessage format
+        const loadedMessages: ChatMessage[] = (data.messages || []).map((msg: { role: string; content: string; timestamp?: string; agent?: string }, index: number) => ({
+          id: `${selectedConversationId}-${index}`,
+          role: msg.role as 'user' | 'assistant',
+          content: msg.content,
+          timestamp: msg.timestamp || new Date().toISOString(),
+          agent: msg.agent,
+        }));
+        setMessages(loadedMessages);
         setPendingBrief(null);
         setConfirmedBrief(data.brief || null);
         setGeneratedContent(null);
@@ -52,7 +63,7 @@ function App() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [userId]);
 
   // Handle starting a new conversation
   const handleNewConversation = useCallback(() => {
@@ -85,7 +96,7 @@ function App() {
       
       if (isBriefLike && !confirmedBrief) {
         // Parse as a creative brief
-        const parsed = await parseBrief(content);
+        const parsed = await parseBrief(content, conversationId, userId);
         setPendingBrief(parsed.brief);
         
         const assistantMessage: ChatMessage = {
@@ -143,6 +154,8 @@ function App() {
       setMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
+      // Trigger refresh of chat history after message is sent
+      setHistoryRefreshTrigger(prev => prev + 1);
     }
   }, [conversationId, userId, confirmedBrief]);
 
@@ -188,7 +201,8 @@ function App() {
         confirmedBrief,
         selectedProducts,
         true,
-        conversationId
+        conversationId,
+        userId
       )) {
         if (response.is_final && response.type !== 'error') {
           try {
@@ -292,8 +306,11 @@ function App() {
         <div className="history-panel">
           <ChatHistory
             currentConversationId={conversationId}
+            userId={userId}
+            currentMessages={messages}
             onSelectConversation={handleSelectConversation}
             onNewConversation={handleNewConversation}
+            refreshTrigger={historyRefreshTrigger}
           />
         </div>
         
