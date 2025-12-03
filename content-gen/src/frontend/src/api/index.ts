@@ -5,7 +5,6 @@
 import type {
   CreativeBrief,
   Product,
-  ChatMessage,
   AgentResponse,
   BrandGuidelines,
   ParsedBriefResponse,

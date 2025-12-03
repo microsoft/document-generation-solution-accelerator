@@ -188,9 +188,9 @@ var useExistingAiFoundryAiProject = !empty(azureExistingAIProjectResourceId)
 var aiFoundryAiServicesResourceGroupName = useExistingAiFoundryAiProject
   ? split(azureExistingAIProjectResourceId, '/')[4]
   : 'rg-${solutionSuffix}'
-var aiFoundryAiServicesSubscriptionId = useExistingAiFoundryAiProject
-  ? split(azureExistingAIProjectResourceId, '/')[2]
-  : subscription().id
+// var aiFoundryAiServicesSubscriptionId = useExistingAiFoundryAiProject
+//   ? split(azureExistingAIProjectResourceId, '/')[2]
+//   : subscription().id
 var aiFoundryAiServicesResourceName = useExistingAiFoundryAiProject
   ? split(azureExistingAIProjectResourceId, '/')[8]
   : 'aif-${solutionSuffix}'
