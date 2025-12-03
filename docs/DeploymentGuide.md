@@ -121,9 +121,18 @@ Select one of the following options to deploy the Document Generation Solution A
 2. Sign in with your Azure account when prompted
 3. Select the subscription where you want to deploy the solution
 4. Wait for the environment to initialize (includes all deployment tools)
-5. When prompted in the VS Code Web terminal, choose one of the available options shown below:
+5. Once the solution opens, the **AI Foundry terminal** will automatically start running the following command to install the required dependencies:
 
-   ![VS Code Initial Prompt](./images/vscodeweb_intialize.png)
+    ```shell
+    sh install.sh
+    ```
+    During this process, you’ll be prompted with the message:
+    ```
+    What would you like to do with these files?
+    - Overwrite with versions from template
+    - Keep my existing files unchanged
+    ```
+    Choose “**Overwrite with versions from template**” and provide a unique environment name when prompted.
 6. Proceed to [Step 3: Configure Deployment Settings](#step-3-configure-deployment-settings)
 
 </details>
@@ -277,7 +286,7 @@ After successful deployment:
 
 ### 5.1 Sample Data Import
 
-   Once the deployment has completed successfully and you would like to use the sample data, please open a **Git Bash** terminal and run the bash command printed below. The bash command will look like the following:
+1. Once the deployment has completed successfully and you would like to use the sample data, please open a **Git Bash** terminal and run the bash command printed below. The bash command will look like the following:
     ```shell 
     bash ./infra/scripts/process_sample_data.sh
     ```
@@ -288,7 +297,7 @@ After successful deployment:
 
 ### 5.2 Configure Authentication (Optional)
 
-1. Follow [App Authentication Configuration](./ConfigureAppAuthentication.md)
+1. Follow [App Authentication Configuration](./AppAuthentication.md)
 2. Wait up to 10 minutes for authentication changes to take effect
 
 ### 5.3 Verify Deployment
@@ -410,10 +419,6 @@ azd env get-values
 Now that your deployment is complete and tested, explore these resources to enhance your experience:
 
 📚 **Learn More:**
-- [Technical Architecture](./TechnicalArchitecture.md) - Understand the system design and components
-- [Customize Expert Agents](./CustomizeExpertAgents.md) - Tailor AI agents to your specific needs
-- [Extend Platform Support](./ExtendPlatformSupport.md) - Add support for additional container platforms
-- [Configure MCP Servers](./ConfigureMCPServers.md) - Set up Model Context Protocol servers
 - [Local Development Setup](./LocalDevelopmentSetup.md) - Set up your local development environment
 
 ## Need Help?
