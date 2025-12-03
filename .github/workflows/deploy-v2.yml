@@ -89,6 +89,7 @@ env:
   CLEANUP_RESOURCES: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.cleanup_resources || true) || true }}
   RUN_E2E_TESTS: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.run_e2e_tests || true) || true }}
   BUILD_DOCKER_IMAGE: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.build_docker_image || false) || false }}
+  AZURE_DEV_COLLECT_TELEMETRY: ${{ vars.AZURE_DEV_COLLECT_TELEMETRY }}
 
 jobs:
   docker-build:
@@ -456,14 +457,13 @@ jobs:
 
           echo "Setting default subscription..."
           azd config set defaults.subscription ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-        
+          
           # Set additional parameters
           azd env set AZURE_SUBSCRIPTION_ID="${{ secrets.AZURE_SUBSCRIPTION_ID }}"
           azd env set AZURE_ENV_OPENAI_LOCATION="$AZURE_ENV_OPENAI_LOCATION"
           azd env set AZURE_LOCATION="$AZURE_LOCATION"
           azd env set AZURE_RESOURCE_GROUP="$RESOURCE_GROUP_NAME"
           azd env set AZURE_ENV_IMAGETAG="${{ steps.determine_image_tag.outputs.IMAGE_TAG }}"
-          azd env set AZURE_DEV_COLLECT_TELEMETRY="no"
           
           # Set ACR name only when building Docker image
           if [[ "${{ env.BUILD_DOCKER_IMAGE }}" == "true" ]]; then
