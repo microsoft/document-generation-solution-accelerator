@@ -2,7 +2,7 @@
 
 ## Overview
 
-This guide walks you through deploying the Document Generation Solution Accelerator to Azure. The deployment process takes approximately 10-15 minutes for the default Development/Testing configuration and includes both infrastructure provisioning and application setup.
+This guide walks you through deploying the Document Generation Solution Accelerator to Azure. The deployment process takes approximately 7-10 minutes for the default Development/Testing configuration and includes both infrastructure provisioning and application setup.
 
 🆘 **Need Help?** If you encounter any issues during deployment, check our [Troubleshooting Guide](./TroubleShootingSteps.md) for solutions to common problems.
 
@@ -58,10 +58,9 @@ Ensure you have access to an [Azure subscription](https://azure.microsoft.com/fr
 
 📖 **Follow:** [Quota Check Instructions](./QuotaCheck.md) to ensure sufficient capacity.
 
-By default, the _Gpt-4.1 model capacity_ in deployment is set to _30k tokens_, so we recommend:
-- **For Global Standard | GPT-4.1** - the capacity to at least 150k tokens post-deployment for optimal performance.
-
-- **For Standard | GPT-4** - ensure a minimum of 30k–40k tokens for best results.
+**Recommended Configuration:**
+- **Default:** 150k tokens (minimum)
+- **Optimal:** More than 150k tokens (for best performance)
 
 > **Note:** When you run `azd up`, the deployment will automatically show you regions with available quota, so this pre-check is optional but helpful for planning purposes. You can customize these settings later in [Step 3.3: Advanced Configuration](#33-advanced-configuration-optional).
 
