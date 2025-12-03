@@ -45,13 +45,8 @@ Ensure you have access to an [Azure subscription](https://azure.microsoft.com/fr
 **Required Azure Services:**
 - [Azure AI Foundry](https://learn.microsoft.com/en-us/azure/ai-foundry/)
 - [Azure OpenAI Service](https://learn.microsoft.com/en-us/azure/ai-services/openai/)
-- [Azure Blob Storage](https://learn.microsoft.com/en-us/azure/storage/blobs/)
-- [Azure Container Apps](https://learn.microsoft.com/en-us/azure/container-apps/)
-- [Azure Container Registry](https://learn.microsoft.com/en-us/azure/container-registry/)
-- [Azure App Configuration](https://learn.microsoft.com/en-us/azure/azure-app-configuration/)
 - [Azure Cosmos DB](https://learn.microsoft.com/en-us/azure/cosmos-db/)
-- [Azure Queue Storage](https://learn.microsoft.com/en-us/azure/storage/queues/)
-- [o3 Model Capacity](https://learn.microsoft.com/en-us/azure/ai-foundry/foundry-models/concepts/models-sold-directly-by-azure)
+- [Azure AI Search](https://learn.microsoft.com/en-us/azure/search/)
 
 **Recommended Regions:** East US, East US2, Australia East, UK South, France Central.
 
@@ -259,7 +254,7 @@ azd up
 ```
 
 **During deployment, you'll be prompted for:**
-1. **Environment name** (e.g., "conmig") - Must be 3-16 characters long, alphanumeric only
+1. **Environment name** (e.g., "docgen") - Must be 3-16 characters long, alphanumeric only
 2. **Azure subscription** selection
 3. **Azure AI Foundry deployment region** - Select a region with available o3 model quota for AI operations
 4. **Primary location** - Select the region where your infrastructure resources will be deployed
