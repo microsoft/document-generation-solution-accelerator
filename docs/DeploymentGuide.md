@@ -75,10 +75,10 @@ Select one of the following options to deploy the Document Generation Solution A
 
 | **Option** | **Best For** | **Prerequisites** | **Setup Time** |
 |------------|--------------|-------------------|----------------|
-| **GitHub Codespaces** | Quick deployment, no local setup required | GitHub account | ~3-5 minutes |
-| **VS Code Dev Containers** | Fast deployment with local tools | Docker Desktop, VS Code | ~5-10 minutes |
-| **VS Code Web** | Quick deployment, no local setup required | Azure account | ~2-4 minutes |
-| **Local Environment** | Enterprise environments, full control | All tools individually | ~15-30 minutes |
+| **GitHub Codespaces** | Quick deployment, no local setup required | GitHub account | ~5-7 minutes |
+| **VS Code Dev Containers** | Fast deployment with local tools | Docker Desktop, VS Code | ~6-10 minutes |
+| **VS Code Web** | Quick deployment, no local setup required | Azure account | ~6-8 minutes |
+| **Local Environment** | Enterprise environments, full control | All tools individually | ~7-10 minutes |
 
 **💡 Recommendation:** For fastest deployment, start with **GitHub Codespaces** - no local installation required.
 
@@ -256,11 +256,11 @@ azd up
 **During deployment, you'll be prompted for:**
 1. **Environment name** (e.g., "docgen") - Must be 3-16 characters long, alphanumeric only
 2. **Azure subscription** selection
-3. **Azure AI Foundry deployment region** - Select a region with available o3 model quota for AI operations
+3. **Azure AI Foundry deployment region** - Select a region with available OpenAI model quota for AI operations
 4. **Primary location** - Select the region where your infrastructure resources will be deployed
 5. **Resource group** selection (create new or use existing)
 
-**Expected Duration:** 4-6 minutes for default configuration
+**Expected Duration:** 6-8 minutes for default configuration
 
 **⚠️ Deployment Issues:** If you encounter errors or timeouts, try a different region as there may be capacity constraints. For detailed error solutions, see our [Troubleshooting Guide](./TroubleShootingSteps.md).
 
@@ -269,7 +269,7 @@ azd up
 After successful deployment:
 1. Open [Azure Portal](https://portal.azure.com/)
 2. Navigate to your resource group
-3. Find the Container App with "frontend" in the name
+3. Find the App Service with "app" in the name
 4. Copy the **Application URI**
 
 ⚠️ **Important:** Complete [Post-Deployment Steps](#step-5-post-deployment-configuration) before accessing the application.
@@ -278,7 +278,7 @@ After successful deployment:
 
 ### 5.1 Sample Data Import
 
-1. Once the deployment has completed successfully and you would like to use the sample data, please open a **Git Bash** terminal and run the bash command printed below. The bash command will look like the following:
+   Once the deployment has completed successfully and you would like to use the sample data, please open a **Git Bash** terminal and run the bash command printed below. The bash command will look like the following:
     ```shell 
     bash ./infra/scripts/process_sample_data.sh
     ```
@@ -286,8 +286,6 @@ After successful deployment:
     ```shell 
     bash ./infra/scripts/process_sample_data.sh <Storage-Account-Name> <Storage-Container-Name> <Key-Vault-Name> <CosmosDB-Account-Name> <Resource-Group-Name> <Search-Service-Name> <Managed-Identity-Client-ID> <AI-Foundry-Resource-ID>
     ```
-
-2. Open the [Azure Portal](https://portal.azure.com/), go to the deployed resource group, find the App Service and get the app URL from `Default domain`.
 
 ### 5.2 Configure Authentication (Optional)
 
@@ -334,7 +332,7 @@ If your deployment failed or encountered errors, here are the steps to recover:
 azd down
 
 # Create new environment (3-16 chars, alphanumeric only)
-azd env new conmigretry
+azd env new docgenretry
 
 # Deploy with different settings/region
 azd up
@@ -364,10 +362,10 @@ azd up
 **Example:**
 ```shell
 # Create a new environment for production (valid: 3-16 chars)
-azd env new conmigprod
+azd env new docgenprod
 
 # Switch to the new environment
-azd env select conmigprod
+azd env select docgenprod
 
 # Deploy with fresh settings
 azd up
@@ -376,7 +374,7 @@ azd up
 > **Environment Name Requirements:**
 > - **Length:** 3-16 characters
 > - **Characters:** Alphanumeric only (letters and numbers)
-> - **Valid examples:** `conmig`, `test123`, `myappdev`, `prod2024`
+> - **Valid examples:** `docgen`, `test123`, `myappdev`, `prod2024`
 > - **Invalid examples:** `co` (too short), `my-very-long-environment-name` (too long), `test_env` (underscore not allowed), `myapp-dev` (hyphen not allowed)
 
 </details>
