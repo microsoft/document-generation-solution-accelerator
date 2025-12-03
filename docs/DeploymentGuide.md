@@ -36,7 +36,7 @@ Ensure you have access to an [Azure subscription](https://azure.microsoft.com/fr
 3. If you can access this page, you have the required permissions
 4. Cancel without creating an app registration
 
-📖 **Detailed Setup:** Follow [Azure Account Set Up](./AzureAccountSetup.md) for complete configuration.
+📖 **Detailed Setup:** Follow [Azure Account Set Up](./AzureAccountSetUp.md) for complete configuration.
 
 ### 1.2 Check Service Availability & Quota
 
@@ -64,7 +64,7 @@ Ensure you have access to an [Azure subscription](https://azure.microsoft.com/fr
 
 > **Note:** When you run `azd up`, the deployment will automatically show you regions with available quota, so this pre-check is optional but helpful for planning purposes. You can customize these settings later in [Step 3.3: Advanced Configuration](#33-advanced-configuration-optional).
 
-📖 **Adjust Quota:** Follow [Azure AI Model Quota Settings](./AzureAIModelQuotaSettings.md) if needed.
+📖 **Adjust Quota:** Follow [Azure AI Model Quota Settings](./AzureGPTQuotaSettings.md) if needed.
 
 ## Step 2: Choose Your Deployment Environment
 
