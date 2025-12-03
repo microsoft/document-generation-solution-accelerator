@@ -315,11 +315,17 @@ async def generate_content():
             try:
                 blob_service = await get_blob_service()
                 if response.get("image_base64"):
-                    image_url = await blob_service.save_generated_image(
+                    blob_url = await blob_service.save_generated_image(
                         conversation_id=conversation_id,
                         image_base64=response["image_base64"]
                     )
-                    response["image_url"] = image_url
+                    # Convert blob URL to proxy URL for frontend access
+                    # blob_url format: https://account.blob.core.windows.net/container/conv_id/filename.png
+                    # proxy URL format: /api/images/conv_id/filename.png
+                    if blob_url:
+                        parts = blob_url.split("/")
+                        filename = parts[-1]  # e.g., "20251202222126.png"
+                        response["image_url"] = f"/api/images/{conversation_id}/{filename}"
             except Exception as e:
                 logger.warning(f"Failed to save image to blob storage: {e}")
             
@@ -342,6 +348,8 @@ async def generate_content():
                 )
                 
                 # Save the full generated content for restoration
+                # Note: image_base64 is NOT saved to CosmosDB as it exceeds document size limits
+                # Images will only persist if blob storage is working
                 generated_content_to_save = {
                     "text_content": response.get("text_content"),
                     "image_url": response.get("image_url"),
@@ -374,6 +382,40 @@ async def generate_content():
             "X-Accel-Buffering": "no"
         }
     )
+
+
+# ==================== Image Proxy Endpoint ====================
+
+@app.route("/api/images/<conversation_id>/<filename>", methods=["GET"])
+async def proxy_generated_image(conversation_id: str, filename: str):
+    """
+    Proxy generated images from blob storage.
+    This allows the frontend to access images without exposing blob storage credentials.
+    """
+    try:
+        blob_service = await get_blob_service()
+        await blob_service.initialize()
+        
+        blob_name = f"{conversation_id}/{filename}"
+        blob_client = blob_service._generated_images_container.get_blob_client(blob_name)
+        
+        # Download the blob
+        download = await blob_client.download_blob()
+        image_data = await download.readall()
+        
+        # Determine content type from filename
+        content_type = "image/png" if filename.endswith(".png") else "image/jpeg"
+        
+        return Response(
+            image_data,
+            mimetype=content_type,
+            headers={
+                "Cache-Control": "public, max-age=86400",  # Cache for 24 hours
+            }
+        )
+    except Exception as e:
+        logger.exception(f"Error proxying image: {e}")
+        return jsonify({"error": "Image not found"}), 404
 
 
 # ==================== Product Endpoints ====================

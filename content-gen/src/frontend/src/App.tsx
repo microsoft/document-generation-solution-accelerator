@@ -66,6 +66,20 @@ function App() {
             }
           }
           
+          // Build image URL: convert old blob URLs to proxy URLs, or use existing proxy URL
+          let imageUrl: string | undefined = gc.image_url;
+          if (imageUrl && imageUrl.includes('blob.core.windows.net')) {
+            // Convert old blob URL to proxy URL
+            // blob URL format: https://account.blob.core.windows.net/container/conv_id/filename.png
+            const parts = imageUrl.split('/');
+            const filename = parts[parts.length - 1];
+            const convId = parts[parts.length - 2];
+            imageUrl = `/api/images/${convId}/${filename}`;
+          }
+          if (!imageUrl && gc.image_base64) {
+            imageUrl = `data:image/png;base64,${gc.image_base64}`;
+          }
+          
           const restoredContent: GeneratedContent = {
             text_content: typeof textContent === 'object' && textContent ? {
               headline: textContent?.headline,
@@ -73,8 +87,8 @@ function App() {
               cta_text: textContent?.cta,
               tagline: textContent?.tagline,
             } : undefined,
-            image_content: (gc.image_url || gc.image_prompt) ? {
-              image_url: gc.image_url,
+            image_content: (imageUrl || gc.image_prompt) ? {
+              image_url: imageUrl,
               prompt_used: gc.image_prompt,
               alt_text: gc.image_revised_prompt || 'Generated marketing image',
             } : undefined,
