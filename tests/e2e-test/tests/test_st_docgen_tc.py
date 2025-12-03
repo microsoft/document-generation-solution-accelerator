@@ -3218,6 +3218,192 @@ def test_bug_10178_delete_all_chat_history_error(request, login_logout):
     finally:
         logger.removeHandler(handler)
 
+@pytest.mark.smoke
+def test_bug_10177_edit_delete_icons_disabled_during_response(login_logout, request):
+    """
+    Test Case 10330: Bug-10177-BYOc-DocGen-Delete and Edit icons should be disabled in template history thread while generating response
+    
+    Preconditions:
+    1. User should have BYOc DocGen web url
+    2. User should have template history saved
+
+    Steps:
+    1. Login to BYOc DocGen web url
+       Expected: Login is successful and Document Generation page is displayed
+    2. Click on 'Generate' tab
+       Expected: Chat conversation page is displayed
+    3. Click on 'Show template history' button
+       Expected: Template history window is displayed
+    4. Select any Session history thread
+       Expected: Saved chat conversation is loaded on the page
+    5. Enter a prompt and while generating response, verify the Delete and Edit icons are disabled on template history for the selected thread
+       Expected: Delete and Edit icons should be disabled on template history for the selected history thread
+    """
+    
+    request.node._nodeid = "TC 10330: Bug-10177-BYOc-DocGen-Delete and Edit icons should be disabled while generating response"
+    
+    page = login_logout
+    home_page = HomePage(page)
+    generate_page = GeneratePage(page)
+
+    log_capture = io.StringIO()
+    handler = logging.StreamHandler(log_capture)
+    logger.addHandler(handler)
+
+    try:
+        # Step 1: Login to BYOc DocGen web url
+        logger.info("Step 1: Login to BYOc DocGen web url")
+        start = time.time()
+        home_page.open_home_page()
+        home_page.validate_home_page()
+        logger.info("✅ Login is successful and Document Generation page is displayed")
+        duration = time.time() - start
+        logger.info("Execution Time for Step 1: %.2fs", duration)
+
+        # Step 2: Click on 'Generate' tab
+        logger.info("Step 2: Click on 'Generate' tab")
+        start = time.time()
+        home_page.click_generate_button()
+        generate_page.validate_generate_page()
+        logger.info("✅ Chat conversation page is displayed")
+        duration = time.time() - start
+        logger.info("Execution Time for Step 2: %.2fs", duration)
+
+        # Step 3: Click on 'Show template history' button
+        logger.info("Step 3: Click on 'Show template history' button")
+        start = time.time()
+        generate_page.show_chat_history()
+        page.wait_for_timeout(2000)
+        logger.info("✅ Template history window is displayed")
+        duration = time.time() - start
+        logger.info("Execution Time for Step 3: %.2fs", duration)
+
+        # Step 4: Select any Session history thread
+        logger.info("Step 4: Select any Session history thread")
+        start = time.time()
+        
+        # Check if any threads exist
+        threads = page.locator('div[data-list-index]')
+        thread_count = threads.count()
+        
+        if thread_count == 0:
+            logger.warning("No history threads found. Creating a new chat to test with...")
+            # Close history panel
+            generate_page.close_chat_history()
+            # Create a chat first
+            generate_page.enter_a_question(generate_question1)
+            generate_page.click_send_button()
+            generate_page.validate_response_status(question_api=generate_question1)
+            # Save it
+            generate_page.click_new_chat_button()
+            page.wait_for_timeout(2000)
+            # Show history again
+            generate_page.show_chat_history()
+            page.wait_for_timeout(2000)
+        
+        # Select the first thread
+        generate_page.select_history_thread(thread_index=0)
+        logger.info("✅ Saved chat conversation is loaded on the page")
+        duration = time.time() - start
+        logger.info("Execution Time for Step 4: %.2fs", duration)
+
+        # Step 5: Enter a prompt and verify Delete/Edit icons are disabled while generating response
+        logger.info("Step 5: Enter a prompt and verify Delete/Edit icons are disabled during response generation")
+        start = time.time()
+        
+        # Enter a question that will take some time to generate response
+        test_prompt = "Generate a detailed promissory note with all sections and comprehensive explanations"
+        logger.info("Entering prompt: '%s'", test_prompt)
+        generate_page.enter_a_question(test_prompt)
+        generate_page.click_send_button()
+        
+        # Immediately after clicking send, check if icons are disabled (while response is generating)
+        # Wait a brief moment for the request to start
+        page.wait_for_timeout(500)
+        
+        logger.info("Checking icon states while response is being generated...")
+        
+        # Locate the selected thread (first thread - index 0)
+        threads = page.locator('div[data-list-index]')
+        selected_thread = threads.nth(0)
+        
+        # Check Delete icon state
+        delete_icon = selected_thread.locator('button[title="Delete"]')
+        is_delete_visible = delete_icon.is_visible()
+        is_delete_enabled = delete_icon.is_enabled() if is_delete_visible else False
+        
+        logger.info("Delete icon - Visible: %s, Enabled: %s", is_delete_visible, is_delete_enabled)
+        
+        # Check Edit icon state
+        edit_icon = selected_thread.locator('button[title="Edit"]')
+        is_edit_visible = edit_icon.is_visible()
+        is_edit_enabled = edit_icon.is_enabled() if is_edit_visible else False
+        
+        logger.info("Edit icon - Visible: %s, Enabled: %s", is_edit_visible, is_edit_enabled)
+        
+        # Verify icons are disabled during response generation
+        with check:
+            assert not is_delete_enabled, \
+                f"BUG: Delete icon should be disabled during response generation, but it is enabled"
+        
+        with check:
+            assert not is_edit_enabled, \
+                f"BUG: Edit icon should be disabled during response generation, but it is enabled"
+        
+        if not is_delete_enabled and not is_edit_enabled:
+            logger.info("✅ Delete and Edit icons are properly disabled during response generation")
+        else:
+            logger.error("❌ BUG: Icons are enabled when they should be disabled")
+            if is_delete_enabled:
+                logger.error("  - Delete icon is enabled (should be disabled)")
+            if is_edit_enabled:
+                logger.error("  - Edit icon is enabled (should be disabled)")
+        
+        # Wait for response to complete
+        generate_page.validate_response_status(question_api=test_prompt)
+        logger.info("Response generation completed")
+        
+        # Verify icons are enabled again after response completes
+        page.wait_for_timeout(1000)
+        
+        is_delete_enabled_after = delete_icon.is_enabled() if delete_icon.is_visible() else False
+        is_edit_enabled_after = edit_icon.is_enabled() if edit_icon.is_visible() else False
+        
+        logger.info("After response completion - Delete enabled: %s, Edit enabled: %s", 
+                   is_delete_enabled_after, is_edit_enabled_after)
+        
+        with check:
+            assert is_delete_enabled_after, \
+                "Delete icon should be enabled after response generation completes"
+        
+        with check:
+            assert is_edit_enabled_after, \
+                "Edit icon should be enabled after response generation completes"
+        
+        if is_delete_enabled_after and is_edit_enabled_after:
+            logger.info("✅ Delete and Edit icons are properly enabled after response generation completes")
+        
+        duration = time.time() - start
+        logger.info("Execution Time for Step 5: %.2fs", duration)
+
+        logger.info("\n" + "="*80)
+        logger.info("✅ TC 10330 Test Summary - Edit/Delete Icons Disabled During Response")
+        logger.info("="*80)
+        logger.info("Step 1: Login successful and Document Generation page displayed ✓")
+        logger.info("Step 2: Navigated to Generate tab ✓")
+        logger.info("Step 3: Template history displayed ✓")
+        logger.info("Step 4: Session history thread selected ✓")
+        logger.info("Step 5: Icon states verified during response generation ✓")
+        logger.info("  - Delete icon disabled during generation: %s ✓", "Yes" if not is_delete_enabled else "No (BUG)")
+        logger.info("  - Edit icon disabled during generation: %s ✓", "Yes" if not is_edit_enabled else "No (BUG)")
+        logger.info("  - Delete icon enabled after completion: %s ✓", "Yes" if is_delete_enabled_after else "No")
+        logger.info("  - Edit icon enabled after completion: %s ✓", "Yes" if is_edit_enabled_after else "No")
+        logger.info("="*80)
+        
+        logger.info("Test TC 10330: Bug-10177 - Edit/Delete icons disabled during response generation completed successfully")
+
+    finally:
+        logger.removeHandler(handler)
 
 @pytest.mark.smoke
 def test_bug_10345_no_new_sections_during_removal(request, login_logout):
