@@ -50,6 +50,8 @@ export function ChatHistory({
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [visibleCount, setVisibleCount] = useState(5);
+  const PAGE_SIZE = 5;
 
   const loadConversations = useCallback(async () => {
     setIsLoading(true);
@@ -75,6 +77,11 @@ export function ChatHistory({
   useEffect(() => {
     loadConversations();
   }, [loadConversations, refreshTrigger]);
+
+  // Reset visible count when conversations change significantly
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [refreshTrigger]);
 
   // Build the current session conversation summary if it has messages
   const currentSessionConversation: ConversationSummary | null = currentMessages.length > 0 ? {
@@ -221,7 +228,7 @@ export function ChatHistory({
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {displayConversations.map((conversation) => (
+            {displayConversations.slice(0, visibleCount).map((conversation) => (
               <ConversationItem
                 key={conversation.id}
                 conversation={conversation}
@@ -232,6 +239,37 @@ export function ChatHistory({
                 truncateText={truncateText}
               />
             ))}
+            
+            {/* Show More / Show Less controls */}
+            {displayConversations.length > PAGE_SIZE && (
+              <div style={{ 
+                display: 'flex', 
+                justifyContent: 'center', 
+                gap: '16px',
+                marginTop: '8px',
+                paddingTop: '8px',
+                borderTop: `1px solid ${tokens.colorNeutralStroke2}`
+              }}>
+                {visibleCount < displayConversations.length && (
+                  <Button
+                    appearance="subtle"
+                    size="small"
+                    onClick={() => setVisibleCount(prev => Math.min(prev + PAGE_SIZE, displayConversations.length))}
+                  >
+                    Show More ({displayConversations.length - visibleCount} remaining)
+                  </Button>
+                )}
+                {visibleCount > PAGE_SIZE && (
+                  <Button
+                    appearance="subtle"
+                    size="small"
+                    onClick={() => setVisibleCount(PAGE_SIZE)}
+                  >
+                    Show Less
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>

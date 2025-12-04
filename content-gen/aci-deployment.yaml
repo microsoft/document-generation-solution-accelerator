@@ -1,0 +1,57 @@
+apiVersion: 2021-10-01
+name: aci-contentgen-backend
+location: eastus
+identity:
+  type: SystemAssigned
+properties:
+  containers:
+    - name: contentgen-backend
+      properties:
+        image: acrcontentgenjh.azurecr.io/contentgen-backend:latest
+        resources:
+          requests:
+            cpu: 1.0
+            memoryInGB: 2.0
+        ports:
+          - port: 8000
+            protocol: TCP
+        environmentVariables:
+          - name: AZURE_OPENAI_ENDPOINT
+            value: https://ai-account-254ly3n5ky7vw.cognitiveservices.azure.com/
+          - name: AZURE_OPENAI_GPT_MODEL
+            value: Gpt-5.1
+          - name: AZURE_OPENAI_API_VERSION
+            value: '2024-10-21'
+          - name: AZURE_OPENAI_DALLE_ENDPOINT
+            value: https://aicu-cps-ayvergaiq5f2.cognitiveservices.azure.com/
+          - name: AZURE_OPENAI_DALLE_MODEL
+            value: dall-e-3
+          - name: AZURE_COSMOS_ENDPOINT
+            value: https://cosmosdb-contentgen-jh.documents.azure.com:443/
+          - name: AZURE_COSMOS_DATABASE_NAME
+            value: content-generation
+          - name: AZURE_COSMOS_PRODUCTS_CONTAINER
+            value: products
+          - name: AZURE_COSMOS_CONVERSATIONS_CONTAINER
+            value: conversations
+          - name: AZURE_BLOB_ACCOUNT_NAME
+            value: storagecontentgenjh
+          - name: RUNNING_IN_PRODUCTION
+            value: 'true'
+          - name: AUTH_ENABLED
+            value: 'true'
+  osType: Linux
+  subnetIds:
+    - id: /subscriptions/ff9b5430-90ea-44c0-8a00-e488c1bf56f4/resourceGroups/rg-contentgen-jahunte/providers/Microsoft.Network/virtualNetworks/vnet-contentgen-jh/subnets/subnet-aci
+  dnsConfig:
+    nameServers:
+      - 168.63.129.16
+  ipAddress:
+    type: Private
+    ports:
+      - protocol: TCP
+        port: 8000
+  imageRegistryCredentials:
+    - server: acrcontentgenjh.azurecr.io
+      username: acrcontentgenjh
+      password: <ACR_PASSWORD>  # Replace with actual password or use managed identity
