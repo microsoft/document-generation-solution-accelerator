@@ -1,0 +1,221 @@
+name: Deploy Steps - Windows
+
+on:
+  workflow_call:
+    inputs:
+      ENV_NAME:
+        required: true
+        type: string
+      AZURE_ENV_OPENAI_LOCATION:
+        required: true
+        type: string
+      AZURE_LOCATION:
+        required: true
+        type: string
+      RESOURCE_GROUP_NAME:
+        required: true
+        type: string
+      IMAGE_TAG:
+        required: true
+        type: string
+      BUILD_DOCKER_IMAGE:
+        required: true
+        type: string
+      EXP:
+        required: true
+        type: string
+      WAF_ENABLED:
+        required: false
+        type: string
+        default: 'false'
+      AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID:
+        required: false
+        type: string
+      AZURE_EXISTING_AI_PROJECT_RESOURCE_ID:
+        required: false
+        type: string
+    outputs:
+      WEB_APPURL:
+        description: "Container Web App URL"
+        value: ${{ jobs.deploy-windows.outputs.WEB_APPURL }}
+
+jobs:
+  deploy-windows:
+    runs-on: windows-latest
+    env:
+      AZURE_DEV_COLLECT_TELEMETRY: ${{ vars.AZURE_DEV_COLLECT_TELEMETRY }}
+    outputs:
+      WEB_APPURL: ${{ steps.get_output_windows.outputs.WEB_APPURL }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Configure Parameters Based on WAF Setting
+        shell: bash
+        run: |
+          if [[ "${{ inputs.WAF_ENABLED }}" == "true" ]]; then
+            cp infra/main.waf.parameters.json infra/main.parameters.json
+            echo "✅ Successfully copied WAF parameters to main parameters file"
+          else
+            echo "🔧 Configuring Non-WAF deployment - using default main.parameters.json..."
+          fi
+
+      - name: Setup Azure Developer CLI (Windows)
+        uses: Azure/setup-azd@v2
+
+      - name: Login to AZD
+        id: login-azure
+        shell: bash
+        run: |
+          az login --service-principal -u ${{ secrets.AZURE_CLIENT_ID }} -p ${{ secrets.AZURE_CLIENT_SECRET }} --tenant ${{ secrets.AZURE_TENANT_ID }}
+          az account set --subscription ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          azd auth login --client-id ${{ secrets.AZURE_CLIENT_ID }} --client-secret ${{ secrets.AZURE_CLIENT_SECRET }} --tenant-id ${{ secrets.AZURE_TENANT_ID }}
+
+
+      - name: Deploy using azd up and extract values (Windows)
+        id: get_output_windows
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          Write-Host "Creating environment..."
+          azd env new ${{ inputs.ENV_NAME }} --no-prompt
+          Write-Host "Environment created: ${{ inputs.ENV_NAME }}"
+
+          Write-Host "Setting default subscription..."
+          azd config set defaults.subscription ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        
+          # Set additional parameters
+          azd env set AZURE_SUBSCRIPTION_ID="${{ secrets.AZURE_SUBSCRIPTION_ID }}"
+          azd env set AZURE_ENV_OPENAI_LOCATION="${{ inputs.AZURE_ENV_OPENAI_LOCATION }}"
+          azd env set AZURE_LOCATION="${{ inputs.AZURE_LOCATION }}"
+          azd env set AZURE_RESOURCE_GROUP="${{ inputs.RESOURCE_GROUP_NAME }}"
+          azd env set AZURE_ENV_IMAGETAG="${{ inputs.IMAGE_TAG }}"
+          
+          # Set ACR name only when building Docker image
+          if ("${{ inputs.BUILD_DOCKER_IMAGE }}" -eq "true") {
+            $ACR_NAME = "${{ secrets.ACR_TEST_USERNAME }}"
+            azd env set AZURE_ENV_ACR_NAME="$ACR_NAME"
+            Write-Host "Set ACR name to: $ACR_NAME"
+          } else {
+            Write-Host "Skipping ACR name configuration (using existing image)"
+          }
+
+          if ("${{ inputs.EXP }}" -eq "true") {
+            Write-Host "✅ EXP ENABLED - Setting EXP parameters..."
+            
+            # Set EXP variables dynamically
+            if ("${{ inputs.AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID }}" -ne "") {
+              $EXP_LOG_ANALYTICS_ID = "${{ inputs.AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID }}"
+            } else {
+              $EXP_LOG_ANALYTICS_ID = "${{ secrets.AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID }}"
+            }
+            
+            if ("${{ inputs.AZURE_EXISTING_AI_PROJECT_RESOURCE_ID }}" -ne "") {
+              $EXP_AI_PROJECT_ID = "${{ inputs.AZURE_EXISTING_AI_PROJECT_RESOURCE_ID }}"
+            } else {
+              $EXP_AI_PROJECT_ID = "${{ secrets.AZURE_EXISTING_AI_PROJECT_RESOURCE_ID }}"
+            }
+            
+            Write-Host "AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID: $EXP_LOG_ANALYTICS_ID"
+            Write-Host "AZURE_EXISTING_AI_PROJECT_RESOURCE_ID: $EXP_AI_PROJECT_ID"
+            azd env set AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID="$EXP_LOG_ANALYTICS_ID"
+            azd env set AZURE_EXISTING_AI_PROJECT_RESOURCE_ID="$EXP_AI_PROJECT_ID"
+          } else {
+            Write-Host "❌ EXP DISABLED - Skipping EXP parameters"
+          }
+
+          # Deploy using azd up
+          azd up --no-prompt
+          
+          Write-Host "✅ Deployment succeeded."
+
+          # Get deployment outputs using azd
+          Write-Host "Extracting deployment outputs..."
+          $DEPLOY_OUTPUT = azd env get-values --output json | ConvertFrom-Json
+          Write-Host "Deployment output: $($DEPLOY_OUTPUT | ConvertTo-Json -Depth 10)"
+          
+          if (-not $DEPLOY_OUTPUT) {
+            Write-Host "Error: Deployment output is empty. Please check the deployment logs."
+            exit 1
+          }
+
+
+          $AI_FOUNDRY_RESOURCE_ID = $DEPLOY_OUTPUT.AI_FOUNDRY_RESOURCE_ID
+          "AI_FOUNDRY_RESOURCE_ID=$AI_FOUNDRY_RESOURCE_ID" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+          $AI_SEARCH_SERVICE_NAME = $DEPLOY_OUTPUT.AI_SEARCH_SERVICE_NAME
+          "AI_SEARCH_SERVICE_NAME=$AI_SEARCH_SERVICE_NAME" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+          $AZURE_COSMOSDB_ACCOUNT = $DEPLOY_OUTPUT.AZURE_COSMOSDB_ACCOUNT
+          "AZURE_COSMOSDB_ACCOUNT=$AZURE_COSMOSDB_ACCOUNT" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+          $STORAGE_ACCOUNT_NAME = $DEPLOY_OUTPUT.STORAGE_ACCOUNT_NAME
+          "STORAGE_ACCOUNT_NAME=$STORAGE_ACCOUNT_NAME" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+          $STORAGE_CONTAINER_NAME = $DEPLOY_OUTPUT.STORAGE_CONTAINER_NAME
+          "STORAGE_CONTAINER_NAME=$STORAGE_CONTAINER_NAME" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+          $KEY_VAULT_NAME = $DEPLOY_OUTPUT.KEY_VAULT_NAME
+          "KEY_VAULT_NAME=$KEY_VAULT_NAME" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+          $RESOURCE_GROUP_NAME = $DEPLOY_OUTPUT.RESOURCE_GROUP_NAME
+          "RESOURCE_GROUP_NAME=$RESOURCE_GROUP_NAME" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+          $WEB_APP_URL = $DEPLOY_OUTPUT.WEB_APP_URL
+          "WEB_APPURL=$WEB_APP_URL" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "WEB_APPURL=$WEB_APP_URL" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      - name: Run Post-Deployment Script
+        id: post_deploy
+        env: 
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        shell: bash
+        run: |
+          set -e
+          az account set --subscription "${{ secrets.AZURE_SUBSCRIPTION_ID }}"
+
+          echo "Running post-deployment script..."
+
+          bash ./infra/scripts/process_sample_data.sh \
+            "${{ env.STORAGE_ACCOUNT_NAME }}" \
+            "${{ env.STORAGE_CONTAINER_NAME }}" \
+            "${{ env.KEY_VAULT_NAME }}" \
+            "${{ env.AZURE_COSMOSDB_ACCOUNT }}" \
+            "${{ env.RESOURCE_GROUP_NAME }}" \
+            "${{ env.AI_SEARCH_SERVICE_NAME }}" \
+            "${{ secrets.AZURE_CLIENT_ID }}" \
+            "${{ env.AI_FOUNDRY_RESOURCE_ID }}"
+
+      - name: Generate Deploy Job Summary
+        if: always()
+        shell: bash
+        run: |
+          echo "## 🚀 Deploy Job Summary (Windows)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Job Status** | ${{ job.status == 'success' && '✅ Success' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Resource Group** | \`${{ inputs.RESOURCE_GROUP_NAME }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Configuration Type** | \`${{ inputs.WAF_ENABLED == 'true' && inputs.EXP == 'true' && 'WAF + EXP' || inputs.WAF_ENABLED == 'true' && inputs.EXP != 'true' && 'WAF + Non-EXP' || inputs.WAF_ENABLED != 'true' && inputs.EXP == 'true' && 'Non-WAF + EXP' || 'Non-WAF + Non-EXP' }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Azure Region (Infrastructure)** | \`${{ inputs.AZURE_LOCATION }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Azure OpenAI Region** | \`${{ inputs.AZURE_ENV_OPENAI_LOCATION }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Docker Image Tag** | \`${{ inputs.IMAGE_TAG }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [[ "${{ job.status }}" == "success" ]]; then
+            echo "### ✅ Deployment Details" >> $GITHUB_STEP_SUMMARY
+            echo "- **Web App URL**: [${{ steps.get_output_windows.outputs.WEB_APPURL }}](${{ steps.get_output_windows.outputs.WEB_APPURL }})" >> $GITHUB_STEP_SUMMARY
+            echo "- Successfully deployed to Azure with all resources configured" >> $GITHUB_STEP_SUMMARY
+            echo "- Post-deployment scripts executed successfully" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "### ❌ Deployment Failed" >> $GITHUB_STEP_SUMMARY
+            echo "- Deployment process encountered an error" >> $GITHUB_STEP_SUMMARY
+            echo "- Check the deploy job for detailed error information" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Logout from Azure
+        if: always()
+        shell: bash
+        run: |
+          az logout || true
+          echo "Logged out from Azure."
