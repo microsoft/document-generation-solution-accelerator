@@ -1,13 +1,9 @@
 import { useState, useCallback, useEffect } from 'react';
 import {
-  Title1,
-  Subtitle1,
-  Divider,
+  Text,
+  Avatar,
   tokens,
 } from '@fluentui/react-components';
-import {
-  Sparkle24Regular,
-} from '@fluentui/react-icons';
 import { v4 as uuidv4 } from 'uuid';
 
 import { ChatPanel } from './components/ChatPanel';
@@ -19,6 +15,17 @@ interface UserInfo {
   user_name: string;
   auth_provider: string;
   is_authenticated: boolean;
+}
+
+// Contoso logo SVG component
+function ContosoLogo() {
+  return (
+    <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M14 0L28 14L14 28L0 14L14 0Z" fill="#0078D4"/>
+      <path d="M14 4L24 14L14 24L4 14L14 4Z" fill="#50E6FF"/>
+      <path d="M14 8L20 14L14 20L8 14L14 8Z" fill="white"/>
+    </svg>
+  );
 }
 
 function App() {
@@ -349,42 +356,46 @@ function App() {
     }
   }, [confirmedBrief, selectedProducts, conversationId]);
 
+  // Get user initials for avatar
+  const getUserInitials = () => {
+    if (!userId) return 'U';
+    // If we have a name, use first letter of first and last name
+    const parts = userId.split('@')[0].split('.');
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+    return userId[0].toUpperCase();
+  };
+
   return (
     <div className="app-container">
       {/* Header */}
       <header style={{ 
         display: 'flex', 
         alignItems: 'center', 
-        gap: '12px',
-        padding: '16px 0',
-        marginBottom: '8px'
+        justifyContent: 'space-between',
+        padding: '12px 24px',
+        borderBottom: `1px solid ${tokens.colorNeutralStroke2}`,
+        backgroundColor: tokens.colorNeutralBackground1,
       }}>
-        <Sparkle24Regular style={{ color: tokens.colorBrandForeground1 }} />
-        <div>
-          <Title1>Content Generation Accelerator</Title1>
-          <Subtitle1 style={{ color: tokens.colorNeutralForeground3 }}>
-            AI-powered marketing content creation
-          </Subtitle1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <ContosoLogo />
+          <Text weight="semibold" size={500} style={{ color: tokens.colorNeutralForeground1 }}>
+            Contoso
+          </Text>
         </div>
+        <Avatar 
+          name={userId || 'User'}
+          initials={getUserInitials()}
+          color="colorful"
+          size={36}
+        />
       </header>
       
-      <Divider />
-      
       {/* Main Content */}
-      <div className="main-content" style={{ marginTop: '16px' }}>
-        {/* Chat History Sidebar */}
-        <div className="history-panel">
-          <ChatHistory
-            currentConversationId={conversationId}
-            currentMessages={messages}
-            onSelectConversation={handleSelectConversation}
-            onNewConversation={handleNewConversation}
-            refreshTrigger={historyRefreshTrigger}
-          />
-        </div>
-        
-        {/* Chat Panel - now includes inline product selector and content preview */}
-        <div className="chat-panel" style={{ flex: 1 }}>
+      <div className="main-content">
+        {/* Chat Panel - main area */}
+        <div className="chat-panel">
           <ChatPanel
             messages={messages}
             onSendMessage={handleSendMessage}
@@ -399,6 +410,17 @@ function App() {
             onProductsChange={setSelectedProducts}
             onGenerateContent={handleGenerateContent}
             onRegenerateContent={handleGenerateContent}
+          />
+        </div>
+        
+        {/* Chat History Sidebar - RIGHT side */}
+        <div className="history-panel">
+          <ChatHistory
+            currentConversationId={conversationId}
+            currentMessages={messages}
+            onSelectConversation={handleSelectConversation}
+            onNewConversation={handleNewConversation}
+            refreshTrigger={historyRefreshTrigger}
           />
         </div>
       </div>

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   Card,
   Button,
@@ -16,26 +17,29 @@ import {
   ArrowDownload24Regular,
   Bot24Regular,
 } from '@fluentui/react-icons';
-import type { GeneratedContent, ComplianceViolation } from '../types';
+import type { GeneratedContent, ComplianceViolation, Product } from '../types';
 
 interface InlineContentPreviewProps {
   content: GeneratedContent;
   onRegenerate: () => void;
   isLoading?: boolean;
+  selectedProduct?: Product;
 }
 
-export function InlineContentPreview({ content, onRegenerate, isLoading }: InlineContentPreviewProps) {
+export function InlineContentPreview({ content, onRegenerate, isLoading, selectedProduct }: InlineContentPreviewProps) {
   const { text_content, image_content, violations, requires_modification } = content;
+  const [copied, setCopied] = useState(false);
 
   const handleCopyText = () => {
     const textToCopy = [
-      text_content?.headline && `Headline: ${text_content.headline}`,
-      text_content?.body && `Body: ${text_content.body}`,
-      text_content?.cta_text && `CTA: ${text_content.cta_text}`,
-      text_content?.tagline && `Tagline: ${text_content.tagline}`,
+      text_content?.headline && `✨ ${text_content.headline} ✨`,
+      text_content?.body,
+      text_content?.tagline,
     ].filter(Boolean).join('\n\n');
     
     navigator.clipboard.writeText(textToCopy);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   const handleDownloadImage = () => {
@@ -71,12 +75,30 @@ export function InlineContentPreview({ content, onRegenerate, isLoading }: Inlin
       <Card style={{ 
         flex: 1,
         maxWidth: 'calc(100% - 40px)',
-        backgroundColor: tokens.colorNeutralBackground1
+        backgroundColor: tokens.colorNeutralBackground1,
+        padding: '20px',
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-          <Badge appearance="outline" size="small">
-            ContentAgent
-          </Badge>
+        {/* Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <Badge appearance="outline" size="small">
+              ContentAgent
+            </Badge>
+            {/* Approval Status */}
+            {requires_modification ? (
+              <Badge appearance="filled" color="danger" icon={<ErrorCircle24Regular />}>
+                Requires Modification
+              </Badge>
+            ) : violations.length > 0 ? (
+              <Badge appearance="filled" color="warning" icon={<Warning24Regular />}>
+                Review Recommended
+              </Badge>
+            ) : (
+              <Badge appearance="filled" color="success" icon={<CheckmarkCircle24Regular />}>
+                Approved
+              </Badge>
+            )}
+          </div>
           <Button
             appearance="subtle"
             icon={<ArrowSync24Regular />}
@@ -88,129 +110,199 @@ export function InlineContentPreview({ content, onRegenerate, isLoading }: Inlin
           </Button>
         </div>
         
-        <Text weight="semibold" size={300} block style={{ marginBottom: '8px' }}>
-          Generated Marketing Content
-        </Text>
-        
-        {/* Approval Status */}
-        <div style={{ marginBottom: '12px' }}>
-          {requires_modification ? (
-            <Badge
-              appearance="filled"
-              color="danger"
-              icon={<ErrorCircle24Regular />}
-            >
-              Requires Modification
-            </Badge>
-          ) : violations.length > 0 ? (
-            <Badge
-              appearance="filled"
-              color="warning"
-              icon={<Warning24Regular />}
-            >
-              Review Recommended
-            </Badge>
-          ) : (
-            <Badge
-              appearance="filled"
-              color="success"
-              icon={<CheckmarkCircle24Regular />}
-            >
-              Approved
-            </Badge>
-          )}
-        </div>
-        
         {/* Violations */}
         {violations.length > 0 && (
-          <div style={{ marginBottom: '12px' }}>
-            <Text weight="semibold" size={200} style={{ marginBottom: '8px', display: 'block' }}>
-              Compliance Issues
-            </Text>
+          <div style={{ marginBottom: '16px' }}>
             {violations.map((violation, index) => (
               <ViolationCard key={index} violation={violation} />
             ))}
           </div>
         )}
         
-        <Divider style={{ margin: '12px 0' }} />
-        
-        {/* Text Content */}
-        {text_content && (
-          <div style={{ marginBottom: '12px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-              <Text weight="semibold" size={200}>Text Content</Text>
-              <Button
-                appearance="subtle"
-                icon={<Copy24Regular />}
-                size="small"
-                onClick={handleCopyText}
-              >
-                Copy
-              </Button>
-            </div>
-            
-            {text_content.headline && (
-              <div style={{ marginBottom: '8px', padding: '8px', backgroundColor: tokens.colorNeutralBackground2, borderRadius: '4px' }}>
-                <Text size={100} style={{ color: tokens.colorNeutralForeground3 }}>Headline</Text>
-                <Text size={300} weight="bold" block>{text_content.headline}</Text>
-              </div>
-            )}
-            
-            {text_content.body && (
-              <div style={{ marginBottom: '8px', padding: '8px', backgroundColor: tokens.colorNeutralBackground2, borderRadius: '4px' }}>
-                <Text size={100} style={{ color: tokens.colorNeutralForeground3 }}>Body</Text>
-                <Text size={200} block>{text_content.body}</Text>
-              </div>
-            )}
-            
-            {text_content.cta_text && (
-              <div style={{ marginBottom: '8px', padding: '8px', backgroundColor: tokens.colorNeutralBackground2, borderRadius: '4px' }}>
-                <Text size={100} style={{ color: tokens.colorNeutralForeground3 }}>Call to Action</Text>
-                <Text size={200} weight="semibold" block style={{ color: tokens.colorBrandForeground1 }}>
-                  {text_content.cta_text}
-                </Text>
-              </div>
-            )}
-            
-            {text_content.tagline && (
-              <div style={{ marginBottom: '8px', padding: '8px', backgroundColor: tokens.colorNeutralBackground2, borderRadius: '4px' }}>
-                <Text size={100} style={{ color: tokens.colorNeutralForeground3 }}>Tagline</Text>
-                <Text size={200} italic block>{text_content.tagline}</Text>
-              </div>
-            )}
-          </div>
+        {/* Product number header */}
+        {selectedProduct && (
+          <Text weight="bold" size={500} block style={{ marginBottom: '16px' }}>
+            1. {selectedProduct.product_name}
+          </Text>
         )}
         
-        {/* Image Content */}
-        {image_content?.image_url && (
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-              <Text weight="semibold" size={200}>Generated Image</Text>
+        {/* Main Content Grid: Product Card + Images */}
+        <div style={{ 
+          display: 'grid',
+          gridTemplateColumns: selectedProduct ? '200px 1fr 1fr' : '1fr 1fr',
+          gap: '16px',
+          marginBottom: '20px',
+        }}>
+          {/* Product Card */}
+          {selectedProduct && (
+            <div style={{ 
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px',
+            }}>
+              <Text size={200} style={{ color: tokens.colorNeutralForeground3 }}>
+                {selectedProduct.product_name}
+              </Text>
+              
+              {/* Color Swatch / Product Image */}
+              <div style={{
+                width: '100%',
+                aspectRatio: '1.5',
+                backgroundColor: '#EEEFEA', // Default soft white
+                borderRadius: '4px',
+                border: `1px solid ${tokens.colorNeutralStroke1}`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                overflow: 'hidden',
+              }}>
+                {selectedProduct.image_url ? (
+                  <img 
+                    src={selectedProduct.image_url} 
+                    alt={selectedProduct.product_name}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
+                ) : null}
+              </div>
+              
+              <Text weight="semibold" size={300}>
+                {selectedProduct.product_name}
+              </Text>
+              <Text size={200} style={{ color: tokens.colorNeutralForeground3 }}>
+                {selectedProduct.marketing_description || selectedProduct.detailed_spec_description?.substring(0, 50)}
+              </Text>
+              
+              {selectedProduct.category && (
+                <Text size={200} style={{ color: tokens.colorNeutralForeground2 }}>
+                  {selectedProduct.category}
+                </Text>
+              )}
+            </div>
+          )}
+          
+          {/* Generated Image 1 - with overlay text */}
+          {image_content?.image_url && (
+            <div style={{ 
+              position: 'relative',
+              borderRadius: '8px',
+              overflow: 'hidden',
+              aspectRatio: '1',
+            }}>
+              <img
+                src={image_content.image_url}
+                alt={image_content.alt_text || 'Generated marketing image'}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                }}
+              />
+              {/* Text overlay */}
+              {text_content?.headline && (
+                <div style={{
+                  position: 'absolute',
+                  top: '16px',
+                  left: '16px',
+                  right: '16px',
+                  color: 'white',
+                  textShadow: '0 2px 4px rgba(0,0,0,0.3)',
+                }}>
+                  <Text size={500} weight="semibold" style={{ 
+                    color: 'white', 
+                    display: 'block',
+                    fontFamily: 'Georgia, serif',
+                  }}>
+                    {selectedProduct?.product_name || text_content.headline}
+                  </Text>
+                  <Text size={200} style={{ color: 'rgba(255,255,255,0.9)' }}>
+                    {text_content.cta_text || 'A Modern Choice'}
+                  </Text>
+                </div>
+              )}
+              {/* Download button */}
               <Button
                 appearance="subtle"
                 icon={<ArrowDownload24Regular />}
                 size="small"
                 onClick={handleDownloadImage}
-              >
-                Download
-              </Button>
+                style={{
+                  position: 'absolute',
+                  bottom: '8px',
+                  right: '8px',
+                  backgroundColor: 'rgba(255,255,255,0.9)',
+                  minWidth: '32px',
+                }}
+              />
             </div>
-            
-            <img
-              src={image_content.image_url}
-              alt={image_content.alt_text || 'Generated marketing image'}
+          )}
+          
+          {/* Generated Image 2 / Additional Image placeholder */}
+          <div style={{ 
+            borderRadius: '8px',
+            overflow: 'hidden',
+            aspectRatio: '1',
+            backgroundColor: tokens.colorNeutralBackground3,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
+            {image_content?.image_url ? (
+              <img
+                src={image_content.image_url}
+                alt="Secondary marketing image"
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                  filter: 'brightness(1.05)',
+                }}
+              />
+            ) : (
+              <Text size={200} style={{ color: tokens.colorNeutralForeground3 }}>
+                Additional image
+              </Text>
+            )}
+          </div>
+        </div>
+        
+        <Divider style={{ margin: '16px 0' }} />
+        
+        {/* Marketing Copy Section */}
+        {text_content && (
+          <div style={{ position: 'relative' }}>
+            {/* Copy button */}
+            <Button
+              appearance="subtle"
+              icon={<Copy24Regular />}
+              size="small"
+              onClick={handleCopyText}
               style={{
-                width: '100%',
-                maxWidth: '400px',
-                borderRadius: '8px',
-                marginBottom: '8px'
+                position: 'absolute',
+                top: '0',
+                right: '0',
               }}
-            />
+            >
+              {copied ? 'Copied!' : 'Copy'}
+            </Button>
             
-            {image_content.alt_text && (
-              <Text size={100} style={{ color: tokens.colorNeutralForeground3 }}>
-                Alt text: {image_content.alt_text}
+            {/* Headline with sparkles */}
+            {text_content.headline && (
+              <Text size={400} weight="semibold" block style={{ marginBottom: '12px', paddingRight: '80px' }}>
+                ✨ {text_content.headline} ✨
+              </Text>
+            )}
+            
+            {/* Body text */}
+            {text_content.body && (
+              <Text size={300} block style={{ marginBottom: '16px', lineHeight: '1.6' }}>
+                {text_content.body}
+              </Text>
+            )}
+            
+            {/* Hashtags */}
+            {text_content.tagline && (
+              <Text size={200} style={{ color: tokens.colorBrandForeground1, lineHeight: '1.8' }}>
+                {text_content.tagline}
               </Text>
             )}
           </div>

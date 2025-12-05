@@ -7,17 +7,20 @@ import {
   Text,
   Badge,
   tokens,
+  Tooltip,
 } from '@fluentui/react-components';
 import {
   Send24Regular,
   Bot24Regular,
   Person24Regular,
+  Add24Regular,
 } from '@fluentui/react-icons';
 import ReactMarkdown from 'react-markdown';
 import type { ChatMessage, CreativeBrief, Product, GeneratedContent } from '../types';
 import { InlineBriefConfirmation } from './InlineBriefConfirmation';
 import { InlineProductSelector } from './InlineProductSelector';
 import { InlineContentPreview } from './InlineContentPreview';
+import { WelcomeCard } from './WelcomeCard';
 
 interface ChatPanelProps {
   messages: ChatMessage[];
@@ -70,6 +73,12 @@ export function ChatPanel({
   const showBriefConfirmation = pendingBrief && onBriefConfirm && onBriefCancel && onBriefEdit;
   const showProductSelector = confirmedBrief && !generatedContent && onProductsChange && onGenerateContent;
   const showContentPreview = generatedContent && onRegenerateContent;
+  const showWelcome = messages.length === 0 && !showBriefConfirmation && !showProductSelector && !showContentPreview;
+
+  // Handle suggestion click from welcome card
+  const handleSuggestionClick = (prompt: string) => {
+    setInputValue(prompt);
+  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -82,91 +91,126 @@ export function ChatPanel({
         flexDirection: 'column',
         gap: '16px'
       }}>
-        {messages.length === 0 && !showBriefConfirmation && !showProductSelector && !showContentPreview && (
-          <div style={{ 
-            textAlign: 'center', 
-            padding: '48px',
-            color: tokens.colorNeutralForeground3 
-          }}>
-            <Bot24Regular style={{ fontSize: '48px', marginBottom: '16px' }} />
-            <Text size={400} block style={{ marginBottom: '8px' }}>
-              Welcome to Content Generation Accelerator
-            </Text>
-            <Text size={300}>
-              Start by describing your marketing campaign or pasting a creative brief.
-            </Text>
-          </div>
-        )}
-        
-        {messages.map((message) => (
-          <MessageBubble key={message.id} message={message} />
-        ))}
-        
-        {/* Inline Brief Confirmation */}
-        {showBriefConfirmation && (
-          <InlineBriefConfirmation
-            brief={pendingBrief}
-            onConfirm={onBriefConfirm}
-            onCancel={onBriefCancel}
-            onEdit={onBriefEdit}
-          />
-        )}
-        
-        {/* Inline Product Selector */}
-        {showProductSelector && (
-          <InlineProductSelector
-            selectedProducts={selectedProducts}
-            onProductsChange={onProductsChange}
-            onGenerate={onGenerateContent}
-            isLoading={isLoading}
-          />
-        )}
-        
-        {/* Inline Content Preview */}
-        {showContentPreview && (
-          <InlineContentPreview
-            content={generatedContent}
-            onRegenerate={onRegenerateContent}
-            isLoading={isLoading}
-          />
-        )}
-        
-        {isLoading && !showProductSelector && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Spinner size="tiny" />
-            <Text size={200}>Generating response...</Text>
-          </div>
+        {showWelcome ? (
+          <WelcomeCard onSuggestionClick={handleSuggestionClick} />
+        ) : (
+          <>
+            {messages.map((message) => (
+              <MessageBubble key={message.id} message={message} />
+            ))}
+            
+            {/* Inline Brief Confirmation */}
+            {showBriefConfirmation && (
+              <InlineBriefConfirmation
+                brief={pendingBrief}
+                onConfirm={onBriefConfirm}
+                onCancel={onBriefCancel}
+                onEdit={onBriefEdit}
+              />
+            )}
+            
+            {/* Inline Product Selector */}
+            {showProductSelector && (
+              <InlineProductSelector
+                selectedProducts={selectedProducts}
+                onProductsChange={onProductsChange}
+                onGenerate={onGenerateContent}
+                isLoading={isLoading}
+              />
+            )}
+            
+            {/* Inline Content Preview */}
+            {showContentPreview && (
+              <InlineContentPreview
+                content={generatedContent}
+                onRegenerate={onRegenerateContent}
+                isLoading={isLoading}
+                selectedProduct={selectedProducts.length > 0 ? selectedProducts[0] : undefined}
+              />
+            )}
+            
+            {isLoading && !showProductSelector && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Spinner size="tiny" />
+                <Text size={200}>Generating response...</Text>
+              </div>
+            )}
+          </>
         )}
         
         <div ref={messagesEndRef} />
       </div>
       
       {/* Input Area */}
-      <form 
-        onSubmit={handleSubmit}
-        style={{ 
-          padding: '16px',
-          borderTop: `1px solid ${tokens.colorNeutralStroke1}`,
-          display: 'flex',
-          gap: '8px'
-        }}
-      >
-        <Input
-          style={{ flex: 1 }}
-          placeholder="Describe your marketing campaign or paste a creative brief..."
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
-          disabled={isLoading}
-        />
-        <Button
-          appearance="primary"
-          icon={<Send24Regular />}
-          type="submit"
-          disabled={!inputValue.trim() || isLoading}
+      <div style={{
+        padding: '16px 24px 12px 24px',
+        borderTop: `1px solid ${tokens.colorNeutralStroke2}`,
+        backgroundColor: tokens.colorNeutralBackground1,
+      }}>
+        <form 
+          onSubmit={handleSubmit}
+          style={{ 
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            backgroundColor: tokens.colorNeutralBackground3,
+            borderRadius: '24px',
+            padding: '8px 12px',
+            border: `1px solid ${tokens.colorNeutralStroke1}`,
+          }}
         >
-          Send
-        </Button>
-      </form>
+          <Tooltip content="Attach file" relationship="label">
+            <Button
+              appearance="subtle"
+              icon={<Add24Regular />}
+              shape="circular"
+              size="small"
+              disabled={isLoading}
+              style={{ 
+                minWidth: '32px',
+                color: tokens.colorNeutralForeground3,
+              }}
+            />
+          </Tooltip>
+          <Input
+            style={{ 
+              flex: 1,
+              border: 'none',
+              backgroundColor: 'transparent',
+            }}
+            appearance="underline"
+            placeholder="Type a message"
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            disabled={isLoading}
+          />
+          <Button
+            appearance="subtle"
+            icon={<Send24Regular />}
+            shape="circular"
+            size="small"
+            type="submit"
+            disabled={!inputValue.trim() || isLoading}
+            style={{ 
+              minWidth: '32px',
+              color: inputValue.trim() ? tokens.colorBrandForeground1 : tokens.colorNeutralForeground4,
+            }}
+          />
+        </form>
+        
+        {/* Disclaimer */}
+        <Text 
+          size={100} 
+          style={{ 
+            display: 'block',
+            textAlign: 'center',
+            marginTop: '8px',
+            color: tokens.colorNeutralForeground4,
+          }}
+        >
+          AI generated content may be incorrect. Check for mistakes.
+        </Text>
+      </div>
     </div>
   );
 }

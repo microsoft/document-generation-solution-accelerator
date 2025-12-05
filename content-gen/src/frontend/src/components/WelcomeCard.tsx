@@ -1,0 +1,165 @@
+import {
+  Card,
+  Text,
+  tokens,
+} from '@fluentui/react-components';
+import {
+  Image24Regular,
+  TextBulletList24Regular,
+  Sparkle24Regular,
+} from '@fluentui/react-icons';
+
+// Copilot-style hexagon icon
+function CopilotIcon() {
+  return (
+    <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="copilotGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#6366F1" />
+          <stop offset="50%" stopColor="#8B5CF6" />
+          <stop offset="100%" stopColor="#06B6D4" />
+        </linearGradient>
+      </defs>
+      <path 
+        d="M24 4L42 14V34L24 44L6 34V14L24 4Z" 
+        fill="url(#copilotGradient)"
+      />
+      <path 
+        d="M24 12L36 18V30L24 36L12 30V18L24 12Z" 
+        fill="white" 
+        fillOpacity="0.3"
+      />
+      <circle cx="24" cy="24" r="6" fill="white"/>
+    </svg>
+  );
+}
+
+interface SuggestionCard {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  prompt: string;
+}
+
+const suggestions: SuggestionCard[] = [
+  {
+    icon: <TextBulletList24Regular />,
+    title: 'Create a marketing campaign',
+    description: 'Generate compelling copy for your next campaign',
+    prompt: 'I need to create a marketing campaign for a new product launch targeting young professionals.',
+  },
+  {
+    icon: <Image24Regular />,
+    title: 'Generate visual content',
+    description: 'Create images for social media or ads',
+    prompt: 'Generate a hero image for our summer sale campaign featuring outdoor products.',
+  },
+  {
+    icon: <Sparkle24Regular />,
+    title: 'Draft a creative brief',
+    description: 'Build a comprehensive creative brief',
+    prompt: 'Help me create a creative brief for a holiday marketing campaign with the objective of increasing brand awareness.',
+  },
+];
+
+interface WelcomeCardProps {
+  onSuggestionClick: (prompt: string) => void;
+}
+
+export function WelcomeCard({ onSuggestionClick }: WelcomeCardProps) {
+  return (
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      flex: 1,
+      padding: '32px',
+      gap: '24px',
+    }}>
+      {/* Today label */}
+      <Text size={200} style={{ color: tokens.colorNeutralForeground3 }}>
+        Today
+      </Text>
+      
+      {/* Welcome card with suggestions inside */}
+      <div style={{
+        padding: '32px',
+        maxWidth: '600px',
+        width: '100%',
+        backgroundColor: tokens.colorNeutralBackground3,
+        borderRadius: '12px',
+      }}>
+        {/* Header with icon and welcome message */}
+        <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+          <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'center' }}>
+            <CopilotIcon />
+          </div>
+          <Text size={400} weight="semibold" block style={{ marginBottom: '8px', textAlign: 'center' }}>
+            Welcome to your Content Generation Accelerator
+          </Text>
+          <Text size={300} style={{ color: tokens.colorNeutralForeground3, display: 'block', textAlign: 'center' }}>
+            Here are the options I can assist you with today
+          </Text>
+        </div>
+        
+        {/* Suggestion cards - vertical layout */}
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '12px',
+        }}>
+          {suggestions.map((suggestion, index) => (
+            <Card
+              key={index}
+              onClick={() => onSuggestionClick(suggestion.prompt)}
+              style={{
+                padding: '16px',
+                cursor: 'pointer',
+                backgroundColor: tokens.colorNeutralBackground1,
+                border: `1px solid ${tokens.colorNeutralStroke1}`,
+                transition: 'all 0.2s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = tokens.colorNeutralBackground1Hover;
+                e.currentTarget.style.borderColor = tokens.colorBrandStroke1;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = tokens.colorNeutralBackground1;
+                e.currentTarget.style.borderColor = tokens.colorNeutralStroke1;
+              }}
+            >
+              <div style={{ 
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+              }}>
+                <div style={{ 
+                  color: tokens.colorBrandForeground1, 
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '40px',
+                  height: '40px',
+                  backgroundColor: tokens.colorBrandBackground2,
+                  borderRadius: '8px',
+                  flexShrink: 0,
+                }}>
+                  {suggestion.icon}
+                </div>
+                <div>
+                  <Text weight="semibold" size={300} block style={{ marginBottom: '2px' }}>
+                    {suggestion.title}
+                  </Text>
+                  <Text size={200} style={{ color: tokens.colorNeutralForeground3 }}>
+                    {suggestion.description}
+                  </Text>
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}

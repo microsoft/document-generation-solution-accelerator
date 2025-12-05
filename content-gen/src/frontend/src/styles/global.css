@@ -4,7 +4,7 @@
   font-weight: 400;
   color-scheme: light;
   color: #1a1a1a;
-  background-color: #f5f5f5;
+  background-color: #faf9f8;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -26,34 +26,34 @@ html, body, #root {
   display: flex;
   flex-direction: column;
   height: 100%;
-  max-width: 1600px;
-  margin: 0 auto;
-  padding: 16px;
+  background-color: #faf9f8;
 }
 
 .main-content {
   display: flex;
   flex: 1;
-  gap: 16px;
   overflow: hidden;
 }
 
+/* Chat History Panel - RIGHT side */
 .history-panel {
   width: 280px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
+  border-left: 1px solid #e1dfdd;
+  background-color: #f3f2f1;
+  order: 2; /* Ensures it appears on the right */
 }
 
+/* Chat Panel - main area */
 .chat-panel {
   flex: 1;
   display: flex;
   flex-direction: column;
   background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   min-width: 400px;
-  max-width: 900px;
+  order: 1; /* Ensures it appears on the left */
 }
 
 /* Sidebar panel - kept for backwards compatibility but hidden by default */
@@ -82,10 +82,14 @@ html, body, #root {
   .history-panel {
     width: 100%;
     max-height: 200px;
+    order: 1; /* On mobile, show history at top */
+    border-left: none;
+    border-bottom: 1px solid #e1dfdd;
   }
   .chat-panel {
     min-width: unset;
     flex: 1;
+    order: 2;
   }
   .sidebar-panel {
     width: 100%;
