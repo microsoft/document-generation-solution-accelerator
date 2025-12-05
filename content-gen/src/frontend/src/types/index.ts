@@ -16,14 +16,18 @@ export interface CreativeBrief {
 
 export interface Product {
   product_name: string;
-  category: string;
-  sub_category: string;
-  marketing_description: string;
-  detailed_spec_description: string;
+  description: string;
+  tags: string;
+  price: number;
   sku: string;
-  model: string;
-  image_description?: string;
   image_url?: string;
+  // Legacy fields for backward compatibility
+  category?: string;
+  sub_category?: string;
+  marketing_description?: string;
+  detailed_spec_description?: string;
+  model?: string;
+  image_description?: string;
 }
 
 export type ComplianceSeverity = 'error' | 'warning' | 'info';

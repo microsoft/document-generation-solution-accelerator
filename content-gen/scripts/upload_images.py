@@ -52,31 +52,39 @@ async def upload_images():
             else:
                 print(f"Note: {e}")
         
-        # Find all JPG files
-        jpg_files = list(IMAGES_FOLDER.glob("*.jpg")) + list(IMAGES_FOLDER.glob("*.JPG"))
+        # Find all image files (JPG and PNG)
+        image_files = (
+            list(IMAGES_FOLDER.glob("*.jpg")) + 
+            list(IMAGES_FOLDER.glob("*.JPG")) +
+            list(IMAGES_FOLDER.glob("*.png")) +
+            list(IMAGES_FOLDER.glob("*.PNG"))
+        )
         
-        if not jpg_files:
-            print("No JPG files found in the images folder.")
+        if not image_files:
+            print("No image files found in the images folder.")
             return []
         
-        print(f"\nFound {len(jpg_files)} JPG files to upload:")
+        print(f"\nFound {len(image_files)} image files to upload:")
         print("-" * 50)
         
         uploaded_files = []
         
-        for jpg_path in sorted(jpg_files):
-            blob_name = jpg_path.name
+        for image_path in sorted(image_files):
+            blob_name = image_path.name
             blob_client = container_client.get_blob_client(blob_name)
+            
+            # Determine content type
+            content_type = "image/png" if image_path.suffix.lower() == ".png" else "image/jpeg"
             
             try:
                 # Read and upload the image
-                with open(jpg_path, "rb") as image_file:
+                with open(image_path, "rb") as image_file:
                     image_data = image_file.read()
                 
                 await blob_client.upload_blob(
                     image_data,
                     overwrite=True,
-                    content_settings=ContentSettings(content_type="image/jpeg")
+                    content_settings=ContentSettings(content_type=content_type)
                 )
                 
                 blob_url = f"{account_url}/{CONTAINER_NAME}/{blob_name}"
@@ -113,9 +121,37 @@ async def list_uploaded_images():
             print(f"  - {blob.name} ({blob.size:,} bytes)")
 
 
+async def delete_all_images():
+    """Delete all images from the blob container."""
+    
+    account_url = f"https://{STORAGE_ACCOUNT_NAME}.blob.core.windows.net"
+    credential = DefaultAzureCredential()
+    
+    async with BlobServiceClient(account_url=account_url, credential=credential) as blob_service:
+        container_client = blob_service.get_container_client(CONTAINER_NAME)
+        
+        print(f"\nDeleting all images from container '{CONTAINER_NAME}':")
+        print("-" * 50)
+        
+        deleted_count = 0
+        async for blob in container_client.list_blobs():
+            try:
+                await container_client.delete_blob(blob.name)
+                print(f"  ✓ Deleted: {blob.name}")
+                deleted_count += 1
+            except Exception as e:
+                print(f"  ✗ Failed to delete {blob.name}: {e}")
+        
+        print(f"\nDeleted {deleted_count} images.")
+        return deleted_count
+
+
 async def main():
     """Main entry point."""
     try:
+        # Delete existing images first
+        await delete_all_images()
+        
         # Upload images
         uploaded = await upload_images()
         

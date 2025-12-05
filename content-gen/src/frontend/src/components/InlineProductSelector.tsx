@@ -165,7 +165,7 @@ export function InlineProductSelector({
                     {product.product_name}
                   </Text>
                   <Text size={100} style={{ color: tokens.colorNeutralForeground3 }}>
-                    {product.category} • {product.sku}
+                    {product.tags} • ${product.price?.toFixed(2) || '59.95'}
                   </Text>
                 </div>
                 {product.image_url && (

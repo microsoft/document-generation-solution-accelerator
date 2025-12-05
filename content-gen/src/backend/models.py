@@ -71,22 +71,24 @@ class Product(BaseModel):
     """
     Product information stored in CosmosDB.
     
-    Image descriptions are auto-generated via GPT-5 Vision during
-    product ingestion to enable DALL-E 3 text-based image generation.
+    Designed for paint catalog products with name, description, tags, and price.
+    Image URLs reference product images stored in Azure Blob Storage.
     """
     id: Optional[str] = None
-    product_name: str = Field(description="Display name of the product")
-    category: str = Field(description="Primary product category")
-    sub_category: Optional[str] = Field(default=None, description="Secondary category")
-    marketing_description: str = Field(description="Short marketing copy for the product")
-    detailed_spec_description: str = Field(description="Detailed specifications")
-    sku: str = Field(description="Stock keeping unit identifier")
-    model: Optional[str] = Field(default=None, description="Model number or name")
-    image_description: Optional[str] = Field(
-        default=None, 
-        description="Auto-generated text description of product image via GPT-5 Vision"
-    )
+    product_name: str = Field(description="Display name of the product (e.g., 'Snow Veil')")
+    description: str = Field(description="Marketing description of the product")
+    tags: str = Field(description="Comma-separated descriptive tags (e.g., 'soft white, airy, minimal')")
+    price: float = Field(description="Price in USD")
+    sku: str = Field(description="Stock keeping unit identifier (e.g., 'CP-0001')")
     image_url: Optional[str] = Field(default=None, description="URL to product image in Blob Storage")
+    
+    # Legacy fields for backward compatibility (optional)
+    category: Optional[str] = Field(default="Paint", description="Product category")
+    sub_category: Optional[str] = Field(default=None, description="Sub-category")
+    marketing_description: Optional[str] = Field(default=None, description="Alias for description")
+    detailed_spec_description: Optional[str] = Field(default=None, description="Detailed specs")
+    model: Optional[str] = Field(default=None, description="Model number")
+    image_description: Optional[str] = Field(default=None, description="Text description of image")
     
     # Metadata
     created_at: Optional[datetime] = None

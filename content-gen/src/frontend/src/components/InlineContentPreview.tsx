@@ -169,14 +169,12 @@ export function InlineContentPreview({ content, onRegenerate, isLoading, selecte
                 {selectedProduct.product_name}
               </Text>
               <Text size={200} style={{ color: tokens.colorNeutralForeground3 }}>
-                {selectedProduct.marketing_description || selectedProduct.detailed_spec_description?.substring(0, 50)}
+                {selectedProduct.tags || selectedProduct.description}
               </Text>
               
-              {selectedProduct.category && (
-                <Text size={200} style={{ color: tokens.colorNeutralForeground2 }}>
-                  {selectedProduct.category}
-                </Text>
-              )}
+              <Text size={200} weight="semibold" style={{ color: tokens.colorNeutralForeground1 }}>
+                ${selectedProduct.price?.toFixed(2) || '59.95'} USD
+              </Text>
             </div>
           )}
           

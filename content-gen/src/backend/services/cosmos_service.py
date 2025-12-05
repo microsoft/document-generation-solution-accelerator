@@ -197,6 +197,52 @@ class CosmosDBService:
         result = await self._products_container.upsert_item(item)
         return Product(**result)
     
+    async def delete_product(self, sku: str) -> bool:
+        """
+        Delete a product by SKU.
+        
+        Args:
+            sku: Product SKU (also used as document ID)
+        
+        Returns:
+            True if deleted successfully
+        """
+        await self.initialize()
+        
+        try:
+            await self._products_container.delete_item(
+                item=sku,
+                partition_key=sku
+            )
+            return True
+        except Exception as e:
+            logger.warning(f"Failed to delete product {sku}: {e}")
+            return False
+    
+    async def delete_all_products(self) -> int:
+        """
+        Delete all products from the container.
+        
+        Returns:
+            Number of products deleted
+        """
+        await self.initialize()
+        
+        deleted_count = 0
+        query = "SELECT c.id FROM c"
+        
+        async for item in self._products_container.query_items(query=query):
+            try:
+                await self._products_container.delete_item(
+                    item=item["id"],
+                    partition_key=item["id"]
+                )
+                deleted_count += 1
+            except Exception as e:
+                logger.warning(f"Failed to delete product {item['id']}: {e}")
+        
+        return deleted_count
+    
     async def get_all_products(self, limit: int = 100) -> List[Product]:
         """
         Retrieve all products.
