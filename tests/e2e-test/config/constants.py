@@ -2,7 +2,7 @@ import os
 from dotenv import load_dotenv
 
 load_dotenv()
-URL = 'https://app-pridgst5927lzz.azurewebsites.net/'
+URL = os.getenv("url")
 
 if URL.endswith("/"):
     URL = URL[:-1]
