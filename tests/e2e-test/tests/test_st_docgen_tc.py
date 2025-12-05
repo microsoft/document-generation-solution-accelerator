@@ -1,5 +1,6 @@
 import io
 import logging
+import os
 import time
 
 import pytest
@@ -17,6 +18,31 @@ logger = logging.getLogger(__name__)
 
 MAX_RETRIES = 3
 RETRY_DELAY = 3  # seconds
+
+
+# Helper function to capture screenshots at key steps - reusable across all tests
+def capture_screenshot(page, step_name, test_prefix="test"):
+    """
+    Capture a screenshot and save it to the screenshots directory.
+    
+    Args:
+        page: Playwright page object
+        step_name: Name/description of the step being captured
+        test_prefix: Prefix for the screenshot filename (default: "test")
+    """
+    try:
+        from datetime import datetime
+        screenshots_dir = os.path.join(os.path.dirname(__file__), "..", "screenshots")
+        os.makedirs(screenshots_dir, exist_ok=True)
+        
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        screenshot_name = f"{test_prefix}_{step_name}_{timestamp}.png"
+        screenshot_path = os.path.join(screenshots_dir, screenshot_name)
+        
+        page.screenshot(path=screenshot_path)
+        logger.info("📸 Screenshot saved: %s", screenshot_name)
+    except Exception as e:
+        logger.warning("⚠️ Failed to capture screenshot for %s: %s", step_name, str(e))
 
 
 @pytest.mark.smoke
@@ -50,6 +76,7 @@ def test_docgen_golden_path_refactored(login_logout, request):
         logger.info("Step 1: Validate home page is loaded and navigating to Browse Page")
         start = time.time()
         home_page.validate_home_page()
+        capture_screenshot(page, "step1_home_page", "golden_path")
         home_page.click_browse_button()
         duration = time.time() - start
         logger.info("Execution Time for 'Validate home page and navigate to Browse': %.2fs", duration)
@@ -64,6 +91,7 @@ def test_docgen_golden_path_refactored(login_logout, request):
             browse_page.enter_a_question(question)
             browse_page.click_send_button()
             browse_page.validate_response_status(question_api=question)
+            capture_screenshot(page, f"step2_{idx}_browse_response", "golden_path")
             browse_page.click_expand_reference_in_response()
             browse_page.click_reference_link_in_response()
             browse_page.close_citation()
@@ -75,7 +103,9 @@ def test_docgen_golden_path_refactored(login_logout, request):
         logger.info("Step 4: Navigate to Generate page and delete chat history")
         start = time.time()
         browse_page.click_generate_button()
+        capture_screenshot(page, "step4_before_delete_history", "golden_path")
         generate_page.delete_chat_history()
+        capture_screenshot(page, "step4_after_delete_history", "golden_path")
         duration = time.time() - start
         logger.info("Execution Time for 'Navigate to Generate and delete chat history': %.2fs", duration)
 
@@ -96,6 +126,7 @@ def test_docgen_golden_path_refactored(login_logout, request):
 
                 if latest_response not in [invalid_response, invalid_response1]:
                     logger.info("[%s] Valid response received on attempt %d", generate_question1, attempt)
+                    capture_screenshot(page, f"step5_generate_response_attempt{attempt}", "golden_path")
                     question_passed = True
                     break
                 else:
@@ -127,6 +158,7 @@ def test_docgen_golden_path_refactored(login_logout, request):
         start = time.time()
         generate_page.enter_a_question(add_section)
         generate_page.click_send_button()
+        capture_screenshot(page, "step6_add_section_response", "golden_path")
         duration = time.time() - start
         logger.info("Execution Time for 'Add Section Prompt': %.2fs", duration)
 
@@ -135,6 +167,7 @@ def test_docgen_golden_path_refactored(login_logout, request):
         start = time.time()
         generate_page.click_generate_draft_button()
         draft_page.validate_draft_sections_loaded()
+        capture_screenshot(page, "step7_draft_sections_loaded", "golden_path")
         duration = time.time() - start
         logger.info("Execution Time for 'Generate Draft and Validate Sections': %.2fs", duration)
 
@@ -143,6 +176,7 @@ def test_docgen_golden_path_refactored(login_logout, request):
         start = time.time()
         browse_page.click_generate_button()
         generate_page.show_chat_history()
+        capture_screenshot(page, "step8_chat_history_shown", "golden_path")
         duration = time.time() - start
         logger.info("Execution Time for 'Validate chat history is saved': %.2fs", duration)
 
@@ -204,6 +238,7 @@ def test_browse_generate_tabs_accessibility(login_logout, request):
         home_page.open_home_page()
         
         home_page.validate_home_page()
+        capture_screenshot(page, "step1_home_page", "tc9366")
         duration = time.time() - start
         logger.info("Execution Time for 'Validate home page is loaded': %.2fs", duration)
 
@@ -215,6 +250,7 @@ def test_browse_generate_tabs_accessibility(login_logout, request):
         
         # Verify chat conversation elements are present on Browse page
         browse_page.validate_browse_page()
+        capture_screenshot(page, "step2_browse_tab_accessible", "tc9366")
 
         logger.info("Browse tab is visible and enabled")
         duration = time.time() - start
@@ -228,6 +264,7 @@ def test_browse_generate_tabs_accessibility(login_logout, request):
         
         # Verify chat conversation elements are present on Generate page
         generate_page.validate_generate_page()
+        capture_screenshot(page, "step3_generate_tab_accessible", "tc9366")
 
         logger.info("Generate tab is visible and enabled")
         duration = time.time() - start
@@ -245,6 +282,7 @@ def test_browse_generate_tabs_accessibility(login_logout, request):
                 "FAILED: 'Generate Draft' button should be disabled on launch before creating a template"
         
         logger.info("✅ Draft button is properly disabled on launch")
+        capture_screenshot(page, "step4_draft_button_disabled", "tc9366")
         duration = time.time() - start
         logger.info("Execution Time for 'Verify Draft tab is disabled': %.2fs", duration)
 
@@ -309,6 +347,7 @@ def test_draft_tab_accessibility_after_template_creation(login_logout, request):
         start = time.time()
         home_page.open_home_page()
         home_page.validate_home_page()
+        capture_screenshot(page, "step1_home_page", "tc9369")
         logger.info("✅ Login successful and 'Document Generation' page is displayed")
         duration = time.time() - start
         logger.info("Execution Time for Step 1: %.2fs", duration)
@@ -318,6 +357,7 @@ def test_draft_tab_accessibility_after_template_creation(login_logout, request):
         start = time.time()
         home_page.click_browse_button()
         browse_page.validate_browse_page()
+        capture_screenshot(page, "step2_browse_page", "tc9369")
         logger.info("✅ Chat conversation page is displayed")
         duration = time.time() - start
         logger.info("Execution Time for Step 2: %.2fs", duration)
@@ -331,6 +371,7 @@ def test_draft_tab_accessibility_after_template_creation(login_logout, request):
         logger.info("Send button clicked")
         page.wait_for_timeout(3000)
         browse_page.validate_response_status(question_api=browse_question1)
+        capture_screenshot(page, "step3_browse_response", "tc9369")
         logger.info("✅ Response is generated with typical sections from promissory notes")
         duration = time.time() - start
         logger.info("Execution Time for Step 3: %.2fs", duration)
@@ -345,6 +386,7 @@ def test_draft_tab_accessibility_after_template_creation(login_logout, request):
                 "FAILED: Draft tab should be disabled before template creation"
         
         logger.info("✅ Draft tab should be disabled")
+        capture_screenshot(page, "step4_draft_tab_disabled", "tc9369")
         duration = time.time() - start
         logger.info("Execution Time for Step 4: %.2fs", duration)
 
@@ -355,6 +397,7 @@ def test_draft_tab_accessibility_after_template_creation(login_logout, request):
         browse_page.click_generate_button()
         page.wait_for_timeout(3000)
         generate_page.validate_generate_page()
+        capture_screenshot(page, "step5_generate_page", "tc9369")
         logger.info("✅ Chat conversation page is displayed")
         duration = time.time() - start
         logger.info("Execution Time for Step 5: %.2fs", duration)
@@ -370,6 +413,7 @@ def test_draft_tab_accessibility_after_template_creation(login_logout, request):
                 "FAILED: Generate Draft icon should be disabled before template creation"
         
         logger.info("✅ Generate Draft icon is disabled")
+        capture_screenshot(page, "step6_draft_button_disabled", "tc9369")
         duration = time.time() - start
         logger.info("Execution Time for Step 6: %.2fs", duration)
 
@@ -406,6 +450,7 @@ def test_draft_tab_accessibility_after_template_creation(login_logout, request):
 
                 if latest_response not in [invalid_response, invalid_response1]:
                     logger.info("✅ Promissory note is generated on attempt %d", attempt)
+                    capture_screenshot(page, f"step7_promissory_note_attempt{attempt}", "tc9369")
                     question_passed = True
                     break
                 else:
@@ -454,6 +499,7 @@ def test_draft_tab_accessibility_after_template_creation(login_logout, request):
         
         # Verify Draft sections are loaded
         draft_page.validate_draft_sections_loaded()
+        capture_screenshot(page, "step8_draft_section_displayed", "tc9369")
         
         logger.info("✅ 'Generate draft' icon is enabled and Draft section is displayed")
         duration = time.time() - start
@@ -505,6 +551,7 @@ def test_show_hide_chat_history(login_logout, request):
         start = time.time()
         home_page.open_home_page()
         home_page.validate_home_page()
+        capture_screenshot(page, "step1_home_page", "tc9370")
         duration = time.time() - start
         logger.info("Execution Time for 'Validate home page is loaded': %.2fs", duration)
 
@@ -516,6 +563,7 @@ def test_show_hide_chat_history(login_logout, request):
         # Verify chat conversation elements are present on Generate page
         generate_page.enter_a_question(add_section)
         generate_page.click_send_button()
+        capture_screenshot(page, "step2_generate_page", "tc9370")
         
         logger.info("Generate chat conversation page is displayed successfully")
         duration = time.time() - start
@@ -525,6 +573,7 @@ def test_show_hide_chat_history(login_logout, request):
         start = time.time()
 
         generate_page.show_chat_history()
+        capture_screenshot(page, "step3_chat_history_shown", "tc9370")
 
         duration = time.time() - start
         logger.info("Execution Time for 'Show Chat History': %.2fs", duration)
@@ -533,6 +582,7 @@ def test_show_hide_chat_history(login_logout, request):
         start = time.time() 
 
         generate_page.close_chat_history()
+        capture_screenshot(page, "step4_chat_history_closed", "tc9370")
 
         duration = time.time() - start
         logger.info("Execution Time for 'Hide Chat History': %.2fs", duration)
@@ -603,6 +653,7 @@ def test_template_history_save_and_load(login_logout, request):
         logger.info("Step 3: Click on 'Show template history' button")
         start = time.time()
         generate_page.show_chat_history()
+        capture_screenshot(page, "step3_template_history_shown", "tc9376")
         logger.info("Template history window is displayed")
         duration = time.time() - start
         logger.info("Execution Time for 'Show template history': %.2fs", duration)
@@ -612,6 +663,7 @@ def test_template_history_save_and_load(login_logout, request):
         logger.info("Step 4: Select first history thread from template history")
         start = time.time()
         generate_page.select_history_thread(thread_index=0)
+        capture_screenshot(page, "step4_history_thread_selected", "tc9376")
         logger.info("Saved chat conversation is loaded on the page")
         duration = time.time() - start
         logger.info("Execution Time for 'Select history thread': %.2fs", duration)
@@ -622,6 +674,7 @@ def test_template_history_save_and_load(login_logout, request):
         generate_page.enter_a_question(browse_question1)
         generate_page.click_send_button()
         generate_page.validate_response_status(question_api=browse_question1)
+        capture_screenshot(page, "step5_prompt_response", "tc9376")
         logger.info("Response is generated successfully")
         duration = time.time() - start
         logger.info("Execution Time for 'Enter prompt and get response': %.2fs", duration)
@@ -630,6 +683,7 @@ def test_template_history_save_and_load(login_logout, request):
         logger.info("Step 6: Click on Save icon next to chat box")
         start = time.time()
         generate_page.click_new_chat_button()
+        capture_screenshot(page, "step6_chat_saved", "tc9376")
         logger.info("Chat is saved successfully")
         duration = time.time() - start
         logger.info("Execution Time for 'Save chat': %.2fs", duration)
@@ -650,6 +704,7 @@ def test_template_history_save_and_load(login_logout, request):
         logger.info("Step 8: Verify user can view the edited changes in the session")
         start = time.time()
         generate_page.verify_saved_chat(browse_question1)
+        capture_screenshot(page, "step8_verified_saved_changes", "tc9376")
         logger.info("User is able to view the edited changes in the saved session")
         duration = time.time() - start
         logger.info("Execution Time for 'Verify changes in session': %.2fs", duration)
@@ -737,6 +792,7 @@ def test_template_history_delete(login_logout, request):
         
         # Click delete icon on the first thread
         generate_page.delete_thread_by_index(thread_index=0)
+        capture_screenshot(page, "step4_thread_deleted", "tc9405")
         
         duration = time.time() - start
         logger.info("Execution Time for 'Click delete icon': %.2fs", duration)
@@ -833,6 +889,7 @@ def test_template_rename_thread(login_logout, request):
         # Check if the title matches (allow for case-insensitive and whitespace differences)
         assert updated_title.strip() == new_title_tick.strip(), \
             f"Thread rename failed. Expected: '{new_title_tick}', Got: '{updated_title}' (len: {len(updated_title)})"
+        capture_screenshot(page, "step5_thread_renamed", "tc9410")
 
         duration = time.time() - start
         logger.info("Execution Time for rename confirm: %.2fs", duration)
@@ -860,6 +917,7 @@ def test_template_rename_thread(login_logout, request):
         # Cancel should revert back to last saved name
         assert final_title.strip() == new_title_tick.strip(), \
             f"Cancel rename failed. Expected retained name: '{new_title_tick}', Got: '{final_title}' (len: {len(final_title)})"
+        capture_screenshot(page, "step6_rename_cancelled", "tc9410")
 
         duration = time.time() - start
         logger.info("Execution Time for rename cancel: %.2fs", duration)
@@ -948,6 +1006,7 @@ def test_browse_clear_chat(login_logout, request):
         start = time.time()
 
         assert browse_page.is_chat_cleared(), "Chat is NOT cleared after clicking broom icon"
+        capture_screenshot(page, "step5_chat_cleared", "tc9419")
         logger.info("Chat cleared successfully, new chat session displayed")
 
         duration = time.time() - start
@@ -1038,6 +1097,7 @@ def test_generate_clear_chat(login_logout, request):
         start = time.time()
 
         assert generate_page.is_chat_cleared(), "Chat is NOT cleared after clicking broom icon"
+        capture_screenshot(page, "step5_chat_cleared", "tc9422")
         logger.info("Chat cleared successfully, new chat session displayed")
 
         duration = time.time() - start
@@ -1133,6 +1193,7 @@ def test_generate_new_session_plus_icon(login_logout, request):
         logger.info("Step 6: Verify template is saved and new session is visible")
         start = time.time()
         assert generate_page.is_new_session_visible(), "New session is not visible after clicking [+] icon"
+        capture_screenshot(page, "step6_new_session_visible", "tc9423")
         logger.info("Template saved and new session is visible")
         duration = time.time() - start
         logger.info("Execution Time for 'Verify new session': %.2fs", duration)
@@ -1141,6 +1202,7 @@ def test_generate_new_session_plus_icon(login_logout, request):
         logger.info("Step 7: Click on 'Show template history' button")
         start = time.time()
         generate_page.show_chat_history()
+        capture_screenshot(page, "step7_template_history_shown", "tc9423")
         duration = time.time() - start
         logger.info("Execution Time for 'Show template history': %.2fs", duration)
 
@@ -1212,6 +1274,7 @@ def test_generate_promissory_note_draft(login_logout, request):
         start = time.time()
         home_page.open_home_page()
         home_page.validate_home_page()
+        capture_screenshot(page, "step1_home_page", "tc9430")
         duration = time.time() - start
         logger.info("Execution Time for 'Login and validate home page': %.2fs", duration)
 
@@ -1220,6 +1283,7 @@ def test_generate_promissory_note_draft(login_logout, request):
         start = time.time()
         home_page.click_generate_button()
         generate_page.validate_generate_page()
+        capture_screenshot(page, "step3_generate_page", "tc9430")
         duration = time.time() - start
         logger.info("Execution Time for 'Navigate to Generate tab': %.2fs", duration)
 
@@ -1233,6 +1297,7 @@ def test_generate_promissory_note_draft(login_logout, request):
         # Validate that response contains section-like content (not validating specific sections)
         # The response should contain promissory note related content
         generate_page.validate_response_status(question_api=generate_question1)
+        capture_screenshot(page, "step5_promissory_note_response", "tc9430")
         
         duration = time.time() - start
         logger.info("Execution Time for 'Verify response sections': %.2fs", duration)
@@ -1248,6 +1313,7 @@ def test_generate_promissory_note_draft(login_logout, request):
         logger.info("Step 6: Verify draft promissory note is generated in Draft section with all sections")
         start = time.time()
         draft_page.validate_draft_sections_loaded()
+        capture_screenshot(page, "step8_draft_generated", "tc9430")
         logger.info("Draft promissory note generated successfully with all sections from Generate page")
         duration = time.time() - start
         logger.info("Execution Time for 'Verify draft sections loaded': %.2fs", duration)
@@ -1302,6 +1368,7 @@ def test_generate_add_section(login_logout, request):
         start = time.time()
         home_page.open_home_page()
         home_page.validate_home_page()
+        capture_screenshot(page, "step1_home_page", "tc9431")
         duration = time.time() - start
         logger.info("Execution Time for 'Login and validate home page': %.2fs", duration)
 
@@ -1355,6 +1422,7 @@ def test_generate_add_section(login_logout, request):
                 "FAILED: 'Payment acceleration clause' section was not found in the response"
         
         logger.info("✓ Promissory note generated and new section 'Payment acceleration clause' added successfully")
+        capture_screenshot(page, "step8_section_added", "tc9431")
         
         duration = time.time() - start
         logger.info("Execution Time for 'Verify responses': %.2fs", duration)
@@ -1410,6 +1478,7 @@ def test_generate_remove_section(login_logout, request):
         start = time.time()
         home_page.open_home_page()
         home_page.validate_home_page()
+        capture_screenshot(page, "step1_home_page", "tc9432")
         duration = time.time() - start
         logger.info("Execution Time for 'Login and validate home page': %.2fs", duration)
 
@@ -1463,6 +1532,7 @@ def test_generate_remove_section(login_logout, request):
                 "FAILED: 'Borrower Information' section was not removed from the response"
 
         logger.info("✓ Promissory note generated and 'Borrower Information' section removed successfully")
+        capture_screenshot(page, "step8_section_removed", "tc9432")
         
         duration = time.time() - start
         logger.info("Execution Time for 'Verify responses': %.2fs", duration)
@@ -1516,6 +1586,7 @@ def test_add_section_before_and_after_position(login_logout, request):
         start = time.time()
         home_page.open_home_page()
         home_page.validate_home_page()
+        capture_screenshot(page, "step1_home_page", "tc9433")
         logger.info("✅ Login is successful and Document Generation page is displayed")
         duration = time.time() - start
         logger.info("Execution Time for Step 1-2: %.2fs", duration)
@@ -1617,6 +1688,7 @@ def test_add_section_before_and_after_position(login_logout, request):
         
         duration = time.time() - start
         logger.info("Execution Time for Step 6: %.2fs", duration)
+        capture_screenshot(page, "step6_section_repositioned", "tc9433")
 
         logger.info("\n" + "="*80)
         logger.info("✅ TC 9433 Test Summary - Change order of section")
@@ -1670,6 +1742,7 @@ def test_draft_page_populated_with_all_sections(login_logout, request):
         start = time.time()
         home_page.open_home_page()
         home_page.validate_home_page()
+        capture_screenshot(page, "step1_home_page", "tc9466")
         duration = time.time() - start
         logger.info("Execution Time for 'Login and validate home page': %.2fs", duration)
 
@@ -1710,6 +1783,7 @@ def test_draft_page_populated_with_all_sections(login_logout, request):
 
         # Step 7: Verify response is generated correctly in all sections in Draft page
         logger.info("Verify response is generated correctly in all sections in Draft page")
+        capture_screenshot(page, "step7_all_sections_populated", "tc9466")
 
         logger.info("\n" + "="*80)
         logger.info("✅ TC 9466 Test Summary - Draft Page Populated With All Sections")
@@ -1769,6 +1843,7 @@ def test_draft_page_section_regenerate(login_logout, request):
         start = time.time()
         home_page.open_home_page()
         home_page.validate_home_page()
+        capture_screenshot(page, "step1_home_page", "tc9467")
         duration = time.time() - start
         logger.info("Execution Time for 'Login and validate home page': %.2fs", duration)
 
@@ -1820,6 +1895,7 @@ def test_draft_page_section_regenerate(login_logout, request):
         start = time.time()
         
         draft_page.regenerate_all_sections(additional_instruction="max 150 words")
+        capture_screenshot(page, "step13_sections_regenerated", "tc9467")
         
         duration = time.time() - start
         logger.info("Execution Time for 'Regenerate all sections': %.2fs", duration)
@@ -1875,6 +1951,7 @@ def test_draft_page_character_count_validation(login_logout, request):
         start = time.time()
         home_page.open_home_page()
         home_page.validate_home_page()
+        capture_screenshot(page, "step1_home_page", "tc9468")
         logger.info("✅ Login is successful and Document Generation page is displayed")
         duration = time.time() - start
         logger.info("Execution Time for Step 1: %.2fs", duration)
@@ -1989,6 +2066,7 @@ def test_draft_page_export_document(login_logout, request):
         start = time.time()
         home_page.open_home_page()
         home_page.validate_home_page()
+        capture_screenshot(page, "step1_home_page", "tc9469")
         logger.info("✅ Login is successful and Document Generation page is displayed")
         duration = time.time() - start
         logger.info("Execution Time for Step 1: %.2fs", duration)
@@ -2073,6 +2151,7 @@ def test_draft_page_export_document(login_logout, request):
             assert file_size > 0, "FAILED: Downloaded file is empty"
         
         logger.info("✅ Text is displayed correctly for all sections in document")
+        capture_screenshot(page, "step7_document_exported", "tc9469")
         
         duration = time.time() - start
         logger.info("Execution Time for Step 7: %.2fs", duration)
@@ -2136,6 +2215,7 @@ def test_bug_7834_accurate_reference_citations(request, login_logout):
         start = time.time()
         home_page.open_home_page()
         home_page.validate_home_page()
+        capture_screenshot(page, "step1_home_page", "bug7834")
         duration = time.time() - start
         logger.info("Execution Time for 'Login and validate home page': %.2fs", duration)
 
@@ -2304,6 +2384,7 @@ def test_bug_7806_list_all_documents_response(request, login_logout):
         start = time.time()
         home_page.open_home_page()
         home_page.validate_home_page()
+        capture_screenshot(page, "step1_home_page", "bug7806")
         logger.info("✅ Login is successful and Document Generation page is displayed")
         duration = time.time() - start
         logger.info("Execution Time for Step 1: %.2fs", duration)
@@ -2381,6 +2462,7 @@ def test_bug_7571_removed_sections_not_returning(request, login_logout):
         start = time.time()
         home_page.open_home_page()
         home_page.validate_home_page()
+        capture_screenshot(page, "step1_home_page", "bug7571")
         logger.info("✅ Login is successful and Document Generation page is displayed")
         duration = time.time() - start
         logger.info("Execution Time for Step 1: %.2fs", duration)
@@ -2565,6 +2647,7 @@ def test_bug_9825_navigate_between_sections(request, login_logout):
         start = time.time()
         home_page.open_home_page()
         home_page.validate_home_page()
+        capture_screenshot(page, "step1_home_page", "bug9825")
         logger.info("✅ Login is successful and Document Generation page is displayed")
         duration = time.time() - start
         logger.info("Execution Time for Step 1: %.2fs", duration)
@@ -2714,6 +2797,7 @@ def test_bug_10171_chat_history_empty_name_validation(request, login_logout):
         start = time.time()
         home_page.open_home_page()
         home_page.validate_home_page()
+        capture_screenshot(page, "step1_home_page", "bug10171")
         
         # Verify three tabs are visible - checking the navigation buttons after opening home page
         # Navigate to Generate page first to see the navigation tabs
@@ -2975,6 +3059,7 @@ def test_bug_10178_delete_all_chat_history_error(request, login_logout):
         start = time.time()
         home_page.open_home_page()
         home_page.validate_home_page()
+        capture_screenshot(page, "step1_home_page", "bug10178")
         home_page.click_generate_button()
         generate_page.validate_generate_page()
         logger.info("✅ Navigated to Generate section successfully")
@@ -3256,6 +3341,7 @@ def test_bug_10177_edit_delete_icons_disabled_during_response(login_logout, requ
         start = time.time()
         home_page.open_home_page()
         home_page.validate_home_page()
+        capture_screenshot(page, "step1_home_page", "bug10177")
         logger.info("✅ Login is successful and Document Generation page is displayed")
         duration = time.time() - start
         logger.info("Execution Time for Step 1: %.2fs", duration)
@@ -3468,6 +3554,7 @@ def test_bug_10345_no_new_sections_during_removal(request, login_logout):
         start = time.time()
         home_page.open_home_page()
         home_page.validate_home_page()
+        capture_screenshot(page, "step1_home_page", "bug10345")
         home_page.click_generate_button()
         generate_page.validate_generate_page()
         duration = time.time() - start
@@ -3600,6 +3687,7 @@ def test_bug_10346_removed_section_not_returned_random_removal(request, login_lo
         start = time.time()
         home_page.open_home_page()
         home_page.validate_home_page()
+        capture_screenshot(page, "step1_home_page", "bug10346")
         logger.info("✅ Login successful and Document Generation page is displayed")
         duration = time.time() - start
         logger.info("Execution Time for Step 1: %.2fs", duration)
@@ -3744,6 +3832,7 @@ def test_bug_16106_tooltip_on_chat_history_hover(login_logout, request):
         start = time.time()
         home_page.open_home_page()
         home_page.validate_home_page()
+        capture_screenshot(page, "step1_home_page", "bug16106")
         logger.info("DocGen page displayed successfully")
         duration = time.time() - start
         logger.info("Execution Time for 'Open DocGen page': %.2fs", duration)
@@ -3930,6 +4019,7 @@ def test_bug_26031_validate_empty_spaces_chat_input(login_logout, request):
         start = time.time()
         home_page.open_home_page()
         home_page.validate_home_page()
+        capture_screenshot(page, "step1_home_page", "bug26031")
         logger.info("✅ Application opened successfully")
         duration = time.time() - start
         logger.info("Execution Time for Step 1: %.2fs", duration)
