@@ -18,14 +18,15 @@ COPY . .
 
 # Set environment variables
 ENV PYTHONPATH=/app
-ENV PORT=5000
+ENV PORT=8000
+ENV PYTHONUNBUFFERED=1
 
 # Expose port
-EXPOSE 5000
+EXPOSE 8000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:5000/health || exit 1
+    CMD curl -f http://localhost:${PORT}/health || exit 1
 
 # Run the application
-CMD ["hypercorn", "app:app", "--config", "hypercorn.conf.py"]
+CMD ["hypercorn", "app:app", "--bind", "0.0.0.0:8000", "--workers", "1"]

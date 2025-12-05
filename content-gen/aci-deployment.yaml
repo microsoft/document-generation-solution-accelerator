@@ -36,6 +36,10 @@ properties:
             value: conversations
           - name: AZURE_BLOB_ACCOUNT_NAME
             value: storagecontentgenjh
+          - name: PORT
+            value: '8000'
+          - name: WORKERS
+            value: '1'
           - name: RUNNING_IN_PRODUCTION
             value: 'true'
           - name: AUTH_ENABLED

@@ -32,7 +32,6 @@ interface ConversationSummary {
 
 interface ChatHistoryProps {
   currentConversationId: string;
-  userId: string;
   currentMessages?: { role: string; content: string }[]; // Current session messages
   onSelectConversation: (conversationId: string) => void;
   onNewConversation: () => void;
@@ -41,7 +40,6 @@ interface ChatHistoryProps {
 
 export function ChatHistory({ 
   currentConversationId, 
-  userId,
   currentMessages = [],
   onSelectConversation,
   onNewConversation,
@@ -57,7 +55,8 @@ export function ChatHistory({
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetch(`/api/conversations?user_id=${encodeURIComponent(userId)}`);
+      // Backend gets user from auth headers, no need to pass user_id
+      const response = await fetch('/api/conversations');
       if (response.ok) {
         const data = await response.json();
         setConversations(data.conversations || []);
@@ -72,7 +71,7 @@ export function ChatHistory({
     } finally {
       setIsLoading(false);
     }
-  }, [userId]);
+  }, []);
 
   useEffect(() => {
     loadConversations();
@@ -116,7 +115,8 @@ export function ChatHistory({
   const handleDeleteConversation = async (conversationId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     try {
-      const response = await fetch(`/api/conversations/${conversationId}?user_id=${encodeURIComponent(userId)}`, {
+      // Backend gets user from auth headers
+      const response = await fetch(`/api/conversations/${conversationId}`, {
         method: 'DELETE',
       });
       if (response.ok) {

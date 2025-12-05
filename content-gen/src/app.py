@@ -32,6 +32,27 @@ app = Quart(__name__)
 app = cors(app, allow_origin="*")
 
 
+# ==================== Authentication Helper ====================
+
+def get_authenticated_user():
+    """
+    Get the authenticated user from EasyAuth headers.
+    
+    In production (with App Service Auth), the X-Ms-Client-Principal-Id header
+    contains the user's ID. In development mode, returns empty/None values.
+    """
+    user_principal_id = request.headers.get("X-Ms-Client-Principal-Id", "")
+    user_name = request.headers.get("X-Ms-Client-Principal-Name", "")
+    auth_provider = request.headers.get("X-Ms-Client-Principal-Idp", "")
+    
+    return {
+        "user_principal_id": user_principal_id or "",
+        "user_name": user_name or "",
+        "auth_provider": auth_provider or "",
+        "is_authenticated": bool(user_principal_id)
+    }
+
+
 # ==================== Health Check ====================
 
 @app.route("/health", methods=["GET"])
@@ -42,6 +63,19 @@ async def health_check():
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "version": "1.0.0"
     })
+
+
+# ==================== User Info Endpoint ====================
+
+@app.route("/api/user", methods=["GET"])
+async def get_current_user():
+    """
+    Get the current authenticated user info.
+    
+    Returns user details from EasyAuth headers, or empty values if not authenticated.
+    """
+    user = get_authenticated_user()
+    return jsonify(user)
 
 
 # ==================== Chat Endpoints ====================
@@ -341,7 +375,7 @@ async def generate_content():
                     user_id=user_id,
                     message={
                         "role": "assistant",
-                        "content": f"Content generated successfully! {f'Headline: "{headline}"' if headline else ''}",
+                        "content": f"Content generated successfully!{' Headline: ' + headline if headline else ''}",
                         "agent": "ContentAgent",
                         "timestamp": datetime.now(timezone.utc).isoformat()
                     }
@@ -544,15 +578,17 @@ async def list_conversations():
     """
     List conversations for a user.
     
+    Uses authenticated user from EasyAuth headers. In development mode
+    (when not authenticated), returns conversations where user_id is empty/null.
+    
     Query params:
-        user_id: User identifier (required)
         limit: Max number of results (default 20)
     """
-    user_id = request.args.get("user_id")
-    limit = int(request.args.get("limit", 20))
+    # Get authenticated user from headers
+    auth_user = get_authenticated_user()
+    user_id = auth_user["user_principal_id"]  # Empty string if not authenticated
     
-    if not user_id:
-        return jsonify({"error": "user_id is required"}), 400
+    limit = int(request.args.get("limit", 20))
     
     cosmos_service = await get_cosmos_service()
     conversations = await cosmos_service.get_user_conversations(user_id, limit)
@@ -568,13 +604,10 @@ async def get_conversation(conversation_id: str):
     """
     Get a specific conversation.
     
-    Query params:
-        user_id: User identifier (required)
+    Uses authenticated user from EasyAuth headers.
     """
-    user_id = request.args.get("user_id")
-    
-    if not user_id:
-        return jsonify({"error": "user_id is required"}), 400
+    auth_user = get_authenticated_user()
+    user_id = auth_user["user_principal_id"]
     
     cosmos_service = await get_cosmos_service()
     conversation = await cosmos_service.get_conversation(conversation_id, user_id)
@@ -590,13 +623,10 @@ async def delete_conversation(conversation_id: str):
     """
     Delete a specific conversation.
     
-    Query params:
-        user_id: User identifier (required)
+    Uses authenticated user from EasyAuth headers.
     """
-    user_id = request.args.get("user_id")
-    
-    if not user_id:
-        return jsonify({"error": "user_id is required"}), 400
+    auth_user = get_authenticated_user()
+    user_id = auth_user["user_principal_id"]
     
     try:
         cosmos_service = await get_cosmos_service()

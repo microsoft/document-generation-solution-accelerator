@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   Title1,
   Subtitle1,
@@ -14,9 +14,16 @@ import { ChatPanel } from './components/ChatPanel';
 import { ChatHistory } from './components/ChatHistory';
 import type { ChatMessage, CreativeBrief, Product, GeneratedContent } from './types';
 
+interface UserInfo {
+  user_principal_id: string;
+  user_name: string;
+  auth_provider: string;
+  is_authenticated: boolean;
+}
+
 function App() {
   const [conversationId, setConversationId] = useState<string>(() => uuidv4());
-  const [userId] = useState<string>('demo-user');
+  const [userId, setUserId] = useState<string>('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   
@@ -32,6 +39,25 @@ function App() {
 
   // Trigger for refreshing chat history
   const [historyRefreshTrigger, setHistoryRefreshTrigger] = useState(0);
+
+  // Fetch current user on mount
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const response = await fetch('/api/user');
+        if (response.ok) {
+          const user: UserInfo = await response.json();
+          // Use user_principal_id if authenticated, otherwise empty string for dev mode
+          setUserId(user.user_principal_id || '');
+        }
+      } catch (err) {
+        console.error('Error fetching user:', err);
+        // Default to empty string for development mode
+        setUserId('');
+      }
+    };
+    fetchUser();
+  }, []);
 
   // Handle selecting a conversation from history
   const handleSelectConversation = useCallback(async (selectedConversationId: string) => {
@@ -350,7 +376,6 @@ function App() {
         <div className="history-panel">
           <ChatHistory
             currentConversationId={conversationId}
-            userId={userId}
             currentMessages={messages}
             onSelectConversation={handleSelectConversation}
             onNewConversation={handleNewConversation}
