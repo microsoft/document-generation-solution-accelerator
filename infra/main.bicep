@@ -622,7 +622,7 @@ module aiFoundryAiServices 'br:mcr.microsoft.com/bicep/avm/res/cognitive-service
     disableLocalAuth: true
     allowProjectManagement: true
     customSubDomainName: aiFoundryAiServicesResourceName
-    restrictOutboundNetworkAccess: false
+    restrictOutboundNetworkAccess: enablePrivateNetworking ? true : false
     deployments: [
       for deployment in aiFoundryAiServicesModelDeployment: {
         name: deployment.name
@@ -873,7 +873,7 @@ module storageAccount 'br/public:avm/res/storage/storage-account:0.20.0' = {
       bypass: 'AzureServices'
       defaultAction: enablePrivateNetworking ? 'Deny' : 'Allow'
     }
-    allowBlobPublicAccess: enablePrivateNetworking ? true : false
+    allowBlobPublicAccess: enablePrivateNetworking ? false : true
     publicNetworkAccess: enablePrivateNetworking ? 'Disabled' : 'Enabled'
     // Private endpoints for blob and queue
     privateEndpoints: enablePrivateNetworking
@@ -1226,6 +1226,7 @@ module webSite 'modules/web-sites.bicep' = {
     vnetImagePullEnabled: enablePrivateNetworking ? true : false
     virtualNetworkSubnetId: enablePrivateNetworking ? virtualNetwork!.outputs.webSubnetResourceId : null
     publicNetworkAccess: 'Enabled'
+    e2eEncryptionEnabled: true
   }
 }
 
