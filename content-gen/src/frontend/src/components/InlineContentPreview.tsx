@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Card,
   Button,
@@ -26,9 +26,27 @@ interface InlineContentPreviewProps {
   selectedProduct?: Product;
 }
 
+// Custom hook for responsive breakpoints
+function useWindowSize() {
+  const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  return windowWidth;
+}
+
 export function InlineContentPreview({ content, onRegenerate, isLoading, selectedProduct }: InlineContentPreviewProps) {
   const { text_content, image_content, violations, requires_modification } = content;
   const [copied, setCopied] = useState(false);
+  const windowWidth = useWindowSize();
+  
+  // Responsive breakpoints
+  const isSmall = windowWidth < 768;
+  const isMedium = windowWidth < 1024;
 
   const handleCopyText = () => {
     const textToCopy = [
@@ -54,14 +72,16 @@ export function InlineContentPreview({ content, onRegenerate, isLoading, selecte
   return (
     <div style={{ 
       display: 'flex',
-      gap: '8px',
+      gap: 'clamp(6px, 1vw, 8px)',
       alignItems: 'flex-start',
       maxWidth: '100%'
     }}>
       {/* Bot Avatar */}
       <div style={{ 
-        width: '32px',
-        height: '32px',
+        width: 'clamp(28px, 4vw, 32px)',
+        height: 'clamp(28px, 4vw, 32px)',
+        minWidth: '28px',
+        minHeight: '28px',
         borderRadius: '50%',
         backgroundColor: tokens.colorNeutralBackground3,
         display: 'flex',
@@ -69,18 +89,31 @@ export function InlineContentPreview({ content, onRegenerate, isLoading, selecte
         justifyContent: 'center',
         flexShrink: 0
       }}>
-        <Bot24Regular style={{ fontSize: '16px' }} />
+        <Bot24Regular style={{ fontSize: 'clamp(14px, 2vw, 16px)' }} />
       </div>
       
       <Card style={{ 
         flex: 1,
         maxWidth: 'calc(100% - 40px)',
         backgroundColor: tokens.colorNeutralBackground1,
-        padding: '20px',
+        padding: 'clamp(12px, 2.5vw, 20px)',
+        minWidth: 0, /* Allow card to shrink */
       }}>
         {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{ 
+          display: 'flex', 
+          flexDirection: isSmall ? 'column' : 'row',
+          justifyContent: 'space-between', 
+          alignItems: isSmall ? 'flex-start' : 'flex-start', 
+          marginBottom: 'clamp(12px, 2vw, 16px)',
+          gap: isSmall ? '12px' : '8px',
+        }}>
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 'clamp(8px, 1.5vw, 12px)',
+            flexWrap: 'wrap',
+          }}>
             <Badge appearance="outline" size="small">
               ContentAgent
             </Badge>
@@ -106,13 +139,13 @@ export function InlineContentPreview({ content, onRegenerate, isLoading, selecte
             size="small"
             disabled={isLoading}
           >
-            Regenerate
+            {isSmall ? '' : 'Regenerate'}
           </Button>
         </div>
         
         {/* Violations */}
         {violations.length > 0 && (
-          <div style={{ marginBottom: '16px' }}>
+          <div style={{ marginBottom: 'clamp(12px, 2vw, 16px)' }}>
             {violations.map((violation, index) => (
               <ViolationCard key={index} violation={violation} />
             ))}
@@ -121,7 +154,15 @@ export function InlineContentPreview({ content, onRegenerate, isLoading, selecte
         
         {/* Product number header */}
         {selectedProduct && (
-          <Text weight="bold" size={500} block style={{ marginBottom: '16px' }}>
+          <Text 
+            weight="bold" 
+            size={500} 
+            block 
+            style={{ 
+              marginBottom: 'clamp(12px, 2vw, 16px)',
+              fontSize: 'clamp(16px, 2.5vw, 20px)',
+            }}
+          >
             1. {selectedProduct.product_name}
           </Text>
         )}
@@ -129,9 +170,13 @@ export function InlineContentPreview({ content, onRegenerate, isLoading, selecte
         {/* Main Content Grid: Product Card + Images */}
         <div style={{ 
           display: 'grid',
-          gridTemplateColumns: selectedProduct ? '200px 1fr 1fr' : '1fr 1fr',
-          gap: '16px',
-          marginBottom: '20px',
+          gridTemplateColumns: isSmall 
+            ? '1fr' 
+            : isMedium 
+              ? (selectedProduct ? '1fr 1fr' : '1fr 1fr')
+              : (selectedProduct ? 'minmax(150px, 200px) 1fr 1fr' : '1fr 1fr'),
+          gap: 'clamp(12px, 2vw, 16px)',
+          marginBottom: 'clamp(16px, 2.5vw, 20px)',
         }}>
           {/* Product Card */}
           {selectedProduct && (
@@ -139,6 +184,7 @@ export function InlineContentPreview({ content, onRegenerate, isLoading, selecte
               display: 'flex',
               flexDirection: 'column',
               gap: '8px',
+              gridColumn: isSmall ? '1' : 'auto',
             }}>
               <Text size={200} style={{ color: tokens.colorNeutralForeground3 }}>
                 {selectedProduct.product_name}
@@ -148,7 +194,8 @@ export function InlineContentPreview({ content, onRegenerate, isLoading, selecte
               <div style={{
                 width: '100%',
                 aspectRatio: '1.5',
-                backgroundColor: '#EEEFEA', // Default soft white
+                maxHeight: isSmall ? '120px' : '150px',
+                backgroundColor: '#EEEFEA',
                 borderRadius: '4px',
                 border: `1px solid ${tokens.colorNeutralStroke1}`,
                 display: 'flex',
@@ -165,10 +212,10 @@ export function InlineContentPreview({ content, onRegenerate, isLoading, selecte
                 ) : null}
               </div>
               
-              <Text weight="semibold" size={300}>
+              <Text weight="semibold" size={300} style={{ fontSize: 'clamp(13px, 1.8vw, 15px)' }}>
                 {selectedProduct.product_name}
               </Text>
-              <Text size={200} style={{ color: tokens.colorNeutralForeground3 }}>
+              <Text size={200} style={{ color: tokens.colorNeutralForeground3, fontSize: 'clamp(11px, 1.5vw, 13px)' }}>
                 {selectedProduct.tags || selectedProduct.description}
               </Text>
               
@@ -185,6 +232,7 @@ export function InlineContentPreview({ content, onRegenerate, isLoading, selecte
               borderRadius: '8px',
               overflow: 'hidden',
               aspectRatio: '1',
+              minHeight: isSmall ? '200px' : 'auto',
             }}>
               <img
                 src={image_content.image_url}
@@ -199,20 +247,25 @@ export function InlineContentPreview({ content, onRegenerate, isLoading, selecte
               {text_content?.headline && (
                 <div style={{
                   position: 'absolute',
-                  top: '16px',
-                  left: '16px',
-                  right: '16px',
+                  top: 'clamp(8px, 2vw, 16px)',
+                  left: 'clamp(8px, 2vw, 16px)',
+                  right: 'clamp(8px, 2vw, 16px)',
                   color: 'white',
                   textShadow: '0 2px 4px rgba(0,0,0,0.3)',
                 }}>
-                  <Text size={500} weight="semibold" style={{ 
-                    color: 'white', 
-                    display: 'block',
-                    fontFamily: 'Georgia, serif',
-                  }}>
+                  <Text 
+                    size={500} 
+                    weight="semibold" 
+                    style={{ 
+                      color: 'white', 
+                      display: 'block',
+                      fontFamily: 'Georgia, serif',
+                      fontSize: 'clamp(14px, 2.5vw, 20px)',
+                    }}
+                  >
                     {selectedProduct?.product_name || text_content.headline}
                   </Text>
-                  <Text size={200} style={{ color: 'rgba(255,255,255,0.9)' }}>
+                  <Text size={200} style={{ color: 'rgba(255,255,255,0.9)', fontSize: 'clamp(11px, 1.5vw, 13px)' }}>
                     {text_content.cta_text || 'A Modern Choice'}
                   </Text>
                 </div>
@@ -235,35 +288,37 @@ export function InlineContentPreview({ content, onRegenerate, isLoading, selecte
           )}
           
           {/* Generated Image 2 / Additional Image placeholder */}
-          <div style={{ 
-            borderRadius: '8px',
-            overflow: 'hidden',
-            aspectRatio: '1',
-            backgroundColor: tokens.colorNeutralBackground3,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}>
-            {image_content?.image_url ? (
-              <img
-                src={image_content.image_url}
-                alt="Secondary marketing image"
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'cover',
-                  filter: 'brightness(1.05)',
-                }}
-              />
-            ) : (
-              <Text size={200} style={{ color: tokens.colorNeutralForeground3 }}>
-                Additional image
-              </Text>
-            )}
-          </div>
+          {!isSmall && (
+            <div style={{ 
+              borderRadius: '8px',
+              overflow: 'hidden',
+              aspectRatio: '1',
+              backgroundColor: tokens.colorNeutralBackground3,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}>
+              {image_content?.image_url ? (
+                <img
+                  src={image_content.image_url}
+                  alt="Secondary marketing image"
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    filter: 'brightness(1.05)',
+                  }}
+                />
+              ) : (
+                <Text size={200} style={{ color: tokens.colorNeutralForeground3 }}>
+                  Additional image
+                </Text>
+              )}
+            </div>
+          )}
         </div>
         
-        <Divider style={{ margin: '16px 0' }} />
+        <Divider style={{ margin: 'clamp(12px, 2vw, 16px) 0' }} />
         
         {/* Marketing Copy Section */}
         {text_content && (
@@ -280,26 +335,50 @@ export function InlineContentPreview({ content, onRegenerate, isLoading, selecte
                 right: '0',
               }}
             >
-              {copied ? 'Copied!' : 'Copy'}
+              {copied ? 'Copied!' : (isSmall ? '' : 'Copy')}
             </Button>
             
             {/* Headline with sparkles */}
             {text_content.headline && (
-              <Text size={400} weight="semibold" block style={{ marginBottom: '12px', paddingRight: '80px' }}>
+              <Text 
+                size={400} 
+                weight="semibold" 
+                block 
+                style={{ 
+                  marginBottom: 'clamp(8px, 1.5vw, 12px)', 
+                  paddingRight: 'clamp(60px, 10vw, 80px)',
+                  fontSize: 'clamp(14px, 2vw, 18px)',
+                }}
+              >
                 ✨ {text_content.headline} ✨
               </Text>
             )}
             
             {/* Body text */}
             {text_content.body && (
-              <Text size={300} block style={{ marginBottom: '16px', lineHeight: '1.6' }}>
+              <Text 
+                size={300} 
+                block 
+                style={{ 
+                  marginBottom: 'clamp(12px, 2vw, 16px)', 
+                  lineHeight: '1.6',
+                  fontSize: 'clamp(13px, 1.8vw, 15px)',
+                }}
+              >
                 {text_content.body}
               </Text>
             )}
             
             {/* Hashtags */}
             {text_content.tagline && (
-              <Text size={200} style={{ color: tokens.colorBrandForeground1, lineHeight: '1.8' }}>
+              <Text 
+                size={200} 
+                style={{ 
+                  color: tokens.colorBrandForeground1, 
+                  lineHeight: '1.8',
+                  fontSize: 'clamp(11px, 1.5vw, 13px)',
+                }}
+              >
                 {text_content.tagline}
               </Text>
             )}

@@ -69,14 +69,16 @@ export function InlineProductSelector({
   return (
     <div style={{ 
       display: 'flex',
-      gap: '8px',
+      gap: 'clamp(6px, 1vw, 8px)',
       alignItems: 'flex-start',
       maxWidth: '100%'
     }}>
       {/* Bot Avatar */}
       <div style={{ 
-        width: '32px',
-        height: '32px',
+        width: 'clamp(28px, 4vw, 32px)',
+        height: 'clamp(28px, 4vw, 32px)',
+        minWidth: '28px',
+        minHeight: '28px',
         borderRadius: '50%',
         backgroundColor: tokens.colorNeutralBackground3,
         display: 'flex',
@@ -84,30 +86,51 @@ export function InlineProductSelector({
         justifyContent: 'center',
         flexShrink: 0
       }}>
-        <Bot24Regular style={{ fontSize: '16px' }} />
+        <Bot24Regular style={{ fontSize: 'clamp(14px, 2vw, 16px)' }} />
       </div>
       
       <Card style={{ 
         flex: 1,
         maxWidth: 'calc(100% - 40px)',
-        backgroundColor: tokens.colorNeutralBackground1
+        backgroundColor: tokens.colorNeutralBackground1,
+        minWidth: 0, /* Allow card to shrink */
       }}>
         <Badge appearance="outline" size="small" style={{ marginBottom: '8px' }}>
           ProductAgent
         </Badge>
         
-        <Text weight="semibold" size={300} block style={{ marginBottom: '8px' }}>
+        <Text 
+          weight="semibold" 
+          size={300} 
+          block 
+          style={{ 
+            marginBottom: '8px',
+            fontSize: 'clamp(13px, 1.8vw, 15px)',
+          }}
+        >
           Select Products for Your Campaign
         </Text>
         
-        <Text size={200} style={{ color: tokens.colorNeutralForeground3, marginBottom: '12px', display: 'block' }}>
+        <Text 
+          size={200} 
+          style={{ 
+            color: tokens.colorNeutralForeground3, 
+            marginBottom: 'clamp(8px, 1.5vw, 12px)', 
+            display: 'block',
+            fontSize: 'clamp(11px, 1.5vw, 13px)',
+          }}
+        >
           Choose products to feature in your marketing content, then click Generate.
         </Text>
         
         {/* Search */}
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+        <div style={{ 
+          display: 'flex', 
+          gap: '8px', 
+          marginBottom: 'clamp(8px, 1.5vw, 12px)',
+        }}>
           <Input
-            style={{ flex: 1 }}
+            style={{ flex: 1, minWidth: 0 }}
             placeholder="Search products..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -124,19 +147,23 @@ export function InlineProductSelector({
         
         {/* Product List */}
         <div style={{ 
-          maxHeight: '250px', 
+          maxHeight: 'clamp(180px, 30vh, 250px)', 
           overflowY: 'auto',
-          marginBottom: '12px',
+          marginBottom: 'clamp(8px, 1.5vw, 12px)',
           border: `1px solid ${tokens.colorNeutralStroke1}`,
           borderRadius: '4px'
         }}>
           {isSearching ? (
-            <div style={{ padding: '16px', textAlign: 'center' }}>
+            <div style={{ padding: 'clamp(12px, 2vw, 16px)', textAlign: 'center' }}>
               <Spinner size="tiny" />
             </div>
           ) : products.length === 0 ? (
-            <div style={{ padding: '16px', textAlign: 'center', color: tokens.colorNeutralForeground3 }}>
-              <Box24Regular style={{ fontSize: '24px', marginBottom: '4px' }} />
+            <div style={{ 
+              padding: 'clamp(12px, 2vw, 16px)', 
+              textAlign: 'center', 
+              color: tokens.colorNeutralForeground3 
+            }}>
+              <Box24Regular style={{ fontSize: 'clamp(20px, 3vw, 24px)', marginBottom: '4px' }} />
               <Text size={200}>No products found</Text>
             </div>
           ) : (
@@ -144,11 +171,11 @@ export function InlineProductSelector({
               <div
                 key={product.sku}
                 style={{
-                  padding: '8px 12px',
+                  padding: 'clamp(6px, 1vw, 8px) clamp(8px, 1.5vw, 12px)',
                   borderBottom: `1px solid ${tokens.colorNeutralStroke1}`,
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '8px',
+                  gap: 'clamp(6px, 1vw, 8px)',
                   backgroundColor: isProductSelected(product) ? tokens.colorBrandBackground2 : 'transparent',
                 }}
               >
@@ -157,14 +184,26 @@ export function InlineProductSelector({
                   onChange={(_, data) => handleProductToggle(product, !!data.checked)}
                 />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <Text weight="semibold" size={200} block style={{ 
-                    overflow: 'hidden', 
-                    textOverflow: 'ellipsis', 
-                    whiteSpace: 'nowrap' 
-                  }}>
+                  <Text 
+                    weight="semibold" 
+                    size={200} 
+                    block 
+                    style={{ 
+                      overflow: 'hidden', 
+                      textOverflow: 'ellipsis', 
+                      whiteSpace: 'nowrap',
+                      fontSize: 'clamp(11px, 1.5vw, 13px)',
+                    }}
+                  >
                     {product.product_name}
                   </Text>
-                  <Text size={100} style={{ color: tokens.colorNeutralForeground3 }}>
+                  <Text 
+                    size={100} 
+                    style={{ 
+                      color: tokens.colorNeutralForeground3,
+                      fontSize: 'clamp(10px, 1.2vw, 12px)',
+                    }}
+                  >
                     {product.tags} • ${product.price?.toFixed(2) || '59.95'}
                   </Text>
                 </div>
@@ -173,10 +212,11 @@ export function InlineProductSelector({
                     src={product.image_url}
                     alt={product.product_name}
                     style={{
-                      width: '36px',
-                      height: '36px',
+                      width: 'clamp(28px, 5vw, 36px)',
+                      height: 'clamp(28px, 5vw, 36px)',
                       objectFit: 'cover',
-                      borderRadius: '4px'
+                      borderRadius: '4px',
+                      flexShrink: 0,
                     }}
                   />
                 )}
@@ -186,8 +226,21 @@ export function InlineProductSelector({
         </div>
         
         {/* Footer */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Text size={200} style={{ color: tokens.colorNeutralForeground3 }}>
+        <div style={{ 
+          display: 'flex', 
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          gap: '8px',
+        }}>
+          <Text 
+            size={200} 
+            style={{ 
+              color: tokens.colorNeutralForeground3,
+              fontSize: 'clamp(11px, 1.5vw, 13px)',
+            }}
+          >
             {selectedProducts.length} product(s) selected
           </Text>
           

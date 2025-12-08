@@ -374,13 +374,14 @@ function App() {
         display: 'flex', 
         alignItems: 'center', 
         justifyContent: 'space-between',
-        padding: '12px 24px',
+        padding: 'clamp(8px, 1.5vw, 12px) clamp(16px, 3vw, 24px)',
         borderBottom: `1px solid ${tokens.colorNeutralStroke2}`,
         backgroundColor: tokens.colorNeutralBackground1,
+        flexShrink: 0,
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'clamp(8px, 1.5vw, 10px)' }}>
           <ContosoLogo />
-          <Text weight="semibold" size={500} style={{ color: tokens.colorNeutralForeground1 }}>
+          <Text weight="semibold" size={500} style={{ color: tokens.colorNeutralForeground1, fontSize: 'clamp(16px, 2.5vw, 20px)' }}>
             Contoso
           </Text>
         </div>

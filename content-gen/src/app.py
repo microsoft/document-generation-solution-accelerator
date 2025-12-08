@@ -418,7 +418,7 @@ async def generate_content():
     )
 
 
-# ==================== Image Proxy Endpoint ====================
+# ==================== Image Proxy Endpoints ====================
 
 @app.route("/api/images/<conversation_id>/<filename>", methods=["GET"])
 async def proxy_generated_image(conversation_id: str, filename: str):
@@ -452,6 +452,38 @@ async def proxy_generated_image(conversation_id: str, filename: str):
         return jsonify({"error": "Image not found"}), 404
 
 
+@app.route("/api/product-images/<filename>", methods=["GET"])
+async def proxy_product_image(filename: str):
+    """
+    Proxy product images from blob storage.
+    This allows the frontend to access product images via private endpoint.
+    The filename should match the blob name (e.g., SnowVeil.png).
+    """
+    try:
+        blob_service = await get_blob_service()
+        await blob_service.initialize()
+        
+        blob_client = blob_service._product_images_container.get_blob_client(filename)
+        
+        # Download the blob
+        download = await blob_client.download_blob()
+        image_data = await download.readall()
+        
+        # Determine content type from filename
+        content_type = "image/png" if filename.endswith(".png") else "image/jpeg"
+        
+        return Response(
+            image_data,
+            mimetype=content_type,
+            headers={
+                "Cache-Control": "public, max-age=86400",  # Cache for 24 hours
+            }
+        )
+    except Exception as e:
+        logger.exception(f"Error proxying product image {filename}: {e}")
+        return jsonify({"error": "Image not found"}), 404
+
+
 # ==================== Product Endpoints ====================
 
 @app.route("/api/products", methods=["GET"])
@@ -481,9 +513,21 @@ async def list_products():
     else:
         products = await cosmos_service.get_all_products(limit)
     
+    # Convert blob URLs to proxy URLs for products with images
+    product_list = []
+    for p in products:
+        product_dict = p.model_dump()
+        # Convert direct blob URL to proxy URL
+        if product_dict.get("image_url"):
+            # Extract filename from URL like https://account.blob.../container/SnowVeil.png
+            original_url = product_dict["image_url"]
+            filename = original_url.split("/")[-1] if "/" in original_url else original_url
+            product_dict["image_url"] = f"/api/product-images/{filename}"
+        product_list.append(product_dict)
+    
     return jsonify({
-        "products": [p.model_dump() for p in products],
-        "count": len(products)
+        "products": product_list,
+        "count": len(product_list)
     })
 
 
@@ -496,7 +540,14 @@ async def get_product(sku: str):
     if not product:
         return jsonify({"error": "Product not found"}), 404
     
-    return jsonify(product.model_dump())
+    product_dict = product.model_dump()
+    # Convert direct blob URL to proxy URL
+    if product_dict.get("image_url"):
+        original_url = product_dict["image_url"]
+        filename = original_url.split("/")[-1] if "/" in original_url else original_url
+        product_dict["image_url"] = f"/api/product-images/{filename}"
+    
+    return jsonify(product_dict)
 
 
 @app.route("/api/products", methods=["POST"])

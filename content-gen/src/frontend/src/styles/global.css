@@ -25,7 +25,8 @@ html, body, #root {
 .app-container {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  height: 100vh;
+  min-height: 100%;
   background-color: #faf9f8;
 }
 
@@ -33,17 +34,19 @@ html, body, #root {
   display: flex;
   flex: 1;
   overflow: hidden;
+  min-height: 0; /* Allow flex children to shrink */
 }
 
 /* Chat History Panel - RIGHT side */
 .history-panel {
-  width: 280px;
+  width: clamp(200px, 20vw, 320px);
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
   border-left: 1px solid #e1dfdd;
   background-color: #f3f2f1;
   order: 2; /* Ensures it appears on the right */
+  overflow: hidden;
 }
 
 /* Chat Panel - main area */
@@ -52,36 +55,45 @@ html, body, #root {
   display: flex;
   flex-direction: column;
   background: white;
-  min-width: 400px;
+  min-width: 0; /* Allow flex shrinking */
   order: 1; /* Ensures it appears on the left */
+  overflow: hidden;
 }
 
 /* Sidebar panel - kept for backwards compatibility but hidden by default */
 .sidebar-panel {
-  width: 360px;
+  width: clamp(280px, 25vw, 400px);
   flex-shrink: 0;
   display: none;
   flex-direction: column;
   gap: 16px;
 }
 
-/* Responsive layout for smaller screens */
-@media (max-width: 1200px) {
+/* Large screens (1400px+) */
+@media (min-width: 1400px) {
   .history-panel {
-    width: 240px;
-  }
-  .sidebar-panel {
     width: 320px;
   }
 }
 
+/* Medium-large screens */
+@media (max-width: 1200px) {
+  .history-panel {
+    width: clamp(180px, 18vw, 260px);
+  }
+  .sidebar-panel {
+    width: clamp(260px, 22vw, 340px);
+  }
+}
+
+/* Tablet screens */
 @media (max-width: 992px) {
   .main-content {
     flex-direction: column;
   }
   .history-panel {
     width: 100%;
-    max-height: 200px;
+    max-height: clamp(120px, 20vh, 200px);
     order: 1; /* On mobile, show history at top */
     border-left: none;
     border-bottom: 1px solid #e1dfdd;
@@ -96,11 +108,52 @@ html, body, #root {
   }
 }
 
+/* Small tablet / large phone */
+@media (max-width: 768px) {
+  .history-panel {
+    max-height: clamp(100px, 15vh, 160px);
+  }
+}
+
+/* Mobile phones */
+@media (max-width: 576px) {
+  .history-panel {
+    max-height: clamp(80px, 12vh, 120px);
+    padding: 8px;
+  }
+}
+
 .panel-card {
   background: white;
   border-radius: 8px;
-  padding: 16px;
+  padding: clamp(12px, 2vw, 20px);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Responsive text sizing */
+.responsive-text-sm {
+  font-size: clamp(11px, 1.5vw, 13px);
+}
+
+.responsive-text-md {
+  font-size: clamp(13px, 2vw, 16px);
+}
+
+.responsive-text-lg {
+  font-size: clamp(16px, 2.5vw, 20px);
+}
+
+.responsive-text-xl {
+  font-size: clamp(20px, 3vw, 28px);
+}
+
+/* Responsive spacing */
+.responsive-padding {
+  padding: clamp(12px, 3vw, 32px);
+}
+
+.responsive-gap {
+  gap: clamp(8px, 2vw, 24px);
 }
 
 /* Compliance severity colors */

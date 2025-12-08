@@ -148,18 +148,26 @@ export function ChatHistory({
       height: '100%', 
       display: 'flex', 
       flexDirection: 'column',
-      padding: '16px',
+      padding: 'clamp(12px, 2vw, 16px)',
       backgroundColor: tokens.colorNeutralBackground2,
       borderRadius: '8px',
+      overflow: 'hidden',
     }}>
       {/* Header */}
       <div style={{ 
         display: 'flex', 
         alignItems: 'center', 
         justifyContent: 'space-between',
-        marginBottom: '16px',
+        marginBottom: 'clamp(12px, 2vw, 16px)',
+        flexShrink: 0,
       }}>
-        <Text weight="semibold" size={400}>Chat History</Text>
+        <Text 
+          weight="semibold" 
+          size={400}
+          style={{ fontSize: 'clamp(14px, 2vw, 16px)' }}
+        >
+          Chat History
+        </Text>
       </div>
 
       {/* Conversation List */}
@@ -169,20 +177,21 @@ export function ChatHistory({
         display: 'flex',
         flexDirection: 'column',
         gap: '4px',
+        minHeight: 0, /* Allow flex shrinking */
       }}>
         {isLoading ? (
           <div style={{ 
             display: 'flex', 
             justifyContent: 'center', 
             alignItems: 'center',
-            padding: '32px' 
+            padding: 'clamp(16px, 4vw, 32px)' 
           }}>
             <Spinner size="small" label="Loading..." />
           </div>
         ) : error ? (
           <div style={{ 
             textAlign: 'center', 
-            padding: '32px',
+            padding: 'clamp(16px, 4vw, 32px)',
             color: tokens.colorNeutralForeground3 
           }}>
             <Text size={200}>{error}</Text>
@@ -196,10 +205,10 @@ export function ChatHistory({
         ) : displayConversations.length === 0 ? (
           <div style={{ 
             textAlign: 'center', 
-            padding: '32px',
+            padding: 'clamp(16px, 4vw, 32px)',
             color: tokens.colorNeutralForeground3 
           }}>
-            <Chat24Regular style={{ fontSize: '24px', marginBottom: '8px', opacity: 0.5 }} />
+            <Chat24Regular style={{ fontSize: 'clamp(20px, 3vw, 24px)', marginBottom: '8px', opacity: 0.5 }} />
             <Text size={200} block>No conversations yet</Text>
           </div>
         ) : (
@@ -220,12 +229,13 @@ export function ChatHistory({
 
       {/* Footer Links */}
       <div style={{ 
-        marginTop: '16px',
-        paddingTop: '16px',
+        marginTop: 'clamp(12px, 2vw, 16px)',
+        paddingTop: 'clamp(12px, 2vw, 16px)',
         borderTop: `1px solid ${tokens.colorNeutralStroke2}`,
         display: 'flex',
         flexDirection: 'column',
-        gap: '12px',
+        gap: 'clamp(8px, 1.5vw, 12px)',
+        flexShrink: 0,
       }}>
         {hasMore && (
           <Link
@@ -234,7 +244,7 @@ export function ChatHistory({
               display: 'flex',
               alignItems: 'center',
               gap: '4px',
-              fontSize: '13px',
+              fontSize: 'clamp(11px, 1.5vw, 13px)',
             }}
           >
             {showAll ? 'Show less' : 'See all'}
@@ -251,10 +261,10 @@ export function ChatHistory({
             display: 'flex',
             alignItems: 'center',
             gap: '6px',
-            fontSize: '13px',
+            fontSize: 'clamp(11px, 1.5vw, 13px)',
           }}
         >
-          <Add24Regular style={{ fontSize: '16px' }} />
+          <Add24Regular style={{ fontSize: 'clamp(14px, 2vw, 16px)' }} />
           Start new chat
         </Link>
       </div>
@@ -285,7 +295,7 @@ function ConversationItem({
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       style={{
-        padding: '10px 12px',
+        padding: 'clamp(8px, 1.5vw, 10px) clamp(10px, 1.5vw, 12px)',
         borderRadius: '6px',
         cursor: 'pointer',
         backgroundColor: isActive 
@@ -309,6 +319,7 @@ function ConversationItem({
             textOverflow: 'ellipsis', 
             whiteSpace: 'nowrap',
             display: 'block',
+            fontSize: 'clamp(11px, 1.5vw, 13px)',
           }}
         >
           {conversation.title || 'Untitled'}
@@ -317,6 +328,7 @@ function ConversationItem({
           size={100} 
           style={{ 
             color: tokens.colorNeutralForeground4,
+            fontSize: 'clamp(10px, 1.2vw, 12px)',
           }}
         >
           {formatTimestamp(conversation.timestamp)}
@@ -326,7 +338,7 @@ function ConversationItem({
       {isHovered && (
         <Button
           appearance="subtle"
-          icon={<Delete24Regular style={{ fontSize: '16px' }} />}
+          icon={<Delete24Regular style={{ fontSize: 'clamp(14px, 2vw, 16px)' }} />}
           size="small"
           onClick={onDelete}
           style={{ 

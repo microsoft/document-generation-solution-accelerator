@@ -74,8 +74,10 @@ export function WelcomeCard({ onSuggestionClick }: WelcomeCardProps) {
       alignItems: 'center',
       justifyContent: 'center',
       flex: 1,
-      padding: '32px',
-      gap: '24px',
+      padding: 'clamp(16px, 4vw, 32px)',
+      gap: 'clamp(16px, 3vw, 24px)',
+      width: '100%',
+      boxSizing: 'border-box',
     }}>
       {/* Today label */}
       <Text size={200} style={{ color: tokens.colorNeutralForeground3 }}>
@@ -84,21 +86,39 @@ export function WelcomeCard({ onSuggestionClick }: WelcomeCardProps) {
       
       {/* Welcome card with suggestions inside */}
       <div style={{
-        padding: '32px',
-        maxWidth: '600px',
+        padding: 'clamp(16px, 4vw, 32px)',
+        maxWidth: 'min(600px, 100%)',
         width: '100%',
         backgroundColor: tokens.colorNeutralBackground3,
         borderRadius: '12px',
+        boxSizing: 'border-box',
       }}>
         {/* Header with icon and welcome message */}
-        <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-          <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'center' }}>
+        <div style={{ textAlign: 'center', marginBottom: 'clamp(16px, 3vw, 24px)' }}>
+          <div style={{ marginBottom: 'clamp(12px, 2vw, 16px)', display: 'flex', justifyContent: 'center' }}>
             <CopilotIcon />
           </div>
-          <Text size={400} weight="semibold" block style={{ marginBottom: '8px', textAlign: 'center' }}>
+          <Text 
+            size={400} 
+            weight="semibold" 
+            block 
+            style={{ 
+              marginBottom: '8px', 
+              textAlign: 'center',
+              fontSize: 'clamp(16px, 2.5vw, 20px)',
+            }}
+          >
             Welcome to your Content Generation Accelerator
           </Text>
-          <Text size={300} style={{ color: tokens.colorNeutralForeground3, display: 'block', textAlign: 'center' }}>
+          <Text 
+            size={300} 
+            style={{ 
+              color: tokens.colorNeutralForeground3, 
+              display: 'block', 
+              textAlign: 'center',
+              fontSize: 'clamp(13px, 2vw, 15px)',
+            }}
+          >
             Here are the options I can assist you with today
           </Text>
         </div>
@@ -107,14 +127,14 @@ export function WelcomeCard({ onSuggestionClick }: WelcomeCardProps) {
         <div style={{
           display: 'flex',
           flexDirection: 'column',
-          gap: '12px',
+          gap: 'clamp(8px, 1.5vw, 12px)',
         }}>
           {suggestions.map((suggestion, index) => (
             <Card
               key={index}
               onClick={() => onSuggestionClick(suggestion.prompt)}
               style={{
-                padding: '16px',
+                padding: 'clamp(12px, 2vw, 16px)',
                 cursor: 'pointer',
                 backgroundColor: tokens.colorNeutralBackground1,
                 border: `1px solid ${tokens.colorNeutralStroke1}`,
@@ -132,26 +152,42 @@ export function WelcomeCard({ onSuggestionClick }: WelcomeCardProps) {
               <div style={{ 
                 display: 'flex',
                 alignItems: 'center',
-                gap: '12px',
+                gap: 'clamp(8px, 1.5vw, 12px)',
               }}>
                 <div style={{ 
                   color: tokens.colorBrandForeground1, 
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  width: '40px',
-                  height: '40px',
+                  width: 'clamp(32px, 5vw, 40px)',
+                  height: 'clamp(32px, 5vw, 40px)',
+                  minWidth: '32px',
+                  minHeight: '32px',
                   backgroundColor: tokens.colorBrandBackground2,
                   borderRadius: '8px',
                   flexShrink: 0,
                 }}>
                   {suggestion.icon}
                 </div>
-                <div>
-                  <Text weight="semibold" size={300} block style={{ marginBottom: '2px' }}>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <Text 
+                    weight="semibold" 
+                    size={300} 
+                    block 
+                    style={{ 
+                      marginBottom: '2px',
+                      fontSize: 'clamp(13px, 1.8vw, 15px)',
+                    }}
+                  >
                     {suggestion.title}
                   </Text>
-                  <Text size={200} style={{ color: tokens.colorNeutralForeground3 }}>
+                  <Text 
+                    size={200} 
+                    style={{ 
+                      color: tokens.colorNeutralForeground3,
+                      fontSize: 'clamp(11px, 1.5vw, 13px)',
+                    }}
+                  >
                     {suggestion.description}
                   </Text>
                 </div>

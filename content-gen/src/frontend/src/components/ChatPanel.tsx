@@ -81,15 +81,16 @@ export function ChatPanel({
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
       {/* Messages Area */}
       <div style={{ 
         flex: 1, 
         overflowY: 'auto', 
-        padding: '16px',
+        padding: 'clamp(12px, 2vw, 16px)',
         display: 'flex',
         flexDirection: 'column',
-        gap: '16px'
+        gap: 'clamp(12px, 2vw, 16px)',
+        minHeight: 0, /* Allow flex shrinking */
       }}>
         {showWelcome ? (
           <WelcomeCard onSuggestionClick={handleSuggestionClick} />
@@ -143,9 +144,10 @@ export function ChatPanel({
       
       {/* Input Area */}
       <div style={{
-        padding: '16px 24px 12px 24px',
+        padding: 'clamp(12px, 2vw, 16px) clamp(16px, 3vw, 24px) clamp(8px, 1.5vw, 12px)',
         borderTop: `1px solid ${tokens.colorNeutralStroke2}`,
         backgroundColor: tokens.colorNeutralBackground1,
+        flexShrink: 0,
       }}>
         <form 
           onSubmit={handleSubmit}
@@ -155,7 +157,7 @@ export function ChatPanel({
             gap: '8px',
             backgroundColor: tokens.colorNeutralBackground3,
             borderRadius: '24px',
-            padding: '8px 12px',
+            padding: 'clamp(6px, 1vw, 8px) clamp(8px, 1.5vw, 12px)',
             border: `1px solid ${tokens.colorNeutralStroke1}`,
           }}
         >
@@ -177,6 +179,7 @@ export function ChatPanel({
               flex: 1,
               border: 'none',
               backgroundColor: 'transparent',
+              minWidth: 0, /* Allow input to shrink */
             }}
             appearance="underline"
             placeholder="Type a message"
@@ -206,6 +209,7 @@ export function ChatPanel({
             textAlign: 'center',
             marginTop: '8px',
             color: tokens.colorNeutralForeground4,
+            fontSize: 'clamp(10px, 1.2vw, 12px)',
           }}
         >
           AI generated content may be incorrect. Check for mistakes.
@@ -222,12 +226,14 @@ function MessageBubble({ message }: { message: ChatMessage }) {
     <div style={{ 
       display: 'flex',
       flexDirection: isUser ? 'row-reverse' : 'row',
-      gap: '8px',
+      gap: 'clamp(6px, 1vw, 8px)',
       alignItems: 'flex-start'
     }}>
       <div style={{ 
-        width: '32px',
-        height: '32px',
+        width: 'clamp(28px, 4vw, 32px)',
+        height: 'clamp(28px, 4vw, 32px)',
+        minWidth: '28px',
+        minHeight: '28px',
         borderRadius: '50%',
         backgroundColor: isUser ? tokens.colorBrandBackground : tokens.colorNeutralBackground3,
         display: 'flex',
@@ -236,29 +242,31 @@ function MessageBubble({ message }: { message: ChatMessage }) {
         flexShrink: 0
       }}>
         {isUser ? (
-          <Person24Regular style={{ fontSize: '16px', color: 'white' }} />
+          <Person24Regular style={{ fontSize: 'clamp(14px, 2vw, 16px)', color: 'white' }} />
         ) : (
-          <Bot24Regular style={{ fontSize: '16px' }} />
+          <Bot24Regular style={{ fontSize: 'clamp(14px, 2vw, 16px)' }} />
         )}
       </div>
       
       <Card style={{ 
-        maxWidth: '70%',
-        backgroundColor: isUser ? tokens.colorBrandBackground2 : tokens.colorNeutralBackground1
+        maxWidth: 'min(70%, calc(100% - 50px))',
+        backgroundColor: isUser ? tokens.colorBrandBackground2 : tokens.colorNeutralBackground1,
+        minWidth: 0, /* Allow card to shrink */
       }}>
         {message.agent && (
           <Badge appearance="outline" size="small" style={{ marginBottom: '8px' }}>
             {message.agent}
           </Badge>
         )}
-        <div style={{ fontSize: '14px' }}>
+        <div style={{ fontSize: 'clamp(13px, 1.8vw, 14px)', wordBreak: 'break-word' }}>
           <ReactMarkdown>{message.content}</ReactMarkdown>
         </div>
         <Text 
           size={100} 
           style={{ 
             color: tokens.colorNeutralForeground3,
-            marginTop: '8px'
+            marginTop: '8px',
+            fontSize: 'clamp(10px, 1.2vw, 12px)',
           }}
         >
           {new Date(message.timestamp).toLocaleTimeString()}

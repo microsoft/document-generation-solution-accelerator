@@ -37,7 +37,13 @@ eggs/
 
 # Node
 /content-gen/src/frontend/node_modules/
+/content-gen/src/frontend-server/node_modules/
+/content-gen/src/frontend-server/static/
+/content-gen/src/frontend-server/*.zip
 node_modules/
+
+# Build output
+/content-gen/src/static/
 
 # Logs
 *.log
