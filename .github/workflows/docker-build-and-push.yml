@@ -3,6 +3,13 @@ name: Build Docker and Optional Push
 on:
   push:
     branches: [main, dev, demo]
+    paths:
+      - 'src/frontend/**'
+      - 'src/backend/**'
+      - 'src/**/*.py'
+      - 'Dockerfile'
+      - '*.Dockerfile'
+      - '.github/workflows/docker-build-and-push.yml'
   pull_request:
     branches: [main, dev, demo]
     types:
@@ -10,6 +17,13 @@ on:
       - ready_for_review
       - reopened
       - synchronize
+    paths:
+      - 'src/frontend/**'
+      - 'src/backend/**'
+      - 'src/**/*.py'
+      - 'Dockerfile'
+      - '*.Dockerfile'
+      - '.github/workflows/docker-build-and-push.yml'
   merge_group:
   workflow_dispatch:
 
