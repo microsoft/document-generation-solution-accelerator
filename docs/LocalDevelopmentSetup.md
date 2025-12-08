@@ -1,4 +1,4 @@
-# Local Debugging Setup
+# Local Development Setup Guide
 
 Follow the steps below to set up and run the **Document-Generation-Solution-Accelerator** locally.
 
@@ -42,9 +42,13 @@ Choose a location on your local machine where you want to store the project file
    code .
    ```
 
-## Local Setup/Debugging
+## Local Setup/Deplpoyment
 
 Follow these steps to set up and run the application locally:
+
+## Local Deployment:
+
+You can refer the local deployment guide here: [Local Deployment Guide](https://github.com/microsoft/document-generation-solution-accelerator/blob/main/docs/DeploymentGuide.md)
 
 ### 1. Open the App Folder
 Navigate to the `src` directory of the repository using Visual Studio Code.
@@ -57,6 +61,17 @@ Navigate to the `src` directory of the repository using Visual Studio Code.
 - Alternatively, if resources were
 provisioned using `azd provision` or `azd up`, a `.env` file is automatically generated in the `.azure/<env-name>/.env`
 file. To get your `<env-name>` run `azd env list` to see which env is default.
+
+> **Note**: After adding all environment variables to the .env file, update the value of **'APP_ENV'** from:
+```
+APP_ENV="Prod"
+```
+**to:**
+```
+APP_ENV="Dev"
+```
+
+This change is required for running the application in local development mode.
 
 ### 3. Start the Application
 - Run `start.cmd` (Windows) or `start.sh` (Linux/Mac) to:
@@ -124,13 +139,112 @@ cd src/frontend
 npm install
 npm run build
 
-# Run the backend API
+# Run the backend API (Windows)
 cd src/
 
 start http://127.0.0.1:50505
 call python -m uvicorn app:app --port 50505 --reload 
+
+# Run the backend API (MacOs)
+cd src/
+
+open http://127.0.0.1:50505
+python -m uvicorn app:app --port 50505 --reload
+
+# Run the backend API (Linux)
+cd src/
+
+xdg-open http://127.0.0.1:50505
+python -m uvicorn app:app --port 50505 --reload
+
 ```
 
 > **Note**: Make sure your virtual environment is activated before running these commands. You should see `(.venv)` in your terminal prompt when the virtual environment is active.
 
 The App will run on `http://127.0.0.1:50505/#/` by default.
+
+## Troubleshooting
+
+### Common Issues
+
+#### Python Version Issues
+
+```bash
+# Check available Python versions
+python3 --version
+python3.12 --version
+
+# If python3.12 not found, install it:
+# Ubuntu: sudo apt install python3.12
+# macOS: brew install python@3.12
+# Windows: winget install Python.Python.3.12
+```
+
+#### Virtual Environment Issues
+
+```bash
+# Recreate virtual environment
+rm -rf .venv  # Linux/macOS
+# or Remove-Item -Recurse .venv  # Windows PowerShell
+
+uv venv .venv
+# Activate and reinstall
+source .venv/bin/activate  # Linux/macOS
+# or .\.venv\Scripts\Activate.ps1  # Windows
+uv sync --python 3.12
+```
+
+#### Permission Issues (Linux/macOS)
+
+```bash
+# Fix ownership of files
+sudo chown -R $USER:$USER .
+
+# Fix uv permissions
+chmod +x ~/.local/bin/uv
+```
+
+#### Windows-Specific Issues
+
+```powershell
+# PowerShell execution policy
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+
+# Long path support (Windows 10 1607+, run as Administrator)
+New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name "LongPathsEnabled" -Value 1 -PropertyType DWORD -Force
+
+# SSL certificate issues
+pip install --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org uv
+```
+
+### Azure Authentication Issues
+
+```bash
+# Login to Azure CLI
+az login
+
+# Set subscription
+az account set --subscription "your-subscription-id"
+
+# Test authentication
+az account show
+```
+
+### Environment Variable Issues
+
+```bash
+# Check environment variables are loaded
+env | grep AZURE  # Linux/macOS
+Get-ChildItem Env:AZURE*  # Windows PowerShell
+
+# Validate .env file format
+cat .env | grep -v '^#' | grep '='  # Should show key=value pairs
+```
+
+## Related Documentation
+
+- [Deployment Guide](DeploymentGuide.md) - Instructions for production deployment.
+- [Delete Resource Group](DeleteResourceGroup.md) - Steps to safely delete the Azure resource group created for the solution.
+- [App Authentication Setup](AppAuthentication.md) - Guide to configure application authentication and add support for additional platforms.
+- [Powershell Setup](PowershellSetup.md) - Instructions for setting up PowerShell and required scripts.
+- [Quota Check](QuotaCheck.md) - Steps to verify Azure quotas and ensure required limits before deployment.
