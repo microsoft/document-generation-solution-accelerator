@@ -33,6 +33,7 @@ function App() {
   const [userId, setUserId] = useState<string>('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [generationStatus, setGenerationStatus] = useState<string>('');
   
   // Brief confirmation flow
   const [pendingBrief, setPendingBrief] = useState<CreativeBrief | null>(null);
@@ -165,7 +166,7 @@ function App() {
     
     try {
       // Import dynamically to avoid SSR issues
-      const { streamChat, parseBrief } = await import('./api');
+      const { streamChat, parseBrief, selectProducts } = await import('./api');
       
       // If we have a pending brief and user is providing feedback, update the brief
       if (pendingBrief && !confirmedBrief) {
@@ -223,6 +224,21 @@ function App() {
             }
           }
         }
+      } else if (confirmedBrief && !generatedContent) {
+        // Brief confirmed, in product selection phase - treat messages as product selection requests
+        const result = await selectProducts(content, selectedProducts, conversationId, userId);
+        
+        // Update selected products with the result
+        setSelectedProducts(result.products || []);
+        
+        const assistantMessage: ChatMessage = {
+          id: uuidv4(),
+          role: 'assistant',
+          content: result.message || 'Products updated.',
+          agent: 'ProductAgent',
+          timestamp: new Date().toISOString(),
+        };
+        setMessages(prev => [...prev, assistantMessage]);
       } else {
         // Check if this looks like a creative brief
         const briefKeywords = ['campaign', 'marketing', 'target audience', 'objective', 'deliverable'];
@@ -292,7 +308,7 @@ function App() {
       // Trigger refresh of chat history after message is sent
       setHistoryRefreshTrigger(prev => prev + 1);
     }
-  }, [conversationId, userId, confirmedBrief, pendingBrief]);
+  }, [conversationId, userId, confirmedBrief, pendingBrief, selectedProducts, generatedContent]);
 
   const handleBriefConfirm = useCallback(async () => {
     if (!pendingBrief) return;
@@ -306,8 +322,8 @@ function App() {
       const assistantMessage: ChatMessage = {
         id: uuidv4(),
         role: 'assistant',
-        content: 'Great! Your creative brief has been confirmed. Now you can select products to feature and generate content.',
-        agent: 'TriageAgent',
+        content: "Great! Your creative brief has been confirmed. Now let's select products to feature in your campaign. Tell me what products you'd like to include - you can describe them by name, category, or characteristics.",
+        agent: 'ProductAgent',
         timestamp: new Date().toISOString(),
       };
       setMessages(prev => [...prev, assistantMessage]);
@@ -327,10 +343,23 @@ function App() {
     setMessages(prev => [...prev, assistantMessage]);
   }, []);
 
+  const handleProductsStartOver = useCallback(() => {
+    setSelectedProducts([]);
+    setConfirmedBrief(null);
+    const assistantMessage: ChatMessage = {
+      id: uuidv4(),
+      role: 'assistant',
+      content: 'Starting over. Please provide your creative brief to begin a new campaign.',
+      timestamp: new Date().toISOString(),
+    };
+    setMessages(prev => [...prev, assistantMessage]);
+  }, []);
+
   const handleGenerateContent = useCallback(async () => {
     if (!confirmedBrief) return;
     
     setIsLoading(true);
+    setGenerationStatus('Starting content generation...');
     try {
       const { streamGenerateContent } = await import('./api');
       
@@ -341,7 +370,24 @@ function App() {
         conversationId,
         userId
       )) {
+        // Handle heartbeat events to show progress
+        if (response.type === 'heartbeat') {
+          const count = response.count || 0;
+          const stages = [
+            'Analyzing creative brief...',
+            'Generating marketing copy...',
+            'Creating image prompt...',
+            'Generating DALL-E image...',
+            'Running compliance check...',
+            'Finalizing content...'
+          ];
+          const stageIndex = Math.min(count - 1, stages.length - 1);
+          setGenerationStatus(stages[stageIndex >= 0 ? stageIndex : 0]);
+          continue;
+        }
+        
         if (response.is_final && response.type !== 'error') {
+          setGenerationStatus('Processing results...');
           try {
             const rawContent = JSON.parse(response.content);
             
@@ -379,6 +425,7 @@ function App() {
               requires_modification: rawContent.requires_modification || false,
             };
             setGeneratedContent(content);
+            setGenerationStatus('');
             
             // Add a message to chat showing content was generated
             const assistantMessage: ChatMessage = {
@@ -393,6 +440,7 @@ function App() {
             console.error('Error parsing generated content:', parseError);
           }
         } else if (response.type === 'error') {
+          setGenerationStatus('');
           const errorMessage: ChatMessage = {
             id: uuidv4(),
             role: 'assistant',
@@ -404,6 +452,7 @@ function App() {
       }
     } catch (error) {
       console.error('Error generating content:', error);
+      setGenerationStatus('');
       const errorMessage: ChatMessage = {
         id: uuidv4(),
         role: 'assistant',
@@ -413,6 +462,7 @@ function App() {
       setMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
+      setGenerationStatus('');
     }
   }, [confirmedBrief, selectedProducts, conversationId]);
 
@@ -461,15 +511,16 @@ function App() {
             messages={messages}
             onSendMessage={handleSendMessage}
             isLoading={isLoading}
+            generationStatus={generationStatus}
             pendingBrief={pendingBrief}
             confirmedBrief={confirmedBrief}
             generatedContent={generatedContent}
             selectedProducts={selectedProducts}
             onBriefConfirm={handleBriefConfirm}
             onBriefCancel={handleBriefCancel}
-            onProductsChange={setSelectedProducts}
             onGenerateContent={handleGenerateContent}
             onRegenerateContent={handleGenerateContent}
+            onProductsStartOver={handleProductsStartOver}
           />
         </div>
         

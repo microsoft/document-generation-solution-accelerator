@@ -63,13 +63,15 @@ export interface Conversation {
 }
 
 export interface AgentResponse {
-  type: 'agent_response' | 'error' | 'status';
+  type: 'agent_response' | 'error' | 'status' | 'heartbeat';
   agent?: string;
   content: string;
   is_final: boolean;
   requires_user_input?: boolean;
   request_id?: string;
   conversation_history?: string;
+  count?: number;
+  message?: string;
   metadata?: {
     conversation_id?: string;
     handoff_to?: string;

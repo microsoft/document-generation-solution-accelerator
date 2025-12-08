@@ -64,6 +64,33 @@ export async function confirmBrief(
 }
 
 /**
+ * Select or modify products via natural language
+ */
+export async function selectProducts(
+  request: string,
+  currentProducts: Product[],
+  conversationId?: string,
+  userId?: string
+): Promise<{ products: Product[]; action: string; message: string; conversation_id: string }> {
+  const response = await fetch(`${API_BASE}/products/select`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      request,
+      current_products: currentProducts,
+      conversation_id: conversationId,
+      user_id: userId || 'anonymous',
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to select products: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+/**
  * Stream chat messages from the agent orchestration
  */
 export async function* streamChat(

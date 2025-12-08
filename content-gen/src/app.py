@@ -288,6 +288,98 @@ async def confirm_brief():
     })
 
 
+# ==================== Product Selection Endpoints ====================
+
+@app.route("/api/products/select", methods=["POST"])
+async def select_products():
+    """
+    Select or modify products via natural language.
+    
+    Request body:
+    {
+        "request": "User's natural language request",
+        "current_products": [ ... currently selected products ... ],
+        "conversation_id": "optional-uuid",
+        "user_id": "user identifier"
+    }
+    
+    Returns:
+        Selected products and assistant message.
+    """
+    data = await request.get_json()
+    
+    request_text = data.get("request", "")
+    current_products = data.get("current_products", [])
+    conversation_id = data.get("conversation_id") or str(uuid.uuid4())
+    user_id = data.get("user_id", "anonymous")
+    
+    if not request_text:
+        return jsonify({"error": "Request text is required"}), 400
+    
+    # Save user message
+    try:
+        cosmos_service = await get_cosmos_service()
+        await cosmos_service.add_message_to_conversation(
+            conversation_id=conversation_id,
+            user_id=user_id,
+            message={
+                "role": "user",
+                "content": request_text,
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            }
+        )
+    except Exception as e:
+        logger.warning(f"Failed to save product selection request to CosmosDB: {e}")
+    
+    # Get available products from catalog
+    try:
+        cosmos_service = await get_cosmos_service()
+        all_products = await cosmos_service.get_all_products(limit=50)
+        # Use mode='json' to ensure datetime objects are serialized to strings
+        available_products = [p.model_dump(mode='json') for p in all_products]
+        
+        # Convert blob URLs to proxy URLs
+        for p in available_products:
+            if p.get("image_url"):
+                original_url = p["image_url"]
+                filename = original_url.split("/")[-1] if "/" in original_url else original_url
+                p["image_url"] = f"/api/product-images/{filename}"
+    except Exception as e:
+        logger.warning(f"Failed to get products from CosmosDB: {e}")
+        available_products = []
+    
+    # Use orchestrator to process the selection request
+    orchestrator = get_orchestrator()
+    result = await orchestrator.select_products(
+        request_text=request_text,
+        current_products=current_products,
+        available_products=available_products
+    )
+    
+    # Save assistant response
+    try:
+        cosmos_service = await get_cosmos_service()
+        await cosmos_service.add_message_to_conversation(
+            conversation_id=conversation_id,
+            user_id=user_id,
+            message={
+                "role": "assistant",
+                "content": result.get("message", "Products updated."),
+                "agent": "ProductAgent",
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            }
+        )
+    except Exception as e:
+        logger.warning(f"Failed to save product selection response to CosmosDB: {e}")
+    
+    return jsonify({
+        "products": result.get("products", []),
+        "action": result.get("action", "search"),
+        "message": result.get("message", "Products selected."),
+        "conversation_id": conversation_id
+    })
+
+
 # ==================== Content Generation Endpoints ====================
 
 @app.route("/api/generate", methods=["POST"])
@@ -305,6 +397,8 @@ async def generate_content():
     
     Returns streaming response with generated content.
     """
+    import asyncio
+    
     data = await request.get_json()
     
     brief_data = data.get("brief", {})
@@ -337,13 +431,38 @@ async def generate_content():
     orchestrator = get_orchestrator()
     
     async def generate():
-        """Stream content generation responses."""
-        try:
-            response = await orchestrator.generate_content(
+        """Stream content generation responses with keepalive heartbeats."""
+        # Create a task for the long-running generation
+        generation_task = asyncio.create_task(
+            orchestrator.generate_content(
                 brief=brief,
                 products=products_data,
                 generate_images=generate_images
             )
+        )
+        
+        # Send keepalive heartbeats every 15 seconds while generation is running
+        heartbeat_count = 0
+        response = None
+        error = None
+        
+        while not generation_task.done():
+            # Wait up to 15 seconds for task to complete
+            await asyncio.sleep(0.1)  # Small sleep to avoid busy waiting
+            
+            # Check every 15 seconds and send heartbeat
+            for _ in range(150):  # 150 * 0.1s = 15 seconds
+                if generation_task.done():
+                    break
+                await asyncio.sleep(0.1)
+            
+            if not generation_task.done():
+                heartbeat_count += 1
+                yield f"data: {json.dumps({'type': 'heartbeat', 'count': heartbeat_count, 'message': 'Generating content...'})}\n\n"
+        
+        # Get the result
+        try:
+            response = generation_task.result()
             
             # Try to save generated images to blob storage
             try:
@@ -412,8 +531,10 @@ async def generate_content():
         generate(),
         mimetype="text/event-stream",
         headers={
-            "Cache-Control": "no-cache",
-            "X-Accel-Buffering": "no"
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+            "Content-Type": "text/event-stream; charset=utf-8",
         }
     )
 

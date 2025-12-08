@@ -18,7 +18,7 @@ import {
 import ReactMarkdown from 'react-markdown';
 import type { ChatMessage, CreativeBrief, Product, GeneratedContent } from '../types';
 import { BriefReview } from './BriefReview';
-import { InlineProductSelector } from './InlineProductSelector';
+import { ProductReview } from './ProductReview';
 import { InlineContentPreview } from './InlineContentPreview';
 import { WelcomeCard } from './WelcomeCard';
 
@@ -26,6 +26,7 @@ interface ChatPanelProps {
   messages: ChatMessage[];
   onSendMessage: (message: string) => void;
   isLoading: boolean;
+  generationStatus?: string;
   // Inline component props
   pendingBrief?: CreativeBrief | null;
   confirmedBrief?: CreativeBrief | null;
@@ -33,24 +34,25 @@ interface ChatPanelProps {
   selectedProducts?: Product[];
   onBriefConfirm?: () => void;
   onBriefCancel?: () => void;
-  onProductsChange?: (products: Product[]) => void;
   onGenerateContent?: () => void;
   onRegenerateContent?: () => void;
+  onProductsStartOver?: () => void;
 }
 
 export function ChatPanel({ 
   messages, 
   onSendMessage, 
   isLoading,
+  generationStatus,
   pendingBrief,
   confirmedBrief,
   generatedContent,
   selectedProducts = [],
   onBriefConfirm,
   onBriefCancel,
-  onProductsChange,
   onGenerateContent,
   onRegenerateContent,
+  onProductsStartOver,
 }: ChatPanelProps) {
   const [inputValue, setInputValue] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -69,9 +71,9 @@ export function ChatPanel({
 
   // Determine if we should show inline components
   const showBriefReview = pendingBrief && onBriefConfirm && onBriefCancel;
-  const showProductSelector = confirmedBrief && !generatedContent && onProductsChange && onGenerateContent;
+  const showProductReview = confirmedBrief && !generatedContent && onGenerateContent;
   const showContentPreview = generatedContent && onRegenerateContent;
-  const showWelcome = messages.length === 0 && !showBriefReview && !showProductSelector && !showContentPreview;
+  const showWelcome = messages.length === 0 && !showBriefReview && !showProductReview && !showContentPreview;
 
   // Handle suggestion click from welcome card
   const handleSuggestionClick = (prompt: string) => {
@@ -108,13 +110,13 @@ export function ChatPanel({
               />
             )}
             
-            {/* Inline Product Selector */}
-            {showProductSelector && (
-              <InlineProductSelector
-                selectedProducts={selectedProducts}
-                onProductsChange={onProductsChange}
-                onGenerate={onGenerateContent}
-                isLoading={isLoading}
+            {/* Product Review - Conversational Product Selection */}
+            {showProductReview && (
+              <ProductReview
+                products={selectedProducts}
+                onConfirm={onGenerateContent}
+                onStartOver={onProductsStartOver || (() => {})}
+                isAwaitingResponse={isLoading}
               />
             )}
             
@@ -128,10 +130,27 @@ export function ChatPanel({
               />
             )}
             
-            {isLoading && !showProductSelector && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Spinner size="tiny" />
-                <Text size={200}>Generating response...</Text>
+            {isLoading && !showProductReview && (
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '12px',
+                padding: '16px 20px',
+                backgroundColor: tokens.colorNeutralBackground3,
+                borderRadius: '12px',
+                border: `1px solid ${tokens.colorNeutralStroke2}`,
+              }}>
+                <Spinner size="small" />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <Text weight="semibold" size={300}>
+                    {generationStatus || 'Generating response...'}
+                  </Text>
+                  {generationStatus && (
+                    <Text size={200} style={{ color: tokens.colorNeutralForeground3 }}>
+                      This may take up to a minute
+                    </Text>
+                  )}
+                </div>
               </div>
             )}
           </>

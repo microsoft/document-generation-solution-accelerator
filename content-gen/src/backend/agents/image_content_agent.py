@@ -23,6 +23,56 @@ from backend.settings import app_settings
 logger = logging.getLogger(__name__)
 
 
+def _truncate_for_dalle(product_description: str, max_chars: int = 1500) -> str:
+    """
+    Truncate product descriptions to fit DALL-E's 4000 character limit.
+    Extracts the most visually relevant information (colors, hex codes, finishes).
+    
+    Args:
+        product_description: The full product description(s)
+        max_chars: Maximum characters to allow for product context
+        
+    Returns:
+        Truncated description with essential visual details
+    """
+    if not product_description or len(product_description) <= max_chars:
+        return product_description
+    
+    import re
+    
+    # Extract essential visual info: product names, hex codes, color descriptions
+    lines = product_description.split('\n')
+    essential_parts = []
+    current_product = ""
+    
+    for line in lines:
+        # Keep product name headers
+        if line.startswith('### '):
+            current_product = line
+            essential_parts.append(line)
+        # Keep hex code references
+        elif 'hex' in line.lower() or '#' in line:
+            if current_product and current_product not in essential_parts[-5:]:
+                essential_parts.append(current_product)
+            essential_parts.append(line.strip())
+        # Keep first sentence of description (usually has the main color)
+        elif line.strip().startswith('"') and 'appears as' in line.lower():
+            # Extract first two sentences
+            sentences = re.split(r'(?<=[.!?])\s+', line.strip())
+            essential_parts.append(' '.join(sentences[:2]))
+        # Keep finish descriptions
+        elif 'finish' in line.lower() or 'matte' in line.lower() or 'eggshell' in line.lower():
+            essential_parts.append(line.strip()[:200])
+    
+    result = '\n'.join(essential_parts)
+    
+    # If still too long, just truncate with ellipsis
+    if len(result) > max_chars:
+        result = result[:max_chars-50] + '\n\n[Additional details truncated for DALL-E]'
+    
+    return result
+
+
 async def generate_dalle_image(
     prompt: str,
     product_description: str = "",
@@ -45,6 +95,14 @@ async def generate_dalle_image(
     """
     brand = app_settings.brand_guidelines
     
+    # DALL-E 3 has a 4000 character limit for prompts
+    # Truncate product descriptions to essential visual info
+    truncated_product_desc = _truncate_for_dalle(product_description, max_chars=1500)
+    
+    # Also truncate the main prompt if it's too long
+    main_prompt = prompt[:1000] if len(prompt) > 1000 else prompt
+    scene_desc = scene_description[:500] if scene_description and len(scene_description) > 500 else scene_description
+    
     # Build the full prompt with product context and brand guidelines
     full_prompt = f"""
 Create a professional marketing image.
@@ -52,18 +110,34 @@ Create a professional marketing image.
 {brand.get_image_generation_prompt()}
 
 PRODUCT CONTEXT:
-{product_description if product_description else 'No specific product - create a lifestyle/brand image'}
+{truncated_product_desc if truncated_product_desc else 'No specific product - create a lifestyle/brand image'}
 
 SCENE:
-{scene_description if scene_description else prompt}
+{scene_desc if scene_desc else main_prompt}
 
 MAIN REQUIREMENT:
-{prompt}
+{main_prompt}
 
 IMPORTANT:
 - Create a polished, professional marketing image
 - Suitable for retail advertising
 - High visual impact
+"""
+    
+    # Final safety check - DALL-E 3 has 4000 char limit
+    if len(full_prompt) > 3900:
+        logger.warning(f"Prompt too long ({len(full_prompt)} chars), truncating...")
+        # Reduce product context further
+        truncated_product_desc = _truncate_for_dalle(product_description, max_chars=800)
+        full_prompt = f"""Create a professional marketing image.
+
+PRODUCT: {truncated_product_desc[:600] if truncated_product_desc else 'Lifestyle/brand image'}
+
+SCENE: {scene_desc[:300] if scene_desc else main_prompt[:300]}
+
+REQUIREMENT: {main_prompt[:500]}
+
+Style: Modern, clean, minimalist. Brand colors: {brand.primary_color}, {brand.secondary_color}. High visual impact for retail advertising.
 """
 
     try:
