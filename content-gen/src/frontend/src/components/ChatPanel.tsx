@@ -17,7 +17,7 @@ import {
 } from '@fluentui/react-icons';
 import ReactMarkdown from 'react-markdown';
 import type { ChatMessage, CreativeBrief, Product, GeneratedContent } from '../types';
-import { InlineBriefConfirmation } from './InlineBriefConfirmation';
+import { BriefReview } from './BriefReview';
 import { InlineProductSelector } from './InlineProductSelector';
 import { InlineContentPreview } from './InlineContentPreview';
 import { WelcomeCard } from './WelcomeCard';
@@ -31,9 +31,8 @@ interface ChatPanelProps {
   confirmedBrief?: CreativeBrief | null;
   generatedContent?: GeneratedContent | null;
   selectedProducts?: Product[];
-  onBriefConfirm?: (brief: CreativeBrief) => void;
+  onBriefConfirm?: () => void;
   onBriefCancel?: () => void;
-  onBriefEdit?: (brief: CreativeBrief) => void;
   onProductsChange?: (products: Product[]) => void;
   onGenerateContent?: () => void;
   onRegenerateContent?: () => void;
@@ -49,7 +48,6 @@ export function ChatPanel({
   selectedProducts = [],
   onBriefConfirm,
   onBriefCancel,
-  onBriefEdit,
   onProductsChange,
   onGenerateContent,
   onRegenerateContent,
@@ -70,10 +68,10 @@ export function ChatPanel({
   };
 
   // Determine if we should show inline components
-  const showBriefConfirmation = pendingBrief && onBriefConfirm && onBriefCancel && onBriefEdit;
+  const showBriefReview = pendingBrief && onBriefConfirm && onBriefCancel;
   const showProductSelector = confirmedBrief && !generatedContent && onProductsChange && onGenerateContent;
   const showContentPreview = generatedContent && onRegenerateContent;
-  const showWelcome = messages.length === 0 && !showBriefConfirmation && !showProductSelector && !showContentPreview;
+  const showWelcome = messages.length === 0 && !showBriefReview && !showProductSelector && !showContentPreview;
 
   // Handle suggestion click from welcome card
   const handleSuggestionClick = (prompt: string) => {
@@ -100,13 +98,13 @@ export function ChatPanel({
               <MessageBubble key={message.id} message={message} />
             ))}
             
-            {/* Inline Brief Confirmation */}
-            {showBriefConfirmation && (
-              <InlineBriefConfirmation
+            {/* Brief Review - Read Only with Conversational Prompts */}
+            {showBriefReview && (
+              <BriefReview
                 brief={pendingBrief}
                 onConfirm={onBriefConfirm}
-                onCancel={onBriefCancel}
-                onEdit={onBriefEdit}
+                onStartOver={onBriefCancel}
+                isAwaitingResponse={isLoading}
               />
             )}
             

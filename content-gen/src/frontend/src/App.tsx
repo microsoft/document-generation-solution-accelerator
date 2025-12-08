@@ -167,56 +167,114 @@ function App() {
       // Import dynamically to avoid SSR issues
       const { streamChat, parseBrief } = await import('./api');
       
-      // Check if this looks like a creative brief
-      const briefKeywords = ['campaign', 'marketing', 'target audience', 'objective', 'deliverable'];
-      const isBriefLike = briefKeywords.some(kw => content.toLowerCase().includes(kw));
-      
-      if (isBriefLike && !confirmedBrief) {
-        // Parse as a creative brief
-        const parsed = await parseBrief(content, conversationId, userId);
-        setPendingBrief(parsed.brief);
+      // If we have a pending brief and user is providing feedback, update the brief
+      if (pendingBrief && !confirmedBrief) {
+        // User is refining the brief conversationally
+        const refinementKeywords = ['change', 'update', 'modify', 'add', 'remove', 'delete', 'set', 'make', 'should be'];
+        const isRefinement = refinementKeywords.some(kw => content.toLowerCase().includes(kw));
         
-        const assistantMessage: ChatMessage = {
-          id: uuidv4(),
-          role: 'assistant',
-          content: 'I\'ve parsed your creative brief. Please review and confirm the details before we proceed.',
-          agent: 'PlanningAgent',
-          timestamp: new Date().toISOString(),
-        };
-        setMessages(prev => [...prev, assistantMessage]);
-      } else {
-        // Stream chat response
-        let fullContent = '';
-        let currentAgent = '';
-        let messageAdded = false;
-        
-        for await (const response of streamChat(content, conversationId, userId)) {
-          if (response.type === 'agent_response') {
-            fullContent = response.content;
-            currentAgent = response.agent || '';
-            
-            // Add message when final OR when requiring user input (interactive response)
-            if ((response.is_final || response.requires_user_input) && !messageAdded) {
-              const assistantMessage: ChatMessage = {
+        if (isRefinement) {
+          // Send the refinement request to update the brief
+          // Combine original brief context with the refinement request
+          const refinementPrompt = `Current creative brief:\n${JSON.stringify(pendingBrief, null, 2)}\n\nUser requested change: ${content}\n\nPlease update the brief accordingly and return the complete updated brief.`;
+          
+          const parsed = await parseBrief(refinementPrompt, conversationId, userId);
+          setPendingBrief(parsed.brief);
+          
+          const assistantMessage: ChatMessage = {
+            id: uuidv4(),
+            role: 'assistant',
+            content: "I've updated the brief based on your feedback. Please review the changes above. Let me know if you'd like any other modifications, or click **Confirm Brief** when you're satisfied.",
+            agent: 'PlanningAgent',
+            timestamp: new Date().toISOString(),
+          };
+          setMessages(prev => [...prev, assistantMessage]);
+        } else {
+          // General question or comment while brief is pending
+          let fullContent = '';
+          let currentAgent = '';
+          let messageAdded = false;
+          
+          for await (const response of streamChat(content, conversationId, userId)) {
+            if (response.type === 'agent_response') {
+              fullContent = response.content;
+              currentAgent = response.agent || '';
+              
+              if ((response.is_final || response.requires_user_input) && !messageAdded) {
+                const assistantMessage: ChatMessage = {
+                  id: uuidv4(),
+                  role: 'assistant',
+                  content: fullContent,
+                  agent: currentAgent,
+                  timestamp: new Date().toISOString(),
+                };
+                setMessages(prev => [...prev, assistantMessage]);
+                messageAdded = true;
+              }
+            } else if (response.type === 'error') {
+              const errorMessage: ChatMessage = {
                 id: uuidv4(),
                 role: 'assistant',
-                content: fullContent,
-                agent: currentAgent,
+                content: response.content || 'An error occurred while processing your request.',
                 timestamp: new Date().toISOString(),
               };
-              setMessages(prev => [...prev, assistantMessage]);
+              setMessages(prev => [...prev, errorMessage]);
               messageAdded = true;
             }
-          } else if (response.type === 'error') {
-            // Handle error responses
-            const errorMessage: ChatMessage = {
-              id: uuidv4(),
-              role: 'assistant',
-              content: response.content || 'An error occurred while processing your request.',
-              timestamp: new Date().toISOString(),
-            };
-            setMessages(prev => [...prev, errorMessage]);
-            messageAdded = true;
+          }
+        }
+      } else {
+        // Check if this looks like a creative brief
+        const briefKeywords = ['campaign', 'marketing', 'target audience', 'objective', 'deliverable'];
+        const isBriefLike = briefKeywords.some(kw => content.toLowerCase().includes(kw));
+        
+        if (isBriefLike && !confirmedBrief) {
+          // Parse as a creative brief
+          const parsed = await parseBrief(content, conversationId, userId);
+          setPendingBrief(parsed.brief);
+          
+          const assistantMessage: ChatMessage = {
+            id: uuidv4(),
+            role: 'assistant',
+            content: "I've parsed your creative brief. Please review the details below and let me know if you'd like to make any changes. You can say things like \"change the target audience to...\" or \"add a call to action...\". When everything looks good, click **Confirm Brief** to proceed.",
+            agent: 'PlanningAgent',
+            timestamp: new Date().toISOString(),
+          };
+          setMessages(prev => [...prev, assistantMessage]);
+        } else {
+          // Stream chat response
+          let fullContent = '';
+          let currentAgent = '';
+          let messageAdded = false;
+          
+          for await (const response of streamChat(content, conversationId, userId)) {
+            if (response.type === 'agent_response') {
+              fullContent = response.content;
+              currentAgent = response.agent || '';
+              
+              // Add message when final OR when requiring user input (interactive response)
+              if ((response.is_final || response.requires_user_input) && !messageAdded) {
+                const assistantMessage: ChatMessage = {
+                  id: uuidv4(),
+                  role: 'assistant',
+                  content: fullContent,
+                  agent: currentAgent,
+                  timestamp: new Date().toISOString(),
+                };
+                setMessages(prev => [...prev, assistantMessage]);
+                messageAdded = true;
+              }
+            } else if (response.type === 'error') {
+              // Handle error responses
+              const errorMessage: ChatMessage = {
+                id: uuidv4(),
+                role: 'assistant',
+                content: response.content || 'An error occurred while processing your request.',
+                timestamp: new Date().toISOString(),
+              };
+              setMessages(prev => [...prev, errorMessage]);
+              messageAdded = true;
+            }
           }
         }
       }
@@ -234,13 +292,15 @@ function App() {
       // Trigger refresh of chat history after message is sent
       setHistoryRefreshTrigger(prev => prev + 1);
     }
-  }, [conversationId, userId, confirmedBrief]);
+  }, [conversationId, userId, confirmedBrief, pendingBrief]);
 
-  const handleBriefConfirm = useCallback(async (brief: CreativeBrief) => {
+  const handleBriefConfirm = useCallback(async () => {
+    if (!pendingBrief) return;
+    
     try {
       const { confirmBrief } = await import('./api');
-      await confirmBrief(brief, conversationId, userId);
-      setConfirmedBrief(brief);
+      await confirmBrief(pendingBrief, conversationId, userId);
+      setConfirmedBrief(pendingBrief);
       setPendingBrief(null);
       
       const assistantMessage: ChatMessage = {
@@ -254,7 +314,7 @@ function App() {
     } catch (error) {
       console.error('Error confirming brief:', error);
     }
-  }, [conversationId, userId]);
+  }, [conversationId, userId, pendingBrief]);
 
   const handleBriefCancel = useCallback(() => {
     setPendingBrief(null);
@@ -407,7 +467,6 @@ function App() {
             selectedProducts={selectedProducts}
             onBriefConfirm={handleBriefConfirm}
             onBriefCancel={handleBriefCancel}
-            onBriefEdit={setPendingBrief}
             onProductsChange={setSelectedProducts}
             onGenerateContent={handleGenerateContent}
             onRegenerateContent={handleGenerateContent}
