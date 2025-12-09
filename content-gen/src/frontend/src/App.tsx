@@ -179,8 +179,10 @@ function App() {
           // Combine original brief context with the refinement request
           const refinementPrompt = `Current creative brief:\n${JSON.stringify(pendingBrief, null, 2)}\n\nUser requested change: ${content}\n\nPlease update the brief accordingly and return the complete updated brief.`;
           
+          setGenerationStatus('Updating creative brief...');
           const parsed = await parseBrief(refinementPrompt, conversationId, userId);
           setPendingBrief(parsed.brief);
+          setGenerationStatus('');
           
           const assistantMessage: ChatMessage = {
             id: uuidv4(),
@@ -196,6 +198,7 @@ function App() {
           let currentAgent = '';
           let messageAdded = false;
           
+          setGenerationStatus('Processing your question...');
           for await (const response of streamChat(content, conversationId, userId)) {
             if (response.type === 'agent_response') {
               fullContent = response.content;
@@ -223,13 +226,16 @@ function App() {
               messageAdded = true;
             }
           }
+          setGenerationStatus('');
         }
       } else if (confirmedBrief && !generatedContent) {
         // Brief confirmed, in product selection phase - treat messages as product selection requests
+        setGenerationStatus('Finding products...');
         const result = await selectProducts(content, selectedProducts, conversationId, userId);
         
         // Update selected products with the result
         setSelectedProducts(result.products || []);
+        setGenerationStatus('');
         
         const assistantMessage: ChatMessage = {
           id: uuidv4(),
@@ -246,8 +252,10 @@ function App() {
         
         if (isBriefLike && !confirmedBrief) {
           // Parse as a creative brief
+          setGenerationStatus('Parsing creative brief...');
           const parsed = await parseBrief(content, conversationId, userId);
           setPendingBrief(parsed.brief);
+          setGenerationStatus('');
           
           const assistantMessage: ChatMessage = {
             id: uuidv4(),
@@ -263,6 +271,7 @@ function App() {
           let currentAgent = '';
           let messageAdded = false;
           
+          setGenerationStatus('Processing your request...');
           for await (const response of streamChat(content, conversationId, userId)) {
             if (response.type === 'agent_response') {
               fullContent = response.content;
@@ -292,6 +301,7 @@ function App() {
               messageAdded = true;
             }
           }
+          setGenerationStatus('');
         }
       }
     } catch (error) {

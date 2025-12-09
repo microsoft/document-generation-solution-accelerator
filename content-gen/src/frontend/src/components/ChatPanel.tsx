@@ -130,7 +130,7 @@ export function ChatPanel({
               />
             )}
             
-            {isLoading && !showProductReview && (
+            {isLoading && (
               <div style={{ 
                 display: 'flex', 
                 alignItems: 'center', 

@@ -1,7 +1,11 @@
-"""Agents package for Content Generation Solution Accelerator."""
+"""Agents package for Content Generation Solution Accelerator.
 
-from backend.agents.simple_agent import SimpleAgent
+The multi-agent workflow is handled by the orchestrator using Microsoft Agent Framework.
+This package provides utility functions used by the orchestrator.
+"""
+
+from backend.agents.image_content_agent import generate_dalle_image
 
 __all__ = [
-    "SimpleAgent",
+    "generate_dalle_image",
 ]

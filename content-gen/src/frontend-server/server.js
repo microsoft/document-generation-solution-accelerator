@@ -15,9 +15,23 @@ app.use('/api', createProxyMiddleware({
     pathRewrite: {
         '^/api': '/api'
     },
+    // Increase timeout for long-running requests (5 minutes)
+    proxyTimeout: 300000,
+    timeout: 300000,
+    // Support streaming responses (SSE)
+    onProxyRes: (proxyRes, req, res) => {
+        // Disable buffering for streaming responses
+        if (proxyRes.headers['content-type']?.includes('text/event-stream')) {
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+            res.setHeader('X-Accel-Buffering', 'no');
+            res.flushHeaders();
+        }
+    },
     onError: (err, req, res) => {
         console.error('Proxy error:', err);
-        res.status(502).json({ error: 'Backend service unavailable' });
+        if (!res.headersSent) {
+            res.status(502).json({ error: 'Backend service unavailable' });
+        }
     }
 }));
 

@@ -97,19 +97,6 @@ class _AzureOpenAISettings(BaseSettings):
         raise ValueError("AZURE_OPENAI_ENDPOINT or AZURE_OPENAI_RESOURCE is required")
 
 
-class _AzureAISettings(BaseSettings):
-    """Azure AI Foundry Agent settings."""
-    model_config = SettingsConfigDict(
-        env_prefix="AZURE_AI_",
-        env_file=DOTENV_PATH,
-        extra="ignore",
-        env_ignore_empty=True,
-    )
-    agent_endpoint: Optional[str] = None
-    agent_model_deployment_name: Optional[str] = None
-    agent_api_version: Optional[str] = None
-
-
 class _StorageSettings(BaseSettings):
     """Azure Blob Storage configuration."""
     model_config = SettingsConfigDict(
@@ -279,7 +266,6 @@ class _AppSettings(BaseModel):
     """Main application settings container."""
     base_settings: _BaseSettings = _BaseSettings()
     azure_openai: _AzureOpenAISettings = _AzureOpenAISettings()
-    azure_ai: _AzureAISettings = _AzureAISettings()
     brand_guidelines: _BrandGuidelinesSettings = _BrandGuidelinesSettings()
     ui: Optional[_UiSettings] = _UiSettings()
     
