@@ -5,8 +5,9 @@ on:
     branches: [main, dev, demo]
     paths:
       - 'src/frontend/**'
-      - 'src/backend/**'
       - 'src/**/*.py'
+      - 'src/requirements*.txt'
+      - '!src/tests/**'
       - 'Dockerfile'
       - '*.Dockerfile'
       - '.github/workflows/docker-build-and-push.yml'
@@ -19,8 +20,9 @@ on:
       - synchronize
     paths:
       - 'src/frontend/**'
-      - 'src/backend/**'
       - 'src/**/*.py'
+      - 'src/requirements*.txt'
+      - '!src/tests/**'
       - 'Dockerfile'
       - '*.Dockerfile'
       - '.github/workflows/docker-build-and-push.yml'

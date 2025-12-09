@@ -4,8 +4,6 @@ on:
   push:
     paths:
       - 'src/**/*.py'
-      - 'src/backend/**'
-      - 'src/tests/**'
       - 'src/frontend/**/*.ts'
       - 'src/frontend/**/*.tsx'
       - 'src/frontend/**/*.js'
@@ -14,7 +12,6 @@ on:
       - 'src/frontend/**/*.css'
       - 'src/frontend/**/*.scss'
       - 'src/frontend/**/*.html'
-      - 'src/frontend/**/*.vue'
       - '.github/workflows/tests.yml'
   pull_request:
     types:
@@ -24,8 +21,6 @@ on:
       - synchronize
     paths:
       - 'src/**/*.py'
-      - 'src/backend/**'
-      - 'src/tests/**'
       - 'src/frontend/**/*.ts'
       - 'src/frontend/**/*.tsx'
       - 'src/frontend/**/*.js'
@@ -34,7 +29,6 @@ on:
       - 'src/frontend/**/*.css'
       - 'src/frontend/**/*.scss'
       - 'src/frontend/**/*.html'
-      - 'src/frontend/**/*.vue'
       - '.github/workflows/tests.yml'
 
 jobs:
