@@ -1,8 +1,8 @@
 """
-Image Content Agent - Generates marketing images via DALL-E 3.
+"""Image Content Agent - Generates marketing images via DALL-E 3 or gpt-image-1.
 
-Provides the generate_dalle_image function used by the orchestrator
-to create marketing images using DALL-E 3.
+Provides the generate_image function used by the orchestrator
+to create marketing images using either DALL-E 3 or gpt-image-1.
 """
 
 import logging
@@ -71,8 +71,45 @@ async def generate_dalle_image(
     prompt: str,
     product_description: str = "",
     scene_description: str = "",
-    size: str = "1024x1024",
-    quality: str = "hd"
+    size: str = None,
+    quality: str = None
+) -> dict:
+    """
+    Generate a marketing image using DALL-E 3 or gpt-image-1.
+    
+    The model used is determined by AZURE_OPENAI_IMAGE_MODEL setting.
+    
+    Args:
+        prompt: The main image generation prompt
+        product_description: Auto-generated description of product image (for context)
+        scene_description: Scene/setting description from creative brief
+        size: Image size (model-specific, uses settings default if not provided)
+              - dall-e-3: 1024x1024, 1024x1792, 1792x1024
+              - gpt-image-1: 1024x1024, 1536x1024, 1024x1536, auto
+        quality: Image quality (model-specific, uses settings default if not provided)
+              - dall-e-3: standard, hd
+              - gpt-image-1: low, medium, high, auto
+    
+    Returns:
+        Dictionary containing generated image data and metadata
+    """
+    # Determine which model to use
+    image_model = app_settings.azure_openai.effective_image_model
+    logger.info(f"Using image generation model: {image_model}")
+    
+    # Use appropriate generator based on model
+    if image_model == "gpt-image-1":
+        return await _generate_gpt_image(prompt, product_description, scene_description, size, quality)
+    else:
+        return await _generate_dalle_image(prompt, product_description, scene_description, size, quality)
+
+
+async def _generate_dalle_image(
+    prompt: str,
+    product_description: str = "",
+    scene_description: str = "",
+    size: str = None,
+    quality: str = None
 ) -> dict:
     """
     Generate a marketing image using DALL-E 3.
@@ -88,6 +125,10 @@ async def generate_dalle_image(
         Dictionary containing generated image data and metadata
     """
     brand = app_settings.brand_guidelines
+    
+    # Use defaults from settings if not provided
+    size = size or app_settings.azure_openai.image_size
+    quality = quality or app_settings.azure_openai.image_quality
     
     # DALL-E 3 has a 4000 character limit for prompts
     # Truncate product descriptions to essential visual info
@@ -171,6 +212,7 @@ Style: Modern, clean, minimalist. Brand colors: {brand.primary_color}, {brand.se
             "image_base64": image_data.b64_json,
             "prompt_used": full_prompt,
             "revised_prompt": getattr(image_data, 'revised_prompt', None),
+            "model": "dall-e-3",
         }
         
     except Exception as e:
@@ -178,5 +220,142 @@ Style: Modern, clean, minimalist. Brand colors: {brand.primary_color}, {brand.se
         return {
             "success": False,
             "error": str(e),
-            "prompt_used": full_prompt
+            "prompt_used": full_prompt,
+            "model": "dall-e-3",
         }
+
+
+async def _generate_gpt_image(
+    prompt: str,
+    product_description: str = "",
+    scene_description: str = "",
+    size: str = None,
+    quality: str = None
+) -> dict:
+    """
+    Generate a marketing image using gpt-image-1.
+    
+    gpt-image-1 has different capabilities than DALL-E 3:
+    - Supports larger prompt sizes
+    - Different size options: 1024x1024, 1536x1024, 1024x1536, auto
+    - Different quality options: low, medium, high, auto
+    - May have better instruction following
+    
+    Args:
+        prompt: The main image generation prompt
+        product_description: Auto-generated description of product image (for context)
+        scene_description: Scene/setting description from creative brief
+        size: Image size (1024x1024, 1536x1024, 1024x1536, auto)
+        quality: Image quality (low, medium, high, auto)
+    
+    Returns:
+        Dictionary containing generated image data and metadata
+    """
+    brand = app_settings.brand_guidelines
+    
+    # Use defaults from settings if not provided
+    # Map DALL-E quality settings to gpt-image-1 equivalents if needed
+    size = size or app_settings.azure_openai.image_size
+    quality = quality or app_settings.azure_openai.image_quality
+    
+    # Map DALL-E quality values to gpt-image-1 equivalents
+    quality_mapping = {
+        "standard": "medium",
+        "hd": "high",
+    }
+    quality = quality_mapping.get(quality, quality)
+    
+    # Map DALL-E sizes to gpt-image-1 equivalents if needed
+    size_mapping = {
+        "1024x1792": "1024x1536",  # Closest equivalent
+        "1792x1024": "1536x1024",  # Closest equivalent
+    }
+    size = size_mapping.get(size, size)
+    
+    # gpt-image-1 can handle larger prompts, so we can include more context
+    truncated_product_desc = _truncate_for_dalle(product_description, max_chars=3000)
+    
+    main_prompt = prompt[:2000] if len(prompt) > 2000 else prompt
+    scene_desc = scene_description[:1000] if scene_description and len(scene_description) > 1000 else scene_description
+    
+    # Build the full prompt with product context and brand guidelines
+    full_prompt = f"""
+Create a professional marketing image for retail advertising.
+
+{brand.get_image_generation_prompt()}
+
+PRODUCT CONTEXT:
+{truncated_product_desc if truncated_product_desc else 'No specific product - create a lifestyle/brand image'}
+
+SCENE DESCRIPTION:
+{scene_desc if scene_desc else main_prompt}
+
+MAIN REQUIREMENT:
+{main_prompt}
+
+IMPORTANT GUIDELINES:
+- Create a polished, professional marketing image
+- Suitable for retail advertising and marketing campaigns
+- High visual impact with clean composition
+- Incorporate brand colors where appropriate: {brand.primary_color}, {brand.secondary_color}
+- Modern, aspirational aesthetic
+- Bright, optimistic lighting
+"""
+
+    try:
+        # Get credential
+        client_id = app_settings.base_settings.azure_client_id
+        if client_id:
+            credential = ManagedIdentityCredential(client_id=client_id)
+        else:
+            credential = DefaultAzureCredential()
+        
+        # Get token for Azure OpenAI
+        token = await credential.get_token("https://cognitiveservices.azure.com/.default")
+        
+        # Use gpt-image-1 specific endpoint if configured, otherwise DALL-E endpoint, otherwise main endpoint
+        image_endpoint = (
+            app_settings.azure_openai.gpt_image_endpoint or 
+            app_settings.azure_openai.dalle_endpoint or 
+            app_settings.azure_openai.endpoint
+        )
+        logger.info(f"Using gpt-image-1 endpoint: {image_endpoint}")
+        
+        client = AsyncAzureOpenAI(
+            azure_endpoint=image_endpoint,
+            azure_ad_token=token.token,
+            api_version=app_settings.azure_openai.preview_api_version,
+        )
+        
+        # gpt-image-1 API call
+        response = await client.images.generate(
+            model="gpt-image-1",
+            prompt=full_prompt,
+            size=size,
+            quality=quality,
+            n=1,
+            response_format="b64_json"
+        )
+        
+        image_data = response.data[0]
+        
+        return {
+            "success": True,
+            "image_base64": image_data.b64_json,
+            "prompt_used": full_prompt,
+            "revised_prompt": getattr(image_data, 'revised_prompt', None),
+            "model": "gpt-image-1",
+        }
+        
+    except Exception as e:
+        logger.exception(f"Error generating gpt-image-1 image: {e}")
+        return {
+            "success": False,
+            "error": str(e),
+            "prompt_used": full_prompt,
+            "model": "gpt-image-1",
+        }
+
+
+# Alias for backwards compatibility
+generate_image = generate_dalle_image

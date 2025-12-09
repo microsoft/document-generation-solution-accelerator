@@ -62,7 +62,7 @@ class _ChatHistorySettings(BaseSettings):
 
 
 class _AzureOpenAISettings(BaseSettings):
-    """Azure OpenAI configuration for GPT-5 and DALL-E 3."""
+    """Azure OpenAI configuration for GPT and image generation models."""
     model_config = SettingsConfigDict(
         env_prefix="AZURE_OPENAI_",
         env_file=DOTENV_PATH,
@@ -72,8 +72,16 @@ class _AzureOpenAISettings(BaseSettings):
 
     gpt_model: str = Field(default="gpt-5", alias="AZURE_OPENAI_GPT_MODEL")
     model: str = "gpt-5"
-    dalle_model: str = Field(default="dall-e-3", alias="AZURE_OPENAI_DALLE_MODEL")
+    
+    # Image generation model settings
+    # Supported models: "dall-e-3" or "gpt-image-1"
+    image_model: str = Field(default="dall-e-3", alias="AZURE_OPENAI_IMAGE_MODEL")
+    dalle_model: str = Field(default="dall-e-3", alias="AZURE_OPENAI_DALLE_MODEL")  # Legacy alias
     dalle_endpoint: Optional[str] = Field(default=None, alias="AZURE_OPENAI_DALLE_ENDPOINT")
+    
+    # gpt-image-1 specific endpoint (if different from DALL-E endpoint)
+    gpt_image_endpoint: Optional[str] = Field(default=None, alias="AZURE_OPENAI_GPT_IMAGE_ENDPOINT")
+    
     resource: Optional[str] = None
     endpoint: Optional[str] = None
     temperature: float = 0.7
@@ -84,8 +92,24 @@ class _AzureOpenAISettings(BaseSettings):
     preview_api_version: str = "2024-02-01"
     
     # Image generation settings
+    # For dall-e-3: 1024x1024, 1024x1792, 1792x1024
+    # For gpt-image-1: 1024x1024, 1536x1024, 1024x1536, auto
     image_size: str = "1024x1024"
-    image_quality: str = "hd"
+    image_quality: str = "hd"  # dall-e-3: standard/hd, gpt-image-1: low/medium/high/auto
+    
+    @property
+    def effective_image_model(self) -> str:
+        """Get the effective image model, preferring image_model over dalle_model."""
+        # If image_model is explicitly set and not the default, use it
+        # Otherwise fall back to dalle_model for backwards compatibility
+        return self.image_model if self.image_model else self.dalle_model
+    
+    @property
+    def image_endpoint(self) -> Optional[str]:
+        """Get the appropriate endpoint for the configured image model."""
+        if self.effective_image_model == "gpt-image-1" and self.gpt_image_endpoint:
+            return self.gpt_image_endpoint
+        return self.dalle_endpoint
 
     @model_validator(mode="after")
     def ensure_endpoint(self) -> Self:
