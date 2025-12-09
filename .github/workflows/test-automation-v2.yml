@@ -91,6 +91,8 @@ jobs:
         id: test1
         run: |
           if [ "${{ env.test_suite }}" == "GoldenPath-Testing" ]; then
+            xvfb-run pytest tests/test_gp_docgen.py --headed --html=report/report.html --self-contained-html
+          else
             xvfb-run pytest --headed --html=report/report.html --self-contained-html
           fi
         working-directory: tests/e2e-test
@@ -106,6 +108,8 @@ jobs:
         if: ${{ steps.test1.outcome == 'failure' }}
         run: |
           if [ "${{ env.test_suite }}" == "GoldenPath-Testing" ]; then
+            xvfb-run pytest tests/test_gp_docgen.py --headed --html=report/report.html --self-contained-html
+          else
             xvfb-run pytest --headed --html=report/report.html --self-contained-html
           fi
         working-directory: tests/e2e-test
@@ -121,6 +125,8 @@ jobs:
         if: ${{ steps.test2.outcome == 'failure' }}
         run: |
           if [ "${{ env.test_suite }}" == "GoldenPath-Testing" ]; then
+            xvfb-run pytest tests/test_gp_docgen.py --headed --html=report/report.html --self-contained-html
+          else
             xvfb-run pytest --headed --html=report/report.html --self-contained-html
           fi
         working-directory: tests/e2e-test
