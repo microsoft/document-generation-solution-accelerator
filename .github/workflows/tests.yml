@@ -2,16 +2,34 @@ name: Test Workflow with Coverage
 
 on:
   push:
-    branches:
-      - main  # Trigger on push to the main branch
+    paths:
+      - 'src/**/*.py'
+      - 'src/frontend/**/*.ts'
+      - 'src/frontend/**/*.tsx'
+      - 'src/frontend/**/*.js'
+      - 'src/frontend/**/*.jsx'
+      - 'src/frontend/**/*.json'
+      - 'src/frontend/**/*.css'
+      - 'src/frontend/**/*.scss'
+      - 'src/frontend/**/*.html'
+      - '.github/workflows/tests.yml'
   pull_request:
-    branches:
-      - main  # Trigger on pull requests to the main branch
     types:
       - opened
       - ready_for_review
       - reopened
       - synchronize
+    paths:
+      - 'src/**/*.py'
+      - 'src/frontend/**/*.ts'
+      - 'src/frontend/**/*.tsx'
+      - 'src/frontend/**/*.js'
+      - 'src/frontend/**/*.jsx'
+      - 'src/frontend/**/*.json'
+      - 'src/frontend/**/*.css'
+      - 'src/frontend/**/*.scss'
+      - 'src/frontend/**/*.html'
+      - '.github/workflows/tests.yml'
 
 jobs:
   backend_tests:
