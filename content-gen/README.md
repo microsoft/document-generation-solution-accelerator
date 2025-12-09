@@ -7,11 +7,21 @@ A multimodal content generation solution for retail marketing campaigns using Mi
 This accelerator provides an internal chatbot that can:
 
 - **Interpret Creative Briefs**: Parse free-text creative briefs into structured fields (overview, objectives, target audience, key message, tone/style, deliverable, timelines, visual guidelines, CTA)
-- **Generate Multimodal Content**: Create marketing copy and images using GPT-5 and DALL-E 3
+- **Generate Multimodal Content**: Create marketing copy and images using GPT models and DALL-E 3
 - **Ensure Brand Compliance**: Validate all content against brand guidelines with severity-categorized warnings
 - **Ground in Enterprise Data**: Leverage product information, product images, and brand guidelines stored in Azure services
 
 ## Architecture
+
+### Backend
+- **Runtime**: Python 3.11 + Quart + Hypercorn
+- **Deployment**: Azure Container Instance (ACI) in private VNet
+- **Authentication**: System-assigned Managed Identity
+
+### Frontend
+- **Framework**: React + Vite + TypeScript + Fluent UI
+- **Deployment**: Azure App Service with Node.js proxy
+- **Features**: Server-Sent Events (SSE) for streaming responses
 
 ### Specialized Agents (Microsoft Agent Framework)
 
@@ -22,7 +32,7 @@ The solution uses **HandoffBuilder** orchestration with 6 specialized agents:
 | **TriageAgent** | Coordinator that routes user requests to appropriate specialists |
 | **PlanningAgent** | Parses creative briefs, develops content strategy, returns for user confirmation |
 | **ResearchAgent** | Retrieves products from CosmosDB, fetches brand guidelines, assembles grounding data |
-| **TextContentAgent** | Generates marketing copy (headlines, body, CTAs) using GPT-5 |
+| **TextContentAgent** | Generates marketing copy (headlines, body, CTAs) using GPT |
 | **ImageContentAgent** | Creates marketing images via DALL-E 3 with product context |
 | **ComplianceAgent** | Validates content against brand guidelines, categorizes violations |
 
@@ -34,14 +44,17 @@ The solution uses **HandoffBuilder** orchestration with 6 specialized agents:
 | **Warning** | Brand guideline deviations | Review recommended |
 | **Info** | Style suggestions | Optional improvements |
 
-### Data Storage
+### Azure Services
 
-| Data | Storage | Purpose |
-|------|---------|---------|
-| Products | CosmosDB | Product catalog with auto-generated image descriptions |
-| Chat History | CosmosDB | Conversation persistence |
-| Product Images | Blob Storage | Seed images for DALL-E generation |
-| Brand Guidelines | Solution Parameters | Injected into all agent instructions |
+| Service | Purpose |
+|---------|---------|
+| Azure OpenAI (GPT) | Text generation and content creation |
+| Azure OpenAI (DALL-E 3) | Image generation (can be separate resource) |
+| Azure Cosmos DB | Products catalog, chat conversations |
+| Azure Blob Storage | Product images, generated images |
+| Azure Container Instance | Backend API hosting |
+| Azure App Service | Frontend hosting |
+| Azure Container Registry | Container image storage |
 
 ## Creative Brief Fields
 
@@ -78,26 +91,30 @@ The system extracts the following fields from free-text creative briefs:
 ### Prerequisites
 
 - Azure subscription with access to:
-  - Azure AI Foundry (GPT-5 + DALL-E 3)
-  - Azure CosmosDB
+  - Azure OpenAI (GPT model - GPT-4 or higher recommended)
+  - Azure OpenAI (DALL-E 3 - can be same or different resource)
+  - Azure Cosmos DB
   - Azure Blob Storage
+  - Azure Container Instance
   - Azure App Service
-- Azure Developer CLI (azd) >= 1.18.0
+  - Azure Container Registry
+- Azure CLI >= 2.50.0
+- Docker (optional - ACR can build containers)
 - Python 3.11+
 - Node.js 18+
 
-### Deployment
+### Quick Deployment
 
 ```bash
-# Login to Azure
-azd auth login
+# Clone the repository
+git clone <repository-url>
+cd content-gen
 
-# Deploy infrastructure and application
-azd up
-
-# Upload product data (optional)
-python ./scripts/product_ingestion.py
+# Run deployment script
+./scripts/deploy.sh
 ```
+
+See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for detailed deployment instructions.
 
 ### Local Development
 
@@ -121,10 +138,13 @@ See `src/backend/settings.py` for all configuration options. Key settings:
 
 | Variable | Description |
 |----------|-------------|
-| `AZURE_AI_AGENT_ENDPOINT` | Azure AI Foundry project endpoint |
-| `AZURE_OPENAI_MODEL` | GPT model deployment name (gpt-5) |
-| `AZURE_DALLE_MODEL` | DALL-E model deployment name (dall-e-3) |
-| `AZURE_COSMOSDB_ACCOUNT` | CosmosDB account name |
+| `AZURE_OPENAI_ENDPOINT` | Azure OpenAI endpoint for GPT model |
+| `AZURE_OPENAI_DEPLOYMENT_NAME` | GPT model deployment name |
+| `AZURE_OPENAI_DALLE_ENDPOINT` | Azure OpenAI endpoint for DALL-E (if separate) |
+| `AZURE_OPENAI_DALLE_DEPLOYMENT` | DALL-E deployment name (dall-e-3) |
+| `COSMOS_ENDPOINT` | Azure Cosmos DB endpoint |
+| `COSMOS_DATABASE` | Cosmos DB database name |
+| `AZURE_STORAGE_ACCOUNT_NAME` | Storage account name |
 | `BRAND_*` | Brand guideline parameters |
 
 ### Brand Guidelines
