@@ -137,6 +137,7 @@ fi
 #Replace key vault name 
 sed -i "s/kv_to-be-replaced/${keyvaultName}/g" "infra/scripts/index_scripts/01_create_search_index.py"
 sed -i "s/kv_to-be-replaced/${keyvaultName}/g" "infra/scripts/index_scripts/02_process_data.py"
+sed -i "s/kv_to-be-replaced/${keyvaultName}/g" "scripts/data_utils.py"
 if [ -n "$managedIdentityClientId" ]; then
     sed -i "s/mici_to-be-replaced/${managedIdentityClientId}/g" "infra/scripts/index_scripts/01_create_search_index.py"
     sed -i "s/mici_to-be-replaced/${managedIdentityClientId}/g" "infra/scripts/index_scripts/02_process_data.py"
@@ -199,6 +200,7 @@ fi
 # revert the key vault name and managed identity client id in the python files
 sed -i "s/${keyvaultName}/kv_to-be-replaced/g" "infra/scripts/index_scripts/01_create_search_index.py"
 sed -i "s/${keyvaultName}/kv_to-be-replaced/g" "infra/scripts/index_scripts/02_process_data.py"
+sed -i "s/${keyvaultName}/kv_to-be-replaced/g" "scripts/data_utils.py"
 if [ -n "$managedIdentityClientId" ]; then
     sed -i "s/${managedIdentityClientId}/mici_to-be-replaced/g" "infra/scripts/index_scripts/01_create_search_index.py"
     sed -i "s/${managedIdentityClientId}/mici_to-be-replaced/g" "infra/scripts/index_scripts/02_process_data.py"

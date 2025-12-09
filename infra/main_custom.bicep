@@ -123,11 +123,8 @@ param enableRedundancy bool = false
 @description('Optional. Enable private networking for applicable resources, aligned with the Well Architected Framework recommendations. Defaults to false.')
 param enablePrivateNetworking bool = false
 
-@description('Optional. The Container Registry hostname where the docker images are located.')
-param acrName string = 'byocgacontainerreg'
-
 @description('Optional. Image Tag.')
-param imageTag string = 'latest_waf_2025-09-18_736'
+param imageTag string = 'latest_waf'
 
 @description('Optional. Enable/Disable usage telemetry for module.')
 param enableTelemetry bool = true
@@ -1105,11 +1102,6 @@ module keyvault 'br/public:avm/res/key-vault/vault:0.12.1' = {
       {name: 'AZURE-OPENAI-PREVIEW-API-VERSION', value: azureOpenaiAPIVersion}
       {name: 'AZURE-OPEN-AI-DEPLOYMENT-MODEL', value: gptModelName}
       {name: 'TENANT-ID', value: subscription().tenantId}
-      {
-        name: 'AZURE-AI-AGENT-ENDPOINT'
-        value: aiFoundryAiProjectEndpoint
-      }
-      
     ]
   }
   dependsOn:[
@@ -1154,21 +1146,21 @@ module webSite 'modules/web-sites.bicep' = {
   name: take('module.web-sites.${webSiteResourceName}', 64)
   params: {
     name: webSiteResourceName
-    tags: tags
+    tags: union(tags, { 'azd-service-name': 'webapp' })
     location: solutionLocation
-    kind: 'app,linux,container'
+    kind: 'app,linux'
     serverFarmResourceId: webServerFarm.outputs.resourceId
     managedIdentities: { userAssignedResourceIds: [userAssignedIdentity!.outputs.resourceId] }
     siteConfig: {
-      linuxFxVersion: 'DOCKER|${acrName}.azurecr.io/webapp:${imageTag}'
+      linuxFxVersion: 'PYTHON|3.11'
       minTlsVersion: '1.2'
+      appCommandLine: 'gunicorn -b 0.0.0.0:8000 app:app'
     }
     configs: concat([
       {
         name: 'appsettings'
         properties: {
-          SCM_DO_BUILD_DURING_DEPLOYMENT: 'true'
-          DOCKER_REGISTRY_SERVER_URL: 'https://${acrName}.azurecr.io'
+          SCM_DO_BUILD_DURING_DEPLOYMENT: 'false'
           AUTH_ENABLED: 'false'
           AZURE_SEARCH_SERVICE: aiSearch.outputs.name
           AZURE_SEARCH_INDEX: azureSearchIndex
