@@ -154,7 +154,8 @@ export async function* streamGenerateContent(
   conversationId?: string,
   userId?: string
 ): AsyncGenerator<AgentResponse> {
-  const response = await fetch(`${API_BASE}/generate`, {
+  // Use polling-based approach for reliability with long-running tasks
+  const startResponse = await fetch(`${API_BASE}/generate/start`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -166,40 +167,68 @@ export async function* streamGenerateContent(
     }),
   });
 
-  if (!response.ok) {
-    throw new Error(`Content generation failed: ${response.statusText}`);
+  if (!startResponse.ok) {
+    throw new Error(`Content generation failed to start: ${startResponse.statusText}`);
   }
 
-  const reader = response.body?.getReader();
-  if (!reader) {
-    throw new Error('No response body');
-  }
-
-  const decoder = new TextDecoder();
-  let buffer = '';
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split('\n\n');
-    buffer = lines.pop() || '';
-
-    for (const line of lines) {
-      if (line.startsWith('data: ')) {
-        const data = line.slice(6);
-        if (data === '[DONE]') {
-          return;
-        }
-        try {
-          yield JSON.parse(data) as AgentResponse;
-        } catch {
-          console.error('Failed to parse SSE data:', data);
-        }
+  const startData = await startResponse.json();
+  const taskId = startData.task_id;
+  
+  console.log(`Generation started with task ID: ${taskId}`);
+  
+  // Yield initial status
+  yield {
+    type: 'status',
+    content: 'Generation started...',
+    is_final: false,
+  } as AgentResponse;
+  
+  // Poll for completion
+  let attempts = 0;
+  const maxAttempts = 120; // 2 minutes max with 1-second polling
+  const pollInterval = 1000; // 1 second
+  
+  while (attempts < maxAttempts) {
+    await new Promise(resolve => setTimeout(resolve, pollInterval));
+    attempts++;
+    
+    try {
+      const statusResponse = await fetch(`${API_BASE}/generate/status/${taskId}`);
+      if (!statusResponse.ok) {
+        throw new Error(`Failed to get task status: ${statusResponse.statusText}`);
+      }
+      
+      const statusData = await statusResponse.json();
+      console.log(`Task ${taskId} status: ${statusData.status} (attempt ${attempts})`);
+      
+      if (statusData.status === 'completed') {
+        // Yield the final result
+        yield {
+          type: 'agent_response',
+          content: JSON.stringify(statusData.result),
+          is_final: true,
+        } as AgentResponse;
+        return;
+      } else if (statusData.status === 'failed') {
+        throw new Error(statusData.error || 'Generation failed');
+      } else if (statusData.status === 'running' && attempts % 5 === 0) {
+        // Send heartbeat status every 5 seconds
+        yield {
+          type: 'heartbeat',
+          content: `Generating content... (${attempts}s)`,
+          is_final: false,
+        } as AgentResponse;
+      }
+    } catch (error) {
+      console.error(`Error polling task ${taskId}:`, error);
+      // Continue polling on transient errors
+      if (attempts >= maxAttempts) {
+        throw error;
       }
     }
   }
+  
+  throw new Error('Generation timed out after 2 minutes');
 }
 
 /**

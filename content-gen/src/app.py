@@ -5,11 +5,13 @@ This is the main Quart application that provides the REST API for the
 Intelligent Content Generation Accelerator.
 """
 
+import asyncio
 import json
 import logging
 import os
 import uuid
 from datetime import datetime, timezone
+from typing import Dict, Any, Optional
 
 from quart import Quart, request, jsonify, Response
 from quart_cors import cors
@@ -19,6 +21,10 @@ from backend.models import CreativeBrief, Product
 from backend.orchestrator import get_orchestrator
 from backend.services.cosmos_service import get_cosmos_service
 from backend.services.blob_service import get_blob_service
+
+# In-memory task storage for generation tasks
+# In production, this should be replaced with Redis or similar
+_generation_tasks: Dict[str, Dict[str, Any]] = {}
 
 # Configure logging
 logging.basicConfig(
@@ -56,6 +62,7 @@ def get_authenticated_user():
 # ==================== Health Check ====================
 
 @app.route("/health", methods=["GET"])
+@app.route("/api/health", methods=["GET"])
 async def health_check():
     """Health check endpoint."""
     return jsonify({
@@ -382,6 +389,220 @@ async def select_products():
 
 # ==================== Content Generation Endpoints ====================
 
+async def _run_generation_task(task_id: str, brief: CreativeBrief, products_data: list, 
+                                generate_images: bool, conversation_id: str, user_id: str):
+    """Background task to run content generation."""
+    global _generation_tasks
+    
+    try:
+        logger.info(f"Starting background generation task {task_id}")
+        _generation_tasks[task_id]["status"] = "running"
+        _generation_tasks[task_id]["started_at"] = datetime.now(timezone.utc).isoformat()
+        
+        orchestrator = get_orchestrator()
+        response = await orchestrator.generate_content(
+            brief=brief,
+            products=products_data,
+            generate_images=generate_images
+        )
+        
+        logger.info(f"Generation task {task_id} completed. Response keys: {list(response.keys()) if response else 'None'}")
+        
+        # Handle image URL from orchestrator's blob save
+        if response.get("image_blob_url"):
+            blob_url = response["image_blob_url"]
+            logger.info(f"Image already saved to blob by orchestrator: {blob_url}")
+            parts = blob_url.split("/")
+            filename = parts[-1]
+            conv_folder = parts[-2]
+            response["image_url"] = f"/api/images/{conv_folder}/{filename}"
+            del response["image_blob_url"]
+            logger.info(f"Converted to proxy URL: {response['image_url']}")
+        elif response.get("image_base64"):
+            # Fallback: save to blob
+            try:
+                blob_service = await get_blob_service()
+                blob_url = await blob_service.save_generated_image(
+                    conversation_id=conversation_id,
+                    image_base64=response["image_base64"]
+                )
+                if blob_url:
+                    parts = blob_url.split("/")
+                    filename = parts[-1]
+                    response["image_url"] = f"/api/images/{conversation_id}/{filename}"
+                    del response["image_base64"]
+            except Exception as e:
+                logger.warning(f"Failed to save image to blob: {e}")
+        
+        # Save to CosmosDB
+        try:
+            cosmos_service = await get_cosmos_service()
+            text_content = response.get("text_content", {})
+            headline = text_content.get("headline", "") if isinstance(text_content, dict) else ""
+            
+            await cosmos_service.add_message_to_conversation(
+                conversation_id=conversation_id,
+                user_id=user_id,
+                message={
+                    "role": "assistant",
+                    "content": f"Content generated successfully!{' Headline: ' + headline if headline else ''}",
+                    "agent": "ContentAgent",
+                    "timestamp": datetime.now(timezone.utc).isoformat()
+                }
+            )
+            
+            generated_content_to_save = {
+                "text_content": response.get("text_content"),
+                "image_url": response.get("image_url"),
+                "image_prompt": response.get("image_prompt"),
+                "image_revised_prompt": response.get("image_revised_prompt"),
+                "violations": response.get("violations", []),
+                "requires_modification": response.get("requires_modification", False)
+            }
+            await cosmos_service.save_generated_content(
+                conversation_id=conversation_id,
+                user_id=user_id,
+                generated_content=generated_content_to_save
+            )
+        except Exception as e:
+            logger.warning(f"Failed to save generated content to CosmosDB: {e}")
+        
+        _generation_tasks[task_id]["status"] = "completed"
+        _generation_tasks[task_id]["result"] = response
+        _generation_tasks[task_id]["completed_at"] = datetime.now(timezone.utc).isoformat()
+        logger.info(f"Task {task_id} marked as completed")
+        
+    except Exception as e:
+        logger.exception(f"Generation task {task_id} failed: {e}")
+        _generation_tasks[task_id]["status"] = "failed"
+        _generation_tasks[task_id]["error"] = str(e)
+        _generation_tasks[task_id]["completed_at"] = datetime.now(timezone.utc).isoformat()
+
+
+@app.route("/api/generate/start", methods=["POST"])
+async def start_generation():
+    """
+    Start content generation and return immediately with a task ID.
+    Client should poll /api/generate/status/<task_id> for results.
+    
+    Request body:
+    {
+        "brief": { ... CreativeBrief fields ... },
+        "products": [ ... Product list (optional) ... ],
+        "generate_images": true/false,
+        "conversation_id": "uuid"
+    }
+    
+    Returns:
+    {
+        "task_id": "uuid",
+        "status": "pending",
+        "message": "Generation started"
+    }
+    """
+    global _generation_tasks
+    
+    data = await request.get_json()
+    
+    brief_data = data.get("brief", {})
+    products_data = data.get("products", [])
+    generate_images = data.get("generate_images", True)
+    conversation_id = data.get("conversation_id") or str(uuid.uuid4())
+    user_id = data.get("user_id", "anonymous")
+    
+    try:
+        brief = CreativeBrief(**brief_data)
+    except Exception as e:
+        return jsonify({"error": f"Invalid brief format: {str(e)}"}), 400
+    
+    # Create task ID
+    task_id = str(uuid.uuid4())
+    
+    # Initialize task state
+    _generation_tasks[task_id] = {
+        "status": "pending",
+        "conversation_id": conversation_id,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "result": None,
+        "error": None
+    }
+    
+    # Save user request
+    try:
+        cosmos_service = await get_cosmos_service()
+        product_names = [p.get("product_name", "product") for p in products_data[:3]]
+        await cosmos_service.add_message_to_conversation(
+            conversation_id=conversation_id,
+            user_id=user_id,
+            message={
+                "role": "user",
+                "content": f"Generate content for: {', '.join(product_names) if product_names else 'the campaign'}",
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            }
+        )
+    except Exception as e:
+        logger.warning(f"Failed to save generation request to CosmosDB: {e}")
+    
+    # Start background task
+    asyncio.create_task(_run_generation_task(
+        task_id=task_id,
+        brief=brief,
+        products_data=products_data,
+        generate_images=generate_images,
+        conversation_id=conversation_id,
+        user_id=user_id
+    ))
+    
+    logger.info(f"Started generation task {task_id} for conversation {conversation_id}")
+    
+    return jsonify({
+        "task_id": task_id,
+        "status": "pending",
+        "conversation_id": conversation_id,
+        "message": "Generation started. Poll /api/generate/status/{task_id} for results."
+    })
+
+
+@app.route("/api/generate/status/<task_id>", methods=["GET"])
+async def get_generation_status(task_id: str):
+    """
+    Get the status of a generation task.
+    
+    Returns:
+    {
+        "task_id": "uuid",
+        "status": "pending" | "running" | "completed" | "failed",
+        "result": { ... generated content ... } (if completed),
+        "error": "error message" (if failed)
+    }
+    """
+    global _generation_tasks
+    
+    if task_id not in _generation_tasks:
+        return jsonify({"error": "Task not found"}), 404
+    
+    task = _generation_tasks[task_id]
+    
+    response = {
+        "task_id": task_id,
+        "status": task["status"],
+        "conversation_id": task.get("conversation_id"),
+        "created_at": task.get("created_at"),
+    }
+    
+    if task["status"] == "completed":
+        response["result"] = task["result"]
+        response["completed_at"] = task.get("completed_at")
+    elif task["status"] == "failed":
+        response["error"] = task["error"]
+        response["completed_at"] = task.get("completed_at")
+    elif task["status"] == "running":
+        response["started_at"] = task.get("started_at")
+        response["message"] = "Generation in progress..."
+    
+    return jsonify(response)
+
+
 @app.route("/api/generate", methods=["POST"])
 async def generate_content():
     """
@@ -432,55 +653,97 @@ async def generate_content():
     
     async def generate():
         """Stream content generation responses with keepalive heartbeats."""
-        # Create a task for the long-running generation
-        generation_task = asyncio.create_task(
-            orchestrator.generate_content(
-                brief=brief,
-                products=products_data,
-                generate_images=generate_images
+        logger.info(f"Starting SSE generator for conversation {conversation_id}")
+        generation_task = None
+        
+        try:
+            # Create a task for the long-running generation
+            generation_task = asyncio.create_task(
+                orchestrator.generate_content(
+                    brief=brief,
+                    products=products_data,
+                    generate_images=generate_images
+                )
             )
-        )
-        
-        # Send keepalive heartbeats every 15 seconds while generation is running
-        heartbeat_count = 0
-        response = None
-        error = None
-        
-        while not generation_task.done():
-            # Wait up to 15 seconds for task to complete
-            await asyncio.sleep(0.1)  # Small sleep to avoid busy waiting
+            logger.info("Generation task created")
             
-            # Check every 15 seconds and send heartbeat
-            for _ in range(150):  # 150 * 0.1s = 15 seconds
-                if generation_task.done():
-                    break
-                await asyncio.sleep(0.1)
+            # Send keepalive heartbeats every 15 seconds while generation is running
+            heartbeat_count = 0
+            response = None
+            error = None
             
-            if not generation_task.done():
-                heartbeat_count += 1
-                yield f"data: {json.dumps({'type': 'heartbeat', 'count': heartbeat_count, 'message': 'Generating content...'})}\n\n"
+            while not generation_task.done():
+                # Check every 0.5 seconds (faster response to completion)
+                for _ in range(30):  # 30 * 0.5s = 15 seconds
+                    if generation_task.done():
+                        logger.info(f"Task completed during heartbeat wait (iteration)")
+                        break
+                    await asyncio.sleep(0.5)
+                
+                if not generation_task.done():
+                    heartbeat_count += 1
+                    logger.info(f"Sending heartbeat {heartbeat_count}")
+                    yield f"data: {json.dumps({'type': 'heartbeat', 'count': heartbeat_count, 'message': 'Generating content...'})}\n\n"
+            
+            logger.info(f"Generation task completed after {heartbeat_count} heartbeats")
+        except asyncio.CancelledError:
+            logger.warning(f"SSE generator cancelled for conversation {conversation_id}")
+            if generation_task and not generation_task.done():
+                generation_task.cancel()
+            raise
+        except GeneratorExit:
+            logger.warning(f"SSE generator closed by client for conversation {conversation_id}")
+            if generation_task and not generation_task.done():
+                generation_task.cancel()
+            return
+        except Exception as e:
+            logger.exception(f"Unexpected error in SSE generator heartbeat loop: {e}")
+            if generation_task and not generation_task.done():
+                generation_task.cancel()
+            raise
         
         # Get the result
         try:
             response = generation_task.result()
+            logger.info(f"Generation complete. Response keys: {list(response.keys()) if response else 'None'}")
+            has_image_base64 = bool(response.get("image_base64")) if response else False
+            has_image_blob = bool(response.get("image_blob_url")) if response else False
+            image_size = len(response.get("image_base64", "")) if response else 0
+            logger.info(f"Has image_base64: {has_image_base64}, has_image_blob_url: {has_image_blob}, base64_size: {image_size} bytes")
             
-            # Try to save generated images to blob storage
-            try:
-                blob_service = await get_blob_service()
-                if response.get("image_base64"):
+            # Handle image URL from orchestrator's blob save
+            if response.get("image_blob_url"):
+                blob_url = response["image_blob_url"]
+                logger.info(f"Image already saved to blob by orchestrator: {blob_url}")
+                # Convert blob URL to proxy URL for frontend access
+                parts = blob_url.split("/")
+                filename = parts[-1]  # e.g., "20251202222126.png"
+                conv_folder = parts[-2]  # e.g., "gen_20251209225131"
+                response["image_url"] = f"/api/images/{conv_folder}/{filename}"
+                del response["image_blob_url"]
+                logger.info(f"Converted to proxy URL: {response['image_url']}")
+            # Fallback: save image_base64 to blob if orchestrator didn't do it
+            elif response.get("image_base64"):
+                try:
+                    logger.info("Getting blob service for fallback save...")
+                    blob_service = await get_blob_service()
+                    logger.info(f"Saving image to blob storage for conversation {conversation_id}...")
                     blob_url = await blob_service.save_generated_image(
                         conversation_id=conversation_id,
                         image_base64=response["image_base64"]
                     )
-                    # Convert blob URL to proxy URL for frontend access
-                    # blob_url format: https://account.blob.core.windows.net/container/conv_id/filename.png
-                    # proxy URL format: /api/images/conv_id/filename.png
+                    logger.info(f"Blob save returned: {blob_url}")
                     if blob_url:
                         parts = blob_url.split("/")
-                        filename = parts[-1]  # e.g., "20251202222126.png"
+                        filename = parts[-1]
                         response["image_url"] = f"/api/images/{conversation_id}/{filename}"
-            except Exception as e:
-                logger.warning(f"Failed to save image to blob storage: {e}")
+                        del response["image_base64"]
+                        logger.info(f"Image saved to blob storage, URL: {response['image_url']}")
+                except Exception as e:
+                    logger.warning(f"Failed to save image to blob storage: {e}", exc_info=True)
+                    # Keep image_base64 in response as fallback if blob storage fails
+            else:
+                logger.info("No image in response")
             
             # Save generated content to conversation
             try:

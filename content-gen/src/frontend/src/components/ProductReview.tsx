@@ -184,10 +184,9 @@ export function ProductReview({
               <>
                 <strong>Looking good!</strong> You can continue to refine your selection:
                 <ul style={{ margin: '8px 0 0 0', paddingLeft: '16px' }}>
-                  <li>"Add the Arctic Frost paint to the selection"</li>
+                  <li>"Add the Blue Ash paint to the selection"</li>
                   <li>"Remove the second product"</li>
                   <li>"Show me more blue paints"</li>
-                  <li>"Replace with products for outdoor use"</li>
                 </ul>
                 <div style={{ marginTop: '8px' }}>
                   When you're satisfied, click <strong>Generate Content</strong> to create your marketing materials.
@@ -197,10 +196,9 @@ export function ProductReview({
               <>
                 <strong>Let's find the right products!</strong> Try saying:
                 <ul style={{ margin: '8px 0 0 0', paddingLeft: '16px' }}>
-                  <li>"Show me exterior paints"</li>
-                  <li>"I need paint for a kitchen renovation"</li>
+                  <li>"Show me what paints are available"</li>
                   <li>"Find products with blue tones"</li>
-                  <li>"Select SnowVeil and Ocean Mist"</li>
+                  <li>"Select Snow Veil and Silver Shore"</li>
                 </ul>
               </>
             )}

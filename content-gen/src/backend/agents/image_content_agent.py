@@ -1,4 +1,3 @@
-"""
 """Image Content Agent - Generates marketing images via DALL-E 3 or gpt-image-1.
 
 Provides the generate_image function used by the orchestrator
@@ -196,24 +195,28 @@ Style: Modern, clean, minimalist. Brand colors: {brand.primary_color}, {brand.se
             api_version=app_settings.azure_openai.preview_api_version,
         )
         
-        response = await client.images.generate(
-            model=app_settings.azure_openai.dalle_model,
-            prompt=full_prompt,
-            size=size,
-            quality=quality,
-            n=1,
-            response_format="b64_json"
-        )
-        
-        image_data = response.data[0]
-        
-        return {
-            "success": True,
-            "image_base64": image_data.b64_json,
-            "prompt_used": full_prompt,
-            "revised_prompt": getattr(image_data, 'revised_prompt', None),
-            "model": "dall-e-3",
-        }
+        try:
+            response = await client.images.generate(
+                model=app_settings.azure_openai.dalle_model,
+                prompt=full_prompt,
+                size=size,
+                quality=quality,
+                n=1,
+                response_format="b64_json"
+            )
+            
+            image_data = response.data[0]
+            
+            return {
+                "success": True,
+                "image_base64": image_data.b64_json,
+                "prompt_used": full_prompt,
+                "revised_prompt": getattr(image_data, 'revised_prompt', None),
+                "model": "dall-e-3",
+            }
+        finally:
+            # Properly close the async client to avoid unclosed session warnings
+            await client.close()
         
     except Exception as e:
         logger.exception(f"Error generating DALL-E image: {e}")
@@ -327,25 +330,50 @@ IMPORTANT GUIDELINES:
             api_version=app_settings.azure_openai.preview_api_version,
         )
         
-        # gpt-image-1 API call
-        response = await client.images.generate(
-            model="gpt-image-1",
-            prompt=full_prompt,
-            size=size,
-            quality=quality,
-            n=1,
-            response_format="b64_json"
-        )
-        
-        image_data = response.data[0]
-        
-        return {
-            "success": True,
-            "image_base64": image_data.b64_json,
-            "prompt_used": full_prompt,
-            "revised_prompt": getattr(image_data, 'revised_prompt', None),
-            "model": "gpt-image-1",
-        }
+        try:
+            # gpt-image-1 API call - note: gpt-image-1 doesn't support response_format parameter
+            # It returns base64 data directly in the response
+            response = await client.images.generate(
+                model="gpt-image-1",
+                prompt=full_prompt,
+                size=size,
+                quality=quality,
+                n=1,
+            )
+            
+            image_data = response.data[0]
+            
+            # gpt-image-1 returns b64_json directly without needing response_format parameter
+            image_base64 = getattr(image_data, 'b64_json', None)
+            
+            # If no b64_json, try to get URL and fetch the image
+            if not image_base64 and hasattr(image_data, 'url') and image_data.url:
+                import aiohttp
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(image_data.url) as resp:
+                        if resp.status == 200:
+                            import base64
+                            image_bytes = await resp.read()
+                            image_base64 = base64.b64encode(image_bytes).decode('utf-8')
+            
+            if not image_base64:
+                return {
+                    "success": False,
+                    "error": "No image data returned from gpt-image-1",
+                    "prompt_used": full_prompt,
+                    "model": "gpt-image-1",
+                }
+            
+            return {
+                "success": True,
+                "image_base64": image_base64,
+                "prompt_used": full_prompt,
+                "revised_prompt": getattr(image_data, 'revised_prompt', None),
+                "model": "gpt-image-1",
+            }
+        finally:
+            # Properly close the async client to avoid unclosed session warnings
+            await client.close()
         
     except Exception as e:
         logger.exception(f"Error generating gpt-image-1 image: {e}")

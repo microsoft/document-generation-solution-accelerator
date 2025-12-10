@@ -803,9 +803,38 @@ Use the detailed visual descriptions above to ensure accurate color reproduction
                     )
                     
                     if image_result.get("success"):
-                        results["image_base64"] = image_result.get("image_base64")
+                        image_base64 = image_result.get("image_base64")
                         results["image_revised_prompt"] = image_result.get("revised_prompt")
                         logger.info("DALL-E image generated successfully")
+                        
+                        # Save to blob storage immediately to avoid returning huge base64
+                        # This prevents timeout issues with large responses
+                        try:
+                            from backend.services.blob_service import BlobStorageService
+                            import os
+                            from datetime import datetime
+                            
+                            blob_service = BlobStorageService()
+                            # Generate a unique conversation-like ID for this generation
+                            gen_id = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+                            logger.info(f"Saving image to blob storage (size: {len(image_base64)} bytes)...")
+                            
+                            blob_url = await blob_service.save_generated_image(
+                                conversation_id=f"gen_{gen_id}",
+                                image_base64=image_base64
+                            )
+                            
+                            if blob_url:
+                                # Store the blob URL - will be converted to proxy URL by app.py
+                                results["image_blob_url"] = blob_url
+                                logger.info(f"Image saved to blob: {blob_url}")
+                            else:
+                                # Fallback to base64 if blob save fails
+                                results["image_base64"] = image_base64
+                                logger.warning("Blob save returned None, falling back to base64")
+                        except Exception as blob_error:
+                            logger.warning(f"Failed to save to blob, falling back to base64: {blob_error}")
+                            results["image_base64"] = image_base64
                     else:
                         logger.warning(f"DALL-E image generation failed: {image_result.get('error')}")
                         results["image_error"] = image_result.get("error")
@@ -854,6 +883,12 @@ Check against brand guidelines and flag any issues.
         except Exception as e:
             logger.exception(f"Error generating content: {e}")
             results["error"] = str(e)
+        
+        # Log results summary before returning
+        logger.info(f"Orchestrator returning results with keys: {list(results.keys())}")
+        has_image = bool(results.get("image_base64"))
+        image_size = len(results.get("image_base64", "")) if has_image else 0
+        logger.info(f"Orchestrator results: has_image={has_image}, image_size={image_size}, has_error={bool(results.get('error'))}")
         
         return results
 
