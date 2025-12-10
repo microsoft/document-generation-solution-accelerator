@@ -60,12 +60,92 @@ export function InlineContentPreview({ content, onRegenerate, isLoading, selecte
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleDownloadImage = () => {
-    if (image_content?.image_url) {
-      const link = document.createElement('a');
-      link.href = image_content.image_url;
-      link.download = 'generated-image.png';
-      link.click();
+  const handleDownloadImage = async () => {
+    if (!image_content?.image_url) return;
+
+    try {
+      // Create canvas to composite image with text overlay
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      // Load the image
+      const img = new Image();
+      img.crossOrigin = 'anonymous'; // Enable CORS for blob storage images
+      
+      img.onload = () => {
+        // Set canvas size to match image
+        canvas.width = img.width;
+        canvas.height = img.height;
+
+        // Draw the image
+        ctx.drawImage(img, 0, 0);
+
+        // Add text overlay if headline exists
+        if (text_content?.headline) {
+          const padding = Math.max(16, img.width * 0.03);
+          const maxTextWidth = img.width - (padding * 2);
+
+          // Draw headline text
+          const headlineText = selectedProduct?.product_name || text_content.headline;
+          const headlineFontSize = Math.max(20, Math.min(48, img.width * 0.05));
+          ctx.font = `600 ${headlineFontSize}px Georgia, serif`;
+          
+          // Text shadow effect
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+          ctx.fillText(headlineText, padding + 2, padding + headlineFontSize + 2, maxTextWidth);
+          
+          // Main text
+          ctx.fillStyle = 'white';
+          ctx.fillText(headlineText, padding, padding + headlineFontSize, maxTextWidth);
+
+          // Draw subtitle/CTA text
+          if (text_content.cta_text) {
+            const subtitleFontSize = Math.max(13, Math.min(24, img.width * 0.025));
+            ctx.font = `400 ${subtitleFontSize}px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif`;
+            
+            // Text shadow
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+            ctx.fillText(text_content.cta_text, padding + 2, padding + headlineFontSize + subtitleFontSize + 10, maxTextWidth);
+            
+            // Main text
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+            ctx.fillText(text_content.cta_text, padding, padding + headlineFontSize + subtitleFontSize + 8, maxTextWidth);
+          }
+        }
+
+        // Convert canvas to blob and download
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'generated-image-with-text.png';
+            link.click();
+            URL.revokeObjectURL(url);
+          }
+        }, 'image/png');
+      };
+
+      img.onerror = () => {
+        // Fallback: download original image if canvas approach fails
+        if (image_content?.image_url) {
+          const link = document.createElement('a');
+          link.href = image_content.image_url;
+          link.download = 'generated-image.png';
+          link.click();
+        }
+      };
+
+      img.src = image_content.image_url;
+    } catch (error) {
+      // Fallback: download original image
+      if (image_content?.image_url) {
+        const link = document.createElement('a');
+        link.href = image_content.image_url;
+        link.download = 'generated-image.png';
+        link.click();
+      }
     }
   };
 

@@ -236,6 +236,52 @@ class _BrandGuidelinesSettings(BaseSettings):
 - INFO: Style suggestions for improvement (optional)
 
 When validating content, categorize each violation with the appropriate severity level.
+
+## Responsible AI Guidelines
+
+### Content Safety Principles
+You MUST follow these Responsible AI principles in ALL generated content:
+
+**Fairness & Inclusion**
+- Ensure diverse and inclusive representation in all content
+- Avoid stereotypes based on gender, race, age, disability, religion, or background
+- Use gender-neutral language when appropriate
+- Represent diverse body types, abilities, and backgrounds authentically
+
+**Reliability & Safety**
+- Do not generate content that could cause physical, emotional, or financial harm
+- Avoid misleading claims, exaggerations, or false promises
+- Ensure factual accuracy; do not fabricate statistics or testimonials
+- Include appropriate disclaimers for health, financial, or legal topics
+
+**Privacy & Security**
+- Never include real personal information (names, addresses, phone numbers)
+- Do not reference specific individuals without explicit permission
+- Avoid content that could enable identity theft or fraud
+
+**Transparency**
+- Be transparent about AI-generated content when required by regulations
+- Do not create content designed to deceive or manipulate
+- Avoid deepfake-style content or impersonation
+
+**Harmful Content Prevention**
+- NEVER generate hateful, discriminatory, or offensive content
+- NEVER create violent, graphic, or disturbing imagery
+- NEVER produce sexually explicit or suggestive content
+- NEVER generate content promoting illegal activities
+- NEVER create content that exploits or harms minors
+
+### Image Generation Specific Guidelines
+When generating images:
+- Do not create realistic images of identifiable real people
+- Avoid generating images that could be mistaken for real photographs in misleading contexts
+- Ensure generated humans represent diverse demographics positively
+- Do not generate images depicting violence, weapons, or harmful activities
+- Avoid culturally insensitive or appropriative imagery
+
+### Compliance Validation
+The Compliance Agent MUST flag any content that violates these RAI principles as SEVERITY: ERROR.
+RAI violations are non-negotiable and content must be regenerated.
 """
 
     def get_text_generation_prompt(self) -> str:
@@ -253,6 +299,25 @@ Write content that embodies these characteristics:
 - {'Always include a clear call-to-action' if self.require_cta else 'CTA is optional'}
 - NEVER use these words: {', '.join(self.prohibited_words) if self.prohibited_words else 'No restrictions'}
 - Include these disclosures when applicable: {', '.join(self.required_disclosures) if self.required_disclosures else 'None required'}
+
+## Responsible AI - Text Content Rules
+
+NEVER generate text that:
+- Contains hateful, discriminatory, or offensive language
+- Makes false claims, fabricated statistics, or fake testimonials
+- Includes misleading health, financial, or legal advice
+- Uses manipulative or deceptive persuasion tactics
+- Promotes illegal activities or harmful behaviors
+- Stereotypes any group based on gender, race, age, or background
+- Contains sexually explicit or inappropriate content
+- Could cause physical, emotional, or financial harm
+
+ALWAYS ensure:
+- Factual accuracy and honest representation
+- Inclusive language that respects all audiences
+- Clear disclaimers where legally required
+- Transparency about product limitations
+- Respectful portrayal of diverse communities
 """
 
     def get_image_generation_prompt(self) -> str:
@@ -269,6 +334,25 @@ Create images that follow these guidelines:
 - Clean composition with 30% negative space
 - No competitor products or logos
 - Diverse representation if people are shown
+
+## Responsible AI - Image Generation Rules
+
+NEVER generate images that contain:
+- Real identifiable people (celebrities, politicians, public figures)
+- Violence, weapons, blood, or injury
+- Sexually explicit, suggestive, or inappropriate content
+- Hateful symbols, slurs, or discriminatory imagery
+- Content exploiting or depicting minors inappropriately
+- Deepfake-style realistic faces intended to deceive
+- Culturally insensitive stereotypes or appropriation
+- Illegal activities or substances
+
+ALWAYS ensure:
+- Diverse and positive representation of people
+- Age-appropriate content suitable for all audiences
+- Authentic portrayal without harmful stereotypes
+- Clear distinction that this is marketing imagery
+- Respect for cultural and religious sensitivities
 """
 
 

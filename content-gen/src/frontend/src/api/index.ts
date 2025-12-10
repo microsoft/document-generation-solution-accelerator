@@ -19,9 +19,11 @@ const API_BASE = '/api';
 export async function parseBrief(
   briefText: string,
   conversationId?: string,
-  userId?: string
+  userId?: string,
+  signal?: AbortSignal
 ): Promise<ParsedBriefResponse> {
   const response = await fetch(`${API_BASE}/brief/parse`, {
+    signal,
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -70,9 +72,11 @@ export async function selectProducts(
   request: string,
   currentProducts: Product[],
   conversationId?: string,
-  userId?: string
+  userId?: string,
+  signal?: AbortSignal
 ): Promise<{ products: Product[]; action: string; message: string; conversation_id: string }> {
   const response = await fetch(`${API_BASE}/products/select`, {
+    signal,
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -96,9 +100,11 @@ export async function selectProducts(
 export async function* streamChat(
   message: string,
   conversationId?: string,
-  userId?: string
+  userId?: string,
+  signal?: AbortSignal
 ): AsyncGenerator<AgentResponse> {
   const response = await fetch(`${API_BASE}/chat`, {
+    signal,
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -152,10 +158,12 @@ export async function* streamGenerateContent(
   products?: Product[],
   generateImages: boolean = true,
   conversationId?: string,
-  userId?: string
+  userId?: string,
+  signal?: AbortSignal
 ): AsyncGenerator<AgentResponse> {
   // Use polling-based approach for reliability with long-running tasks
   const startResponse = await fetch(`${API_BASE}/generate/start`, {
+    signal,
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -189,11 +197,21 @@ export async function* streamGenerateContent(
   const pollInterval = 1000; // 1 second
   
   while (attempts < maxAttempts) {
+    // Check if cancelled before waiting
+    if (signal?.aborted) {
+      throw new DOMException('Generation cancelled by user', 'AbortError');
+    }
+    
     await new Promise(resolve => setTimeout(resolve, pollInterval));
     attempts++;
     
+    // Check if cancelled after waiting
+    if (signal?.aborted) {
+      throw new DOMException('Generation cancelled by user', 'AbortError');
+    }
+    
     try {
-      const statusResponse = await fetch(`${API_BASE}/generate/status/${taskId}`);
+      const statusResponse = await fetch(`${API_BASE}/generate/status/${taskId}`, { signal });
       if (!statusResponse.ok) {
         throw new Error(`Failed to get task status: ${statusResponse.statusText}`);
       }
@@ -211,11 +229,39 @@ export async function* streamGenerateContent(
         return;
       } else if (statusData.status === 'failed') {
         throw new Error(statusData.error || 'Generation failed');
-      } else if (statusData.status === 'running' && attempts % 5 === 0) {
-        // Send heartbeat status every 5 seconds
+      } else if (statusData.status === 'running') {
+        // Determine progress stage based on elapsed time
+        // Typical generation: 0-10s briefing, 10-25s copy, 25-45s image, 45-60s compliance
+        const elapsedSeconds = attempts;
+        let stage: number;
+        let stageMessage: string;
+        
+        if (elapsedSeconds < 10) {
+          stage = 0;
+          stageMessage = 'Analyzing creative brief...';
+        } else if (elapsedSeconds < 25) {
+          stage = 1;
+          stageMessage = 'Generating marketing copy...';
+        } else if (elapsedSeconds < 35) {
+          stage = 2;
+          stageMessage = 'Creating image prompt...';
+        } else if (elapsedSeconds < 55) {
+          stage = 3;
+          stageMessage = 'Generating image with AI...';
+        } else if (elapsedSeconds < 70) {
+          stage = 4;
+          stageMessage = 'Running compliance check...';
+        } else {
+          stage = 5;
+          stageMessage = 'Finalizing content...';
+        }
+        
+        // Send status update every second for smoother progress
         yield {
           type: 'heartbeat',
-          content: `Generating content... (${attempts}s)`,
+          content: stageMessage,
+          count: stage,
+          elapsed: elapsedSeconds,
           is_final: false,
         } as AgentResponse;
       }

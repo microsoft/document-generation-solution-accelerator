@@ -71,6 +71,7 @@ export interface AgentResponse {
   request_id?: string;
   conversation_history?: string;
   count?: number;
+  elapsed?: number;
   message?: string;
   metadata?: {
     conversation_id?: string;

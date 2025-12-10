@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import {
   Text,
   Avatar,
@@ -47,6 +47,9 @@ function App() {
 
   // Trigger for refreshing chat history
   const [historyRefreshTrigger, setHistoryRefreshTrigger] = useState(0);
+
+  // Abort controller for cancelling ongoing requests
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Fetch current user on mount
   useEffect(() => {
@@ -130,11 +133,17 @@ function App() {
             requires_modification: gc.requires_modification || false,
           };
           setGeneratedContent(restoredContent);
+          
+          // Restore selected products if they exist
+          if (gc.selected_products && Array.isArray(gc.selected_products)) {
+            setSelectedProducts(gc.selected_products);
+          } else {
+            setSelectedProducts([]);
+          }
         } else {
           setGeneratedContent(null);
+          setSelectedProducts([]);
         }
-        
-        setSelectedProducts([]);
       }
     } catch (error) {
       console.error('Error loading conversation:', error);
@@ -164,6 +173,10 @@ function App() {
     setMessages(prev => [...prev, userMessage]);
     setIsLoading(true);
     
+    // Create new abort controller for this request
+    abortControllerRef.current = new AbortController();
+    const signal = abortControllerRef.current.signal;
+    
     try {
       // Import dynamically to avoid SSR issues
       const { streamChat, parseBrief, selectProducts } = await import('./api');
@@ -180,7 +193,7 @@ function App() {
           const refinementPrompt = `Current creative brief:\n${JSON.stringify(pendingBrief, null, 2)}\n\nUser requested change: ${content}\n\nPlease update the brief accordingly and return the complete updated brief.`;
           
           setGenerationStatus('Updating creative brief...');
-          const parsed = await parseBrief(refinementPrompt, conversationId, userId);
+          const parsed = await parseBrief(refinementPrompt, conversationId, userId, signal);
           setPendingBrief(parsed.brief);
           setGenerationStatus('');
           
@@ -199,7 +212,7 @@ function App() {
           let messageAdded = false;
           
           setGenerationStatus('Processing your question...');
-          for await (const response of streamChat(content, conversationId, userId)) {
+          for await (const response of streamChat(content, conversationId, userId, signal)) {
             if (response.type === 'agent_response') {
               fullContent = response.content;
               currentAgent = response.agent || '';
@@ -231,7 +244,7 @@ function App() {
       } else if (confirmedBrief && !generatedContent) {
         // Brief confirmed, in product selection phase - treat messages as product selection requests
         setGenerationStatus('Finding products...');
-        const result = await selectProducts(content, selectedProducts, conversationId, userId);
+        const result = await selectProducts(content, selectedProducts, conversationId, userId, signal);
         
         // Update selected products with the result
         setSelectedProducts(result.products || []);
@@ -253,7 +266,7 @@ function App() {
         if (isBriefLike && !confirmedBrief) {
           // Parse as a creative brief
           setGenerationStatus('Parsing creative brief...');
-          const parsed = await parseBrief(content, conversationId, userId);
+          const parsed = await parseBrief(content, conversationId, userId, signal);
           setPendingBrief(parsed.brief);
           setGenerationStatus('');
           
@@ -272,7 +285,7 @@ function App() {
           let messageAdded = false;
           
           setGenerationStatus('Processing your request...');
-          for await (const response of streamChat(content, conversationId, userId)) {
+          for await (const response of streamChat(content, conversationId, userId, signal)) {
             if (response.type === 'agent_response') {
               fullContent = response.content;
               currentAgent = response.agent || '';
@@ -305,16 +318,30 @@ function App() {
         }
       }
     } catch (error) {
-      console.error('Error sending message:', error);
-      const errorMessage: ChatMessage = {
-        id: uuidv4(),
-        role: 'assistant',
-        content: 'Sorry, there was an error processing your request. Please try again.',
-        timestamp: new Date().toISOString(),
-      };
-      setMessages(prev => [...prev, errorMessage]);
+      // Check if this was a user-initiated cancellation
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.log('Request cancelled by user');
+        const cancelMessage: ChatMessage = {
+          id: uuidv4(),
+          role: 'assistant',
+          content: 'Generation stopped.',
+          timestamp: new Date().toISOString(),
+        };
+        setMessages(prev => [...prev, cancelMessage]);
+      } else {
+        console.error('Error sending message:', error);
+        const errorMessage: ChatMessage = {
+          id: uuidv4(),
+          role: 'assistant',
+          content: 'Sorry, there was an error processing your request. Please try again.',
+          timestamp: new Date().toISOString(),
+        };
+        setMessages(prev => [...prev, errorMessage]);
+      }
     } finally {
       setIsLoading(false);
+      setGenerationStatus('');
+      abortControllerRef.current = null;
       // Trigger refresh of chat history after message is sent
       setHistoryRefreshTrigger(prev => prev + 1);
     }
@@ -365,11 +392,22 @@ function App() {
     setMessages(prev => [...prev, assistantMessage]);
   }, []);
 
+  const handleStopGeneration = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+  }, []);
+
   const handleGenerateContent = useCallback(async () => {
     if (!confirmedBrief) return;
     
     setIsLoading(true);
     setGenerationStatus('Starting content generation...');
+    
+    // Create new abort controller for this request
+    abortControllerRef.current = new AbortController();
+    const signal = abortControllerRef.current.signal;
+    
     try {
       const { streamGenerateContent } = await import('./api');
       
@@ -378,21 +416,15 @@ function App() {
         selectedProducts,
         true,
         conversationId,
-        userId
+        userId,
+        signal
       )) {
         // Handle heartbeat events to show progress
         if (response.type === 'heartbeat') {
-          const count = response.count || 0;
-          const stages = [
-            'Analyzing creative brief...',
-            'Generating marketing copy...',
-            'Creating image prompt...',
-            'Generating DALL-E image...',
-            'Running compliance check...',
-            'Finalizing content...'
-          ];
-          const stageIndex = Math.min(count - 1, stages.length - 1);
-          setGenerationStatus(stages[stageIndex >= 0 ? stageIndex : 0]);
+          // Use the message from the heartbeat directly - it contains the stage description
+          const statusMessage = response.content || 'Generating content...';
+          const elapsed = (response as { elapsed?: number }).elapsed || 0;
+          setGenerationStatus(`${statusMessage} (${elapsed}s)`);
           continue;
         }
         
@@ -461,18 +493,30 @@ function App() {
         }
       }
     } catch (error) {
-      console.error('Error generating content:', error);
-      setGenerationStatus('');
-      const errorMessage: ChatMessage = {
-        id: uuidv4(),
-        role: 'assistant',
-        content: 'Sorry, there was an error generating content. Please try again.',
-        timestamp: new Date().toISOString(),
-      };
-      setMessages(prev => [...prev, errorMessage]);
+      // Check if this was a user-initiated cancellation
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.log('Content generation cancelled by user');
+        const cancelMessage: ChatMessage = {
+          id: uuidv4(),
+          role: 'assistant',
+          content: 'Content generation stopped.',
+          timestamp: new Date().toISOString(),
+        };
+        setMessages(prev => [...prev, cancelMessage]);
+      } else {
+        console.error('Error generating content:', error);
+        const errorMessage: ChatMessage = {
+          id: uuidv4(),
+          role: 'assistant',
+          content: 'Sorry, there was an error generating content. Please try again.',
+          timestamp: new Date().toISOString(),
+        };
+        setMessages(prev => [...prev, errorMessage]);
+      }
     } finally {
       setIsLoading(false);
       setGenerationStatus('');
+      abortControllerRef.current = null;
     }
   }, [confirmedBrief, selectedProducts, conversationId]);
 
@@ -522,6 +566,7 @@ function App() {
             onSendMessage={handleSendMessage}
             isLoading={isLoading}
             generationStatus={generationStatus}
+            onStopGeneration={handleStopGeneration}
             pendingBrief={pendingBrief}
             confirmedBrief={confirmedBrief}
             generatedContent={generatedContent}

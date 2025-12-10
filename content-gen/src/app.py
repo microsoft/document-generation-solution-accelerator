@@ -457,7 +457,8 @@ async def _run_generation_task(task_id: str, brief: CreativeBrief, products_data
                 "image_prompt": response.get("image_prompt"),
                 "image_revised_prompt": response.get("image_revised_prompt"),
                 "violations": response.get("violations", []),
-                "requires_modification": response.get("requires_modification", False)
+                "requires_modification": response.get("requires_modification", False),
+                "selected_products": products_data  # Save the selected products
             }
             await cosmos_service.save_generated_content(
                 conversation_id=conversation_id,
@@ -772,7 +773,8 @@ async def generate_content():
                     "image_prompt": response.get("image_prompt"),
                     "image_revised_prompt": response.get("image_revised_prompt"),
                     "violations": response.get("violations", []),
-                    "requires_modification": response.get("requires_modification", False)
+                    "requires_modification": response.get("requires_modification", False),
+                    "selected_products": products_data  # Save the selected products
                 }
                 await cosmos_service.save_generated_content(
                     conversation_id=conversation_id,

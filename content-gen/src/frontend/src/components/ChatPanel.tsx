@@ -13,11 +13,13 @@ import {
   Send24Regular,
   Bot24Regular,
   Person24Regular,
-  Add24Regular,
+  Stop24Regular,
 } from '@fluentui/react-icons';
 import ReactMarkdown from 'react-markdown';
 import type { ChatMessage, CreativeBrief, Product, GeneratedContent } from '../types';
 import { BriefReview } from './BriefReview';
+import { ConfirmedBriefView } from './ConfirmedBriefView';
+import { SelectedProductView } from './SelectedProductView';
 import { ProductReview } from './ProductReview';
 import { InlineContentPreview } from './InlineContentPreview';
 import { WelcomeCard } from './WelcomeCard';
@@ -27,6 +29,7 @@ interface ChatPanelProps {
   onSendMessage: (message: string) => void;
   isLoading: boolean;
   generationStatus?: string;
+  onStopGeneration?: () => void;
   // Inline component props
   pendingBrief?: CreativeBrief | null;
   confirmedBrief?: CreativeBrief | null;
@@ -44,6 +47,7 @@ export function ChatPanel({
   onSendMessage, 
   isLoading,
   generationStatus,
+  onStopGeneration,
   pendingBrief,
   confirmedBrief,
   generatedContent,
@@ -110,6 +114,16 @@ export function ChatPanel({
               />
             )}
             
+            {/* Confirmed Brief View - Persistent read-only view */}
+            {confirmedBrief && !pendingBrief && (
+              <ConfirmedBriefView brief={confirmedBrief} />
+            )}
+            
+            {/* Selected Product View - Persistent read-only view after content generation */}
+            {generatedContent && selectedProducts.length > 0 && (
+              <SelectedProductView products={selectedProducts} />
+            )}
+            
             {/* Product Review - Conversational Product Selection */}
             {showProductReview && (
               <ProductReview
@@ -141,7 +155,7 @@ export function ChatPanel({
                 border: `1px solid ${tokens.colorNeutralStroke2}`,
               }}>
                 <Spinner size="small" />
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
                   <Text weight="semibold" size={300}>
                     {generationStatus || 'Generating response...'}
                   </Text>
@@ -151,6 +165,22 @@ export function ChatPanel({
                     </Text>
                   )}
                 </div>
+                {onStopGeneration && (
+                  <Tooltip content="Stop generation" relationship="label">
+                    <Button
+                      appearance="subtle"
+                      icon={<Stop24Regular />}
+                      onClick={onStopGeneration}
+                      size="small"
+                      style={{ 
+                        color: tokens.colorPaletteRedForeground1,
+                        minWidth: '32px',
+                      }}
+                    >
+                      Stop
+                    </Button>
+                  </Tooltip>
+                )}
               </div>
             )}
           </>
@@ -178,6 +208,7 @@ export function ChatPanel({
             border: `1px solid ${tokens.colorNeutralStroke1}`,
           }}
         >
+{/* Attach file button disabled
           <Tooltip content="Attach file" relationship="label">
             <Button
               appearance="subtle"
@@ -191,6 +222,7 @@ export function ChatPanel({
               }}
             />
           </Tooltip>
+*/}
           <Input
             style={{ 
               flex: 1,
