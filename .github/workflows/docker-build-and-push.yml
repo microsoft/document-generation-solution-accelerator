@@ -7,10 +7,9 @@ on:
       - 'src/frontend/**'
       - 'src/**/*.py'
       - 'src/requirements*.txt'
-      - '!src/tests/**'
-      - 'Dockerfile'
-      - '*.Dockerfile'
+      - 'src/WebApp.Dockerfile'
       - '.github/workflows/docker-build-and-push.yml'
+      - '!src/tests/**'
   pull_request:
     branches: [main, dev, demo]
     types:
@@ -22,10 +21,9 @@ on:
       - 'src/frontend/**'
       - 'src/**/*.py'
       - 'src/requirements*.txt'
-      - '!src/tests/**'
-      - 'Dockerfile'
-      - '*.Dockerfile'
+      - 'src/WebApp.Dockerfile'
       - '.github/workflows/docker-build-and-push.yml'
+      - '!src/tests/**'
   merge_group:
   workflow_dispatch:
 
