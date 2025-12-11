@@ -20,7 +20,6 @@ import json
 import logging
 import re
 from typing import Any, AsyncIterator, Optional, cast
-from collections.abc import AsyncIterable
 
 from agent_framework import (
     ChatAgent,

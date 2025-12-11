@@ -61,9 +61,10 @@ export function ChatPanel({
   const [inputValue, setInputValue] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Scroll to bottom when messages change, content updates, or loading state changes
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, pendingBrief, confirmedBrief, generatedContent]);
+  }, [messages, pendingBrief, confirmedBrief, generatedContent, isLoading, generationStatus]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

@@ -217,7 +217,6 @@ export async function* streamGenerateContent(
       }
       
       const statusData = await statusResponse.json();
-      console.log(`Task ${taskId} status: ${statusData.status} (attempt ${attempts})`);
       
       if (statusData.status === 'completed') {
         // Yield the final result
@@ -296,19 +295,6 @@ export async function getProducts(params?: {
 
   if (!response.ok) {
     throw new Error(`Failed to get products: ${response.statusText}`);
-  }
-
-  return response.json();
-}
-
-/**
- * Get a single product by SKU
- */
-export async function getProduct(sku: string): Promise<Product> {
-  const response = await fetch(`${API_BASE}/products/${sku}`);
-
-  if (!response.ok) {
-    throw new Error(`Failed to get product: ${response.statusText}`);
   }
 
   return response.json();

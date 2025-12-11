@@ -152,20 +152,3 @@ class Conversation(BaseModel):
     creative_brief: Optional[CreativeBrief] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-class BriefConfirmationRequest(BaseModel):
-    """Request to confirm or edit a parsed creative brief."""
-    conversation_id: str
-    creative_brief: CreativeBrief
-    confirmed: bool = False
-    edits: Optional[dict] = None  # Field-level edits to apply
-
-
-class ContentIterationRequest(BaseModel):
-    """Request to iterate on generated content with additional direction."""
-    conversation_id: str
-    generation_id: str
-    feedback: str = Field(description="User's feedback or additional direction")
-    regenerate_text: bool = False
-    regenerate_image: bool = False

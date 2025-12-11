@@ -18,7 +18,6 @@ from typing_extensions import Self
 DOTENV_PATH = os.environ.get(
     "DOTENV_PATH", os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), ".env")
 )
-MINIMUM_SUPPORTED_AZURE_OPENAI_PREVIEW_API_VERSION = "2025-01-01-preview"
 
 
 def parse_comma_separated(value: str) -> List[str]:
@@ -35,13 +34,6 @@ class _UiSettings(BaseSettings):
     )
 
     app_name: str = "Content Generation Accelerator"
-    title: str = "Content Generation"
-    logo: Optional[str] = None
-    chat_logo: Optional[str] = None
-    chat_title: str = "Marketing Content Generator"
-    chat_description: str = "AI-powered multimodal content generation for marketing campaigns."
-    favicon: str = "/favicon.ico"
-    show_share_button: bool = False
 
 
 class _ChatHistorySettings(BaseSettings):
