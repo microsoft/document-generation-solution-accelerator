@@ -112,4 +112,17 @@ export interface GeneratedContent {
   };
   violations: ComplianceViolation[];
   requires_modification: boolean;
+  // Error fields for when generation fails
+  error?: string;
+  image_error?: string;
+  text_error?: string;
+}
+
+export interface AppConfig {
+  app_name: string;
+  show_brand_guidelines: boolean;
+  enable_image_generation: boolean;
+  image_model?: string;
+  enable_compliance_check: boolean;
+  max_file_size_mb: number;
 }

@@ -123,7 +123,7 @@ hooks:
           Write-Host "===== Building Container Image =====" -ForegroundColor Yellow
           Write-Host "Building and pushing image to ACR: $env:ACR_NAME" -ForegroundColor Cyan
           
-          az acr build --registry $env:ACR_NAME --image content-gen-app:latest ./src
+          az acr build --registry $env:ACR_NAME --image content-gen-app:latest --file ./src/WebApp.Dockerfile ./src
           
           if ($LASTEXITCODE -eq 0) {
             Write-Host "Container image built and pushed successfully!" -ForegroundColor Green
@@ -156,12 +156,66 @@ hooks:
           Write-Host "$env:ACR_NAME" -ForegroundColor Cyan
         }
         
+        # Build and deploy frontend to App Service
         Write-Host ""
-        Write-Host "===== Next Steps =====" -ForegroundColor Yellow
-        Write-Host "1. Upload product data:"
-        Write-Host "   python ./scripts/product_ingestion.py --data-path ./sample_data" -ForegroundColor Cyan
+        Write-Host "===== Building Frontend =====" -ForegroundColor Yellow
+        Push-Location ./src/frontend
+        npm install
+        npm run build
+        
+        if ($LASTEXITCODE -eq 0) {
+          Write-Host "Frontend build completed!" -ForegroundColor Green
+          
+          # Copy build to frontend-server
+          Copy-Item -Path ../static/* -Destination ../frontend-server/static/ -Recurse -Force -ErrorAction SilentlyContinue
+          
+          Push-Location ../frontend-server
+          
+          # Create deployment package
+          Write-Host "Creating deployment package..."
+          Remove-Item -Path frontend-deploy.zip -Force -ErrorAction SilentlyContinue
+          Compress-Archive -Path static, server.js, package.json, package-lock.json -DestinationPath frontend-deploy.zip -Force
+          
+          Write-Host ""
+          Write-Host "===== Deploying Frontend to App Service =====" -ForegroundColor Yellow
+          az webapp deploy --resource-group $env:RESOURCE_GROUP_NAME --name $env:APP_SERVICE_NAME --src-path frontend-deploy.zip --type zip
+          
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "Frontend deployed successfully!" -ForegroundColor Green
+          } else {
+            Write-Host "Frontend deployment failed" -ForegroundColor Red
+          }
+          
+          Pop-Location
+        } else {
+          Write-Host "Frontend build failed" -ForegroundColor Red
+        }
+        Pop-Location
+        
+        # Run post-deploy script to upload sample data and create search index
         Write-Host ""
-        Write-Host "2. Access the web application:"
+        Write-Host "===== Running Post-Deploy Script =====" -ForegroundColor Yellow
+        Write-Host "This will upload sample data and create the search index..."
+        
+        if (Test-Path "./scripts/post_deploy.py") {
+          python ./scripts/post_deploy.py `
+            --resource-group $env:RESOURCE_GROUP_NAME `
+            --app-name $env:APP_SERVICE_NAME `
+            --skip-tests
+          
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "Post-deploy script completed successfully!" -ForegroundColor Green
+          } else {
+            Write-Host "Post-deploy script completed with warnings (some steps may have failed)" -ForegroundColor Yellow
+          }
+        } else {
+          Write-Host "Warning: post_deploy.py not found, skipping sample data upload" -ForegroundColor Yellow
+        }
+        
+        Write-Host ""
+        Write-Host "===== Deployment Complete =====" -ForegroundColor Green
+        Write-Host ""
+        Write-Host "Access the web application:"
         Write-Host "   $env:WEB_APP_URL" -ForegroundColor Cyan
       shell: pwsh
       continueOnError: false
@@ -197,7 +251,7 @@ hooks:
           echo "===== Building Container Image ====="
           echo "Building and pushing image to ACR: $ACR_NAME"
           
-          if az acr build --registry "$ACR_NAME" --image content-gen-app:latest ./src; then
+          if az acr build --registry "$ACR_NAME" --image content-gen-app:latest --file ./src/WebApp.Dockerfile ./src; then
             echo "Container image built and pushed successfully!"
             
             # Enable container deployment and re-provision
@@ -223,12 +277,61 @@ hooks:
           echo "Container Registry: $ACR_NAME"
         fi
         
+        # Build and deploy frontend to App Service
         echo ""
-        echo "===== Next Steps ====="
-        echo "1. Upload product data:"
-        echo "   python ./scripts/product_ingestion.py --data-path ./sample_data"
+        echo "===== Building Frontend ====="
+        cd ./src/frontend
+        if npm install && npm run build; then
+          echo "Frontend build completed!"
+          
+          # Copy build to frontend-server
+          cp -r ../static/* ../frontend-server/static/ 2>/dev/null || true
+          
+          cd ../frontend-server
+          
+          # Create deployment package
+          echo "Creating deployment package..."
+          rm -f frontend-deploy.zip
+          zip -r frontend-deploy.zip static/ server.js package.json package-lock.json
+          
+          echo ""
+          echo "===== Deploying Frontend to App Service ====="
+          if az webapp deploy \
+            --resource-group "$RESOURCE_GROUP_NAME" \
+            --name "$APP_SERVICE_NAME" \
+            --src-path frontend-deploy.zip \
+            --type zip; then
+            echo "Frontend deployed successfully!"
+          else
+            echo "Frontend deployment failed"
+          fi
+          
+          cd ../..
+        else
+          echo "Frontend build failed"
+          cd ../..
+        fi
+        
+        # Run post-deploy script to upload sample data and create search index
         echo ""
-        echo "2. Access the web application:"
+        echo "===== Running Post-Deploy Script ====="
+        echo "This will upload sample data and create the search index..."
+        
+        if [ -f "./scripts/post_deploy.py" ]; then
+          python3 ./scripts/post_deploy.py \
+            --resource-group "$RESOURCE_GROUP_NAME" \
+            --app-name "$APP_SERVICE_NAME" \
+            --skip-tests \
+            && echo "Post-deploy script completed successfully!" \
+            || echo "Post-deploy script completed with warnings (some steps may have failed)"
+        else
+          echo "Warning: post_deploy.py not found, skipping sample data upload"
+        fi
+        
+        echo ""
+        echo "===== Deployment Complete ====="
+        echo ""
+        echo "Access the web application:"
         echo "   $WEB_APP_URL"
       shell: sh
       continueOnError: false

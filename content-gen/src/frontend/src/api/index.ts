@@ -9,9 +9,23 @@ import type {
   BrandGuidelines,
   ParsedBriefResponse,
   Conversation,
+  AppConfig,
 } from '../types';
 
 const API_BASE = '/api';
+
+/**
+ * Get application configuration including feature flags
+ */
+export async function getAppConfig(): Promise<AppConfig> {
+  const response = await fetch(`${API_BASE}/config`);
+
+  if (!response.ok) {
+    throw new Error(`Failed to get config: ${response.statusText}`);
+  }
+
+  return response.json();
+}
 
 /**
  * Parse a free-text creative brief into structured format
@@ -193,7 +207,7 @@ export async function* streamGenerateContent(
   
   // Poll for completion
   let attempts = 0;
-  const maxAttempts = 120; // 2 minutes max with 1-second polling
+  const maxAttempts = 600; // 10 minutes max with 1-second polling (image generation can take 3-5 min)
   const pollInterval = 1000; // 1 second
   
   while (attempts < maxAttempts) {
@@ -273,7 +287,7 @@ export async function* streamGenerateContent(
     }
   }
   
-  throw new Error('Generation timed out after 2 minutes');
+  throw new Error('Generation timed out after 10 minutes');
 }
 
 /**

@@ -324,10 +324,11 @@ IMPORTANT GUIDELINES:
         )
         logger.info(f"Using gpt-image-1 endpoint: {image_endpoint}")
         
+        # Use the image-specific API version for gpt-image-1 (requires 2025-04-01-preview or newer)
         client = AsyncAzureOpenAI(
             azure_endpoint=image_endpoint,
             azure_ad_token=token.token,
-            api_version=app_settings.azure_openai.preview_api_version,
+            api_version=app_settings.azure_openai.image_api_version,
         )
         
         try:

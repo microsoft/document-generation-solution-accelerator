@@ -16,6 +16,7 @@ import {
   Copy24Regular,
   ArrowDownload24Regular,
   Bot24Regular,
+  ShieldError24Regular,
 } from '@fluentui/react-icons';
 import type { GeneratedContent, ComplianceViolation, Product } from '../types';
 
@@ -24,6 +25,7 @@ interface InlineContentPreviewProps {
   onRegenerate: () => void;
   isLoading?: boolean;
   selectedProduct?: Product;
+  imageGenerationEnabled?: boolean;
 }
 
 // Custom hook for responsive breakpoints
@@ -39,14 +41,50 @@ function useWindowSize() {
   return windowWidth;
 }
 
-export function InlineContentPreview({ content, onRegenerate, isLoading, selectedProduct }: InlineContentPreviewProps) {
-  const { text_content, image_content, violations, requires_modification } = content;
+export function InlineContentPreview({ content, onRegenerate, isLoading, selectedProduct, imageGenerationEnabled = true }: InlineContentPreviewProps) {
+  const { text_content, image_content, violations, requires_modification, error, image_error, text_error } = content;
   const [copied, setCopied] = useState(false);
   const windowWidth = useWindowSize();
   
   // Responsive breakpoints
   const isSmall = windowWidth < 768;
   const isMedium = windowWidth < 1024;
+
+  // Helper to detect content filter errors
+  const isContentFilterError = (errorMessage?: string): boolean => {
+    if (!errorMessage) return false;
+    const filterPatterns = [
+      'content_filter',
+      'ContentFilter',
+      'content management policy',
+      'ResponsibleAI',
+      'responsible_ai_policy',
+      'content filtering',
+      'filtered',
+      'safety system',
+      'self_harm',
+      'sexual',
+      'violence',
+      'hate',
+    ];
+    return filterPatterns.some(pattern => 
+      errorMessage.toLowerCase().includes(pattern.toLowerCase())
+    );
+  };
+
+  // Get user-friendly error message
+  const getErrorMessage = (errorMessage?: string): { title: string; description: string } => {
+    if (isContentFilterError(errorMessage)) {
+      return {
+        title: 'Content Filtered',
+        description: 'Your request was blocked by Azure\'s content safety filters. Please try modifying your creative brief to avoid potentially sensitive content, or contact your administrator to adjust content filter settings.',
+      };
+    }
+    return {
+      title: 'Generation Failed',
+      description: errorMessage || 'An error occurred while generating content. Please try again.',
+    };
+  };
 
   const handleCopyText = () => {
     const textToCopy = [
@@ -232,6 +270,37 @@ export function InlineContentPreview({ content, onRegenerate, isLoading, selecte
           </div>
         )}
         
+        {/* Content Filter / Generation Error Banner */}
+        {(error || text_error) && !violations.some(v => v.message.toLowerCase().includes('filter')) && (
+          <div style={{ 
+            padding: 'clamp(12px, 2vw, 16px)', 
+            backgroundColor: isContentFilterError(error || text_error) ? '#fef3f2' : '#fef9ee',
+            border: `1px solid ${isContentFilterError(error || text_error) ? '#fecaca' : '#fde68a'}`,
+            borderRadius: '8px',
+            marginBottom: 'clamp(12px, 2vw, 16px)',
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '12px'
+          }}>
+            <ShieldError24Regular style={{ 
+              color: isContentFilterError(error || text_error) ? '#dc2626' : '#d97706',
+              flexShrink: 0,
+              marginTop: '2px',
+            }} />
+            <div>
+              <Text weight="semibold" size={300} block style={{ 
+                color: isContentFilterError(error || text_error) ? '#b91c1c' : '#92400e',
+                marginBottom: '4px',
+              }}>
+                {getErrorMessage(error || text_error).title}
+              </Text>
+              <Text size={200} style={{ color: tokens.colorNeutralForeground3, lineHeight: '1.5' }}>
+                {getErrorMessage(error || text_error).description}
+              </Text>
+            </div>
+          </div>
+        )}
+        
         {/* Product number header */}
         {selectedProduct && (
           <Text 
@@ -247,14 +316,16 @@ export function InlineContentPreview({ content, onRegenerate, isLoading, selecte
           </Text>
         )}
         
-        {/* Main Content Grid: Product Card + Images */}
+        {/* Main Content Grid: Product Card + Images (if enabled) */}
         <div style={{ 
           display: 'grid',
           gridTemplateColumns: isSmall 
             ? '1fr' 
-            : isMedium 
-              ? (selectedProduct ? '1fr 1fr' : '1fr 1fr')
-              : (selectedProduct ? 'minmax(150px, 200px) 1fr 1fr' : '1fr 1fr'),
+            : !imageGenerationEnabled
+              ? (selectedProduct ? 'minmax(150px, 200px) 1fr' : '1fr')
+              : isMedium 
+                ? (selectedProduct ? '1fr 1fr' : '1fr 1fr')
+                : (selectedProduct ? 'minmax(150px, 200px) 1fr 1fr' : '1fr 1fr'),
           gap: 'clamp(12px, 2vw, 16px)',
           marginBottom: 'clamp(16px, 2.5vw, 20px)',
         }}>
@@ -305,8 +376,8 @@ export function InlineContentPreview({ content, onRegenerate, isLoading, selecte
             </div>
           )}
           
-          {/* Generated Image 1 - with overlay text */}
-          {image_content?.image_url && (
+          {/* Generated Image 1 - with overlay text OR error message (only if image generation enabled) */}
+          {imageGenerationEnabled && (image_content?.image_url ? (
             <div style={{ 
               position: 'relative',
               borderRadius: '8px',
@@ -365,18 +436,61 @@ export function InlineContentPreview({ content, onRegenerate, isLoading, selecte
                 }}
               />
             </div>
-          )}
-          
-          {/* Generated Image 2 / Additional Image placeholder */}
-          {!isSmall && (
+          ) : (image_error || error) ? (
+            /* Show content filter or generation error */
             <div style={{ 
               borderRadius: '8px',
               overflow: 'hidden',
               aspectRatio: '1',
-              backgroundColor: tokens.colorNeutralBackground3,
+              minHeight: isSmall ? '200px' : 'auto',
+              backgroundColor: isContentFilterError(image_error || error) ? '#fef3f2' : '#fef9ee',
+              border: `1px solid ${isContentFilterError(image_error || error) ? '#fecaca' : '#fde68a'}`,
               display: 'flex',
+              flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
+              padding: 'clamp(16px, 3vw, 24px)',
+              textAlign: 'center',
+            }}>
+              <ShieldError24Regular style={{ 
+                fontSize: '48px', 
+                color: isContentFilterError(image_error || error) ? '#dc2626' : '#d97706',
+                marginBottom: '12px',
+              }} />
+              <Text weight="semibold" size={400} style={{ 
+                color: isContentFilterError(image_error || error) ? '#b91c1c' : '#92400e',
+                marginBottom: '8px',
+              }}>
+                {getErrorMessage(image_error || error).title}
+              </Text>
+              <Text size={200} style={{ 
+                color: tokens.colorNeutralForeground3,
+                maxWidth: '280px',
+                lineHeight: '1.5',
+              }}>
+                {getErrorMessage(image_error || error).description}
+              </Text>
+            </div>
+          ) : null)}
+          
+          {/* Generated Image 2 / Additional Image placeholder / Error state (only if image generation enabled) */}
+          {imageGenerationEnabled && !isSmall && (
+            <div style={{ 
+              borderRadius: '8px',
+              overflow: 'hidden',
+              aspectRatio: '1',
+              backgroundColor: (image_error || error) && !image_content?.image_url 
+                ? (isContentFilterError(image_error || error) ? '#fef3f2' : '#fef9ee')
+                : tokens.colorNeutralBackground3,
+              border: (image_error || error) && !image_content?.image_url
+                ? `1px solid ${isContentFilterError(image_error || error) ? '#fecaca' : '#fde68a'}`
+                : 'none',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: (image_error || error) && !image_content?.image_url ? 'clamp(16px, 3vw, 24px)' : '0',
+              textAlign: 'center',
             }}>
               {image_content?.image_url ? (
                 <img
@@ -389,6 +503,23 @@ export function InlineContentPreview({ content, onRegenerate, isLoading, selecte
                     filter: 'brightness(1.05)',
                   }}
                 />
+              ) : (image_error || error) ? (
+                /* Show abbreviated error for second image slot */
+                <>
+                  <ShieldError24Regular style={{ 
+                    fontSize: '32px', 
+                    color: isContentFilterError(image_error || error) ? '#dc2626' : '#d97706',
+                    marginBottom: '8px',
+                  }} />
+                  <Text size={200} weight="semibold" style={{ 
+                    color: isContentFilterError(image_error || error) ? '#b91c1c' : '#92400e',
+                  }}>
+                    {getErrorMessage(image_error || error).title}
+                  </Text>
+                  <Text size={100} style={{ color: tokens.colorNeutralForeground3, marginTop: '4px' }}>
+                    Click Regenerate to try again
+                  </Text>
+                </>
               ) : (
                 <Text size={200} style={{ color: tokens.colorNeutralForeground3 }}>
                   Additional image

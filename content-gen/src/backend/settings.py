@@ -82,6 +82,7 @@ class _AzureOpenAISettings(BaseSettings):
     stream: bool = True
     api_version: str = "2024-06-01"
     preview_api_version: str = "2024-02-01"
+    image_api_version: str = Field(default="2025-04-01-preview", alias="AZURE_OPENAI_IMAGE_API_VERSION")
     
     # Image generation settings
     # For dall-e-3: 1024x1024, 1024x1792, 1792x1024
@@ -102,6 +103,27 @@ class _AzureOpenAISettings(BaseSettings):
         if self.effective_image_model == "gpt-image-1" and self.gpt_image_endpoint:
             return self.gpt_image_endpoint
         return self.dalle_endpoint
+
+    @property
+    def image_generation_enabled(self) -> bool:
+        """Check if image generation is available.
+        
+        Image generation requires either:
+        - A DALL-E endpoint configured, OR
+        - A gpt-image-1 endpoint configured, OR
+        - Using the main OpenAI endpoint with an image model configured
+        
+        Returns False if image_model is explicitly set to empty string or "none".
+        """
+        # Check if image generation is explicitly disabled
+        if not self.image_model or self.image_model.lower() in ("none", "disabled", ""):
+            return False
+        
+        # Check if we have an endpoint that can handle image generation
+        # Either a dedicated image endpoint or the main OpenAI endpoint
+        has_image_endpoint = bool(self.dalle_endpoint or self.gpt_image_endpoint or self.endpoint)
+        
+        return has_image_endpoint
 
     @model_validator(mode="after")
     def ensure_endpoint(self) -> Self:

@@ -35,6 +35,9 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [generationStatus, setGenerationStatus] = useState<string>('');
   
+  // Feature flags from config
+  const [imageGenerationEnabled, setImageGenerationEnabled] = useState<boolean>(true);
+  
   // Brief confirmation flow
   const [pendingBrief, setPendingBrief] = useState<CreativeBrief | null>(null);
   const [confirmedBrief, setConfirmedBrief] = useState<CreativeBrief | null>(null);
@@ -50,6 +53,22 @@ function App() {
 
   // Abort controller for cancelling ongoing requests
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Fetch app config on mount
+  useEffect(() => {
+    const fetchConfig = async () => {
+      try {
+        const { getAppConfig } = await import('./api');
+        const config = await getAppConfig();
+        setImageGenerationEnabled(config.enable_image_generation);
+      } catch (err) {
+        console.error('Error fetching config:', err);
+        // Default to enabled if config fetch fails
+        setImageGenerationEnabled(true);
+      }
+    };
+    fetchConfig();
+  }, []);
 
   // Fetch current user on mount
   useEffect(() => {
@@ -131,6 +150,10 @@ function App() {
             } : undefined,
             violations: gc.violations || [],
             requires_modification: gc.requires_modification || false,
+            // Restore any generation errors
+            error: gc.error,
+            image_error: gc.image_error,
+            text_error: gc.text_error,
           };
           setGeneratedContent(restoredContent);
           
@@ -465,6 +488,10 @@ function App() {
               } : undefined,
               violations: rawContent.violations || [],
               requires_modification: rawContent.requires_modification || false,
+              // Capture any generation errors
+              error: rawContent.error,
+              image_error: rawContent.image_error,
+              text_error: rawContent.text_error,
             };
             setGeneratedContent(content);
             setGenerationStatus('');
@@ -576,6 +603,7 @@ function App() {
             onGenerateContent={handleGenerateContent}
             onRegenerateContent={handleGenerateContent}
             onProductsStartOver={handleProductsStartOver}
+            imageGenerationEnabled={imageGenerationEnabled}
           />
         </div>
         

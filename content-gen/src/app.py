@@ -1096,11 +1096,12 @@ async def get_brand_guidelines():
 
 @app.route("/api/config", methods=["GET"])
 async def get_ui_config():
-    """Get UI configuration."""
+    """Get UI configuration including feature flags."""
     return jsonify({
         "app_name": app_settings.ui.app_name,
         "show_brand_guidelines": True,
-        "enable_image_generation": True,
+        "enable_image_generation": app_settings.azure_openai.image_generation_enabled,
+        "image_model": app_settings.azure_openai.effective_image_model if app_settings.azure_openai.image_generation_enabled else None,
         "enable_compliance_check": True,
         "max_file_size_mb": 10
     })

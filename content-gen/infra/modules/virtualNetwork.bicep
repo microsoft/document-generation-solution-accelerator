@@ -10,8 +10,13 @@ param vnetLocation string = resourceGroup().location
 @description('Required. An Array of 1 or more IP Address Prefixes for the Virtual Network.')
 param vnetAddressPrefixes array = ['10.0.0.0/20']
 
+@description('Optional. Deploy Azure Bastion and Jumpbox subnets for VM-based administration.')
+param deployBastionAndJumpbox bool = false
+
 @description('An array of subnets to be created within the virtual network.')
-param vnetSubnets array = [
+// Core subnets: web (App Service), peps (Private Endpoints), aci (Container Instance)
+// Optional: AzureBastionSubnet and jumpbox (only when deployBastionAndJumpbox is true)
+var coreSubnets = [
   {
     name: 'web'
     addressPrefixes: ['10.0.0.0/23']
@@ -71,6 +76,33 @@ param vnetSubnets array = [
       securityRules: []
     }
   }
+  {
+    name: 'aci'
+    addressPrefixes: ['10.0.4.0/24']
+    delegation: 'Microsoft.ContainerInstance/containerGroups'
+    networkSecurityGroup: {
+      name: 'nsg-aci'
+      securityRules: [
+        {
+          name: 'AllowHttpsInbound'
+          properties: {
+            access: 'Allow'
+            direction: 'Inbound'
+            priority: 100
+            protocol: 'Tcp'
+            sourcePortRange: '*'
+            destinationPortRange: '8000'
+            sourceAddressPrefixes: ['10.0.0.0/20']
+            destinationAddressPrefixes: ['10.0.4.0/24']
+          }
+        }
+      ]
+    }
+  }
+]
+
+// Optional Bastion and Jumpbox subnets (only deployed when needed for VM administration)
+var bastionSubnets = deployBastionAndJumpbox ? [
   {
     name: 'AzureBastionSubnet'
     addressPrefixes: ['10.0.10.0/26']
@@ -154,30 +186,9 @@ param vnetSubnets array = [
       ]
     }
   }
-  {
-    name: 'aci'
-    addressPrefixes: ['10.0.4.0/24']
-    delegation: 'Microsoft.ContainerInstance/containerGroups'
-    networkSecurityGroup: {
-      name: 'nsg-aci'
-      securityRules: [
-        {
-          name: 'AllowHttpsInbound'
-          properties: {
-            access: 'Allow'
-            direction: 'Inbound'
-            priority: 100
-            protocol: 'Tcp'
-            sourcePortRange: '*'
-            destinationPortRange: '8000'
-            sourceAddressPrefixes: ['10.0.0.0/20']
-            destinationAddressPrefixes: ['10.0.4.0/24']
-          }
-        }
-      ]
-    }
-  }
-]
+] : []
+
+var vnetSubnets = concat(coreSubnets, bastionSubnets)
 
 @description('Optional. Tags to be applied to the resources.')
 param tags object = {}
@@ -249,8 +260,11 @@ module virtualNetwork 'br/public:avm/res/network/virtual-network:0.7.2' = {
 output name string = virtualNetwork.outputs.name
 output resourceId string = virtualNetwork.outputs.resourceId
 
+// Core subnet outputs (always present)
 output webSubnetResourceId string = contains(map(vnetSubnets, subnet => subnet.name), 'web') ? virtualNetwork.outputs.subnetResourceIds[indexOf(map(vnetSubnets, subnet => subnet.name), 'web')] : ''
 output pepsSubnetResourceId string = contains(map(vnetSubnets, subnet => subnet.name), 'peps') ? virtualNetwork.outputs.subnetResourceIds[indexOf(map(vnetSubnets, subnet => subnet.name), 'peps')] : ''
-output bastionSubnetResourceId string = contains(map(vnetSubnets, subnet => subnet.name), 'AzureBastionSubnet') ? virtualNetwork.outputs.subnetResourceIds[indexOf(map(vnetSubnets, subnet => subnet.name), 'AzureBastionSubnet')] : ''
-output jumpboxSubnetResourceId string = contains(map(vnetSubnets, subnet => subnet.name), 'jumpbox') ? virtualNetwork.outputs.subnetResourceIds[indexOf(map(vnetSubnets, subnet => subnet.name), 'jumpbox')] : ''
 output aciSubnetResourceId string = contains(map(vnetSubnets, subnet => subnet.name), 'aci') ? virtualNetwork.outputs.subnetResourceIds[indexOf(map(vnetSubnets, subnet => subnet.name), 'aci')] : ''
+
+// Optional bastion/jumpbox subnet outputs (only present when deployBastionAndJumpbox is true)
+output bastionSubnetResourceId string = deployBastionAndJumpbox && contains(map(vnetSubnets, subnet => subnet.name), 'AzureBastionSubnet') ? virtualNetwork.outputs.subnetResourceIds[indexOf(map(vnetSubnets, subnet => subnet.name), 'AzureBastionSubnet')] : ''
+output jumpboxSubnetResourceId string = deployBastionAndJumpbox && contains(map(vnetSubnets, subnet => subnet.name), 'jumpbox') ? virtualNetwork.outputs.subnetResourceIds[indexOf(map(vnetSubnets, subnet => subnet.name), 'jumpbox')] : ''

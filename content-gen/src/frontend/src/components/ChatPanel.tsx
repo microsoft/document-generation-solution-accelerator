@@ -40,6 +40,8 @@ interface ChatPanelProps {
   onGenerateContent?: () => void;
   onRegenerateContent?: () => void;
   onProductsStartOver?: () => void;
+  // Feature flags
+  imageGenerationEnabled?: boolean;
 }
 
 export function ChatPanel({ 
@@ -57,6 +59,7 @@ export function ChatPanel({
   onGenerateContent,
   onRegenerateContent,
   onProductsStartOver,
+  imageGenerationEnabled = true,
 }: ChatPanelProps) {
   const [inputValue, setInputValue] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -142,6 +145,7 @@ export function ChatPanel({
                 onRegenerate={onRegenerateContent}
                 isLoading={isLoading}
                 selectedProduct={selectedProducts.length > 0 ? selectedProducts[0] : undefined}
+                imageGenerationEnabled={imageGenerationEnabled}
               />
             )}
             

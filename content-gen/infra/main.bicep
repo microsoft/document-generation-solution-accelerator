@@ -23,6 +23,7 @@ param solutionUniqueText string = substring(uniqueString(subscription().id, reso
   'japaneast'
   'northeurope'
   'southeastasia'
+  'swedencentral'
   'uksouth'
   'westus'
   'westus3'
@@ -48,10 +49,10 @@ param gptModelDeploymentType string = 'GlobalStandard'
 
 @minLength(1)
 @description('Optional. Name of the GPT model to deploy.')
-param gptModelName string = 'gpt-5'
+param gptModelName string = 'gpt-5.1'
 
 @description('Optional. Version of the GPT model to deploy.')
-param gptModelVersion string = '2025-08-07'
+param gptModelVersion string = '2025-11-13'
 
 @description('Optional. Image model to deploy: gpt-image-1, dall-e-3, or none to skip.')
 @allowed([
@@ -75,30 +76,14 @@ param gptModelCapacity int = 150
 @description('Optional. Image model deployment capacity (RPM).')
 param dalleModelCapacity int = 1
 
-@minLength(1)
-@description('Optional. Name of the Text Embedding model to deploy.')
-param embeddingModel string = 'text-embedding-ada-002'
-
-@minValue(10)
-@description('Optional. Capacity of the Embedding Model deployment.')
-param embeddingDeploymentCapacity int = 80
-
 @description('Optional. Existing Log Analytics Workspace Resource ID.')
 param existingLogAnalyticsWorkspaceId string = ''
 
 @description('Optional. Resource ID of an existing Foundry project.')
 param azureExistingAIProjectResourceId string = ''
 
-@description('Optional. Size of the Jumpbox Virtual Machine when created.')
-param vmSize string = 'Standard_DS2_v2'
-
-@description('Optional. Admin username for the Jumpbox Virtual Machine.')
-@secure()
-param vmAdminUsername string = ''
-
-@description('Optional. Admin password for the Jumpbox Virtual Machine.')
-@secure()
-param vmAdminPassword string = ''
+@description('Optional. Deploy Azure Bastion and Jumpbox VM for private network administration.')
+param deployBastionAndJumpbox bool = false
 
 @description('Optional. The tags to apply to all deployed Azure resources.')
 param tags object = {}
@@ -120,10 +105,6 @@ param acrName string = ''
 
 @description('Optional. Image Tag.')
 param imageTag string = 'latest'
-
-@description('Optional. Container Registry password for ACI deployment.')
-@secure()
-param acrPassword string = ''
 
 @description('Optional. Skip container (ACI) deployment. Use this on first provision, then set to false after image is built.')
 param skipContainerDeployment bool = false
@@ -247,10 +228,7 @@ var replicaRegionPairs = {
 }
 var replicaLocation = replicaRegionPairs[?resourceGroup().location] ?? secondaryLocation
 
-var appEnvironment = 'Prod'
-var azureCosmosDbEnableFeedback = 'True'
-var azureSearchIndex = 'product_index'
-var azureSearchSemanticConfig = 'my-semantic-config'
+var azureSearchIndex = 'products'
 var aiSearchName = 'srch-${solutionSuffix}'
 var aiSearchConnectionName = 'foundry-search-connection-${solutionSuffix}'
 
@@ -270,7 +248,7 @@ var aiFoundryAiProjectResourceName = useExistingAiFoundryAiProject
   ? split(azureExistingAIProjectResourceId, '/')[10]
   : 'proj-${solutionSuffix}'
 
-// Base model deployments (GPT + Embeddings)
+// Base model deployments (GPT only - no embeddings needed for content generation)
 var baseModelDeployments = [
   {
     format: 'OpenAI'
@@ -281,17 +259,6 @@ var baseModelDeployments = [
       capacity: gptModelCapacity
     }
     version: gptModelVersion
-    raiPolicyName: 'Microsoft.Default'
-  }
-  {
-    format: 'OpenAI'
-    name: embeddingModel
-    model: embeddingModel
-    sku: {
-      name: 'GlobalStandard'
-      capacity: embeddingDeploymentCapacity
-    }
-    version: '2'
     raiPolicyName: 'Microsoft.Default'
   }
 ]
@@ -308,7 +275,7 @@ var imageModelConfig = {
     version: '3.0'
     sku: 'Standard'
   }
-  'none': {
+  none: {
     name: ''
     version: ''
     sku: ''
@@ -441,31 +408,29 @@ module virtualNetwork 'modules/virtualNetwork.bicep' = if (enablePrivateNetworki
     logAnalyticsWorkspaceId: logAnalyticsWorkspaceResourceId
     enableTelemetry: enableTelemetry
     resourceSuffix: solutionSuffix
+    deployBastionAndJumpbox: deployBastionAndJumpbox
   }
   dependsOn: enableMonitoring ? [logAnalyticsWorkspace] : []
 }
 
 // ========== Private DNS Zones ========== //
+// Only create DNS zones for resources that need private endpoints:
+// - Cognitive Services (for AI Services)
+// - OpenAI (for Azure OpenAI endpoints)
+// - Blob Storage
+// - Cosmos DB (Documents)
 var privateDnsZones = [
   'privatelink.cognitiveservices.azure.com'
   'privatelink.openai.azure.com'
-  'privatelink.services.ai.azure.com'
   'privatelink.blob.${environment().suffixes.storage}'
   'privatelink.documents.azure.com'
-  'privatelink.vaultcore.azure.net'
-  'privatelink.azurewebsites.net'
-  'privatelink.search.windows.net'
 ]
 
 var dnsZoneIndex = {
   cognitiveServices: 0
   openAI: 1
-  aiServices: 2
-  storageBlob: 3
-  cosmosDB: 4
-  keyVault: 5
-  appService: 6
-  searchService: 7
+  storageBlob: 2
+  cosmosDB: 3
 }
 
 @batchSize(5)
@@ -541,7 +506,43 @@ module aiFoundryAiServices 'br/public:avm/res/cognitive-services/account:0.14.0'
     ]
     diagnosticSettings: enableMonitoring ? [{ workspaceResourceId: logAnalyticsWorkspaceResourceId }] : null
     publicNetworkAccess: enablePrivateNetworking ? 'Disabled' : 'Enabled'
+    // Note: Private endpoint is created separately to avoid timing issues with model deployments
   }
+}
+
+// Create private endpoint for AI Services AFTER the account is fully provisioned
+module aiServicesPrivateEndpoint 'br/public:avm/res/network/private-endpoint:0.11.0' = if (!useExistingAiFoundryAiProject && enablePrivateNetworking) {
+  name: take('pep-ai-services-${aiFoundryAiServicesResourceName}', 64)
+  params: {
+    name: 'pep-${aiFoundryAiServicesResourceName}'
+    location: solutionLocation
+    tags: tags
+    subnetResourceId: virtualNetwork!.outputs.pepsSubnetResourceId
+    privateLinkServiceConnections: [
+      {
+        name: 'pep-${aiFoundryAiServicesResourceName}'
+        properties: {
+          privateLinkServiceId: aiFoundryAiServices!.outputs.resourceId
+          groupIds: ['account']
+        }
+      }
+    ]
+    privateDnsZoneGroup: {
+      privateDnsZoneGroupConfigs: [
+        { 
+          name: 'cognitiveservices'
+          privateDnsZoneResourceId: avmPrivateDnsZones[dnsZoneIndex.cognitiveServices]!.outputs.resourceId 
+        }
+        { 
+          name: 'openai'
+          privateDnsZoneResourceId: avmPrivateDnsZones[dnsZoneIndex.openAI]!.outputs.resourceId 
+        }
+      ]
+    }
+  }
+  dependsOn: [
+    aiFoundryAiServices
+  ]
 }
 
 module aiFoundryAiServicesProject 'modules/ai-project.bicep' = if (!useExistingAiFoundryAiProject) {
@@ -595,17 +596,8 @@ module aiSearch 'br/public:avm/res/search/search-service:0.11.1' = {
       }
     ]
     diagnosticSettings: enableMonitoring ? [{ workspaceResourceId: logAnalyticsWorkspaceResourceId }] : null
-    publicNetworkAccess: enablePrivateNetworking ? 'Disabled' : 'Enabled'
-    privateEndpoints: enablePrivateNetworking ? [
-      {
-        subnetResourceId: virtualNetwork!.outputs.pepsSubnetResourceId
-        privateDnsZoneGroup: {
-          privateDnsZoneGroupConfigs: [
-            { privateDnsZoneResourceId: avmPrivateDnsZones[dnsZoneIndex.searchService]!.outputs.resourceId }
-          ]
-        }
-      }
-    ] : null
+    // AI Search remains publicly accessible - accessed from ACI via managed identity
+    publicNetworkAccess: 'Enabled'
   }
 }
 
@@ -823,70 +815,84 @@ module webServerFarm 'br/public:avm/res/web/serverfarm:0.5.0' = {
 
 // ========== Web App ========== //
 var webSiteResourceName = 'app-${solutionSuffix}'
+// ACI private IP is in the 10.0.4.x subnet range (aci subnet)
+var aciPrivateIpPlaceholder = '10.0.4.4' // ACI gets this IP from the aci subnet
 module webSite 'modules/web-sites.bicep' = {
   name: take('module.web-sites.${webSiteResourceName}', 64)
   params: {
     name: webSiteResourceName
     tags: tags
     location: solutionLocation
-    kind: 'app,linux,container'
+    kind: enablePrivateNetworking ? 'app,linux' : 'app,linux,container'
     serverFarmResourceId: webServerFarm.outputs.resourceId
     managedIdentities: { userAssignedResourceIds: [userAssignedIdentity!.outputs.resourceId] }
-    siteConfig: {
-      linuxFxVersion: 'DOCKER|${acrResourceName}.azurecr.io/webapp:${imageTag}'
+    siteConfig: enablePrivateNetworking ? {
+      // For private networking: Node.js frontend server proxies to ACI backend
+      linuxFxVersion: 'NODE|20-lts'
+      minTlsVersion: '1.2'
+      alwaysOn: true
+      ftpsState: 'FtpsOnly'
+      appCommandLine: 'node server.js'
+    } : {
+      // For non-private: Docker container runs full app
+      linuxFxVersion: 'DOCKER|${acrResourceName}.azurecr.io/content-gen-app:${imageTag}'
       minTlsVersion: '1.2'
       alwaysOn: true
       ftpsState: 'FtpsOnly'
     }
     virtualNetworkSubnetId: enablePrivateNetworking ? virtualNetwork!.outputs.webSubnetResourceId : null
-    configs: concat([
+    configs: enablePrivateNetworking ? concat([
       {
+        // Private networking mode: Frontend proxy to ACI backend
+        name: 'appsettings'
+        properties: {
+          SCM_DO_BUILD_DURING_DEPLOYMENT: 'true'
+          // Backend URL points to ACI private IP
+          BACKEND_URL: 'http://${aciPrivateIpPlaceholder}:8000'
+          AZURE_CLIENT_ID: userAssignedIdentity.outputs.clientId
+        }
+        applicationInsightResourceId: enableMonitoring ? applicationInsights!.outputs.resourceId : null
+      }
+    ], enableMonitoring ? [
+      {
+        name: 'logs'
+        properties: {}
+      }
+    ] : []) : concat([
+      {
+        // Non-private networking mode: Docker container runs full app
         name: 'appsettings'
         properties: {
           SCM_DO_BUILD_DURING_DEPLOYMENT: 'true'
           DOCKER_REGISTRY_SERVER_URL: 'https://${acrResourceName}.azurecr.io'
-          AUTH_ENABLED: 'false'
-          // Azure OpenAI Settings
-          AZURE_OPENAI_API_VERSION: azureOpenaiAPIVersion
-          AZURE_OPENAI_MODEL: gptModelName
-          AZURE_DALLE_MODEL: imageModelConfig[imageModelChoice].name
+          
+          // Azure OpenAI Settings (matches .env)
           AZURE_OPENAI_ENDPOINT: 'https://${aiFoundryAiServicesResourceName}.openai.azure.com/'
-          AZURE_OPENAI_RESOURCE: aiFoundryAiServicesResourceName
-          AZURE_OPENAI_PREVIEW_API_VERSION: azureOpenaiAPIVersion
-          // AI Agent Settings
-          AZURE_AI_AGENT_ENDPOINT: aiFoundryAiProjectEndpoint
-          AZURE_AI_AGENT_MODEL_DEPLOYMENT_NAME: gptModelName
-          AZURE_AI_AGENT_API_VERSION: azureAiAgentApiVersion
-          // AI Search Settings
-          AZURE_SEARCH_SERVICE: aiSearch.outputs.name
-          AZURE_SEARCH_INDEX: azureSearchIndex
-          AZURE_SEARCH_SEMANTIC_CONFIG: azureSearchSemanticConfig
-          // Storage Settings
-          AZURE_STORAGE_ACCOUNT: storageAccountName
-          AZURE_STORAGE_PRODUCT_IMAGES_CONTAINER: productImagesContainer
-          AZURE_STORAGE_GENERATED_IMAGES_CONTAINER: generatedImagesContainer
-          // CosmosDB Settings
-          SOLUTION_NAME: solutionName
-          USE_CHAT_HISTORY_ENABLED: 'True'
-          AZURE_COSMOSDB_ACCOUNT: cosmosDB.outputs.name
-          AZURE_COSMOSDB_ACCOUNT_KEY: ''
-          AZURE_COSMOSDB_CONVERSATIONS_CONTAINER: cosmosDBConversationsContainer
-          AZURE_COSMOSDB_PRODUCTS_CONTAINER: cosmosDBProductsContainer
-          AZURE_COSMOSDB_DATABASE: cosmosDBDatabaseName
-          AZURE_COSMOSDB_ENABLE_FEEDBACK: azureCosmosDbEnableFeedback
-          // Brand Guidelines (configured via environment)
-          BRAND_TONE: 'Professional yet approachable'
-          BRAND_VOICE: 'Innovative, trustworthy, customer-focused'
-          BRAND_PROHIBITED_WORDS: 'guarantee,best,only,exclusive,cheapest'
-          BRAND_REQUIRED_DISCLOSURES: 'Terms apply,See details for eligibility'
-          BRAND_PRIMARY_COLOR: '#0078D4'
-          BRAND_SECONDARY_COLOR: '#107C10'
-          BRAND_IMAGE_STYLE: 'Modern, clean, minimalist with bright lighting'
-          BRAND_TYPOGRAPHY: 'Sans-serif, bold headlines, readable body text'
+          AZURE_OPENAI_GPT_MODEL: gptModelName
+          AZURE_OPENAI_IMAGE_MODEL: imageModelConfig[imageModelChoice].name
+          AZURE_OPENAI_GPT_IMAGE_ENDPOINT: imageModelChoice != 'none' ? 'https://${aiFoundryAiServicesResourceName}.openai.azure.com/' : ''
+          AZURE_OPENAI_API_VERSION: azureOpenaiAPIVersion
+          
+          // Azure Cosmos DB Settings (matches .env)
+          AZURE_COSMOS_ENDPOINT: 'https://cosmos-${solutionSuffix}.documents.azure.com:443/'
+          AZURE_COSMOS_DATABASE_NAME: cosmosDBDatabaseName
+          AZURE_COSMOS_PRODUCTS_CONTAINER: cosmosDBProductsContainer
+          AZURE_COSMOS_CONVERSATIONS_CONTAINER: cosmosDBConversationsContainer
+          
+          // Azure Blob Storage Settings (matches .env)
+          AZURE_BLOB_ACCOUNT_NAME: storageAccountName
+          AZURE_BLOB_PRODUCT_IMAGES_CONTAINER: productImagesContainer
+          AZURE_BLOB_GENERATED_IMAGES_CONTAINER: generatedImagesContainer
+          
+          // Azure AI Search Settings (matches .env)
+          AZURE_AI_SEARCH_ENDPOINT: 'https://${aiSearchName}.search.windows.net'
+          AZURE_AI_SEARCH_PRODUCTS_INDEX: azureSearchIndex
+          AZURE_AI_SEARCH_IMAGE_INDEX: 'product-images'
+          
           // App Settings
-          UWSGI_PROCESSES: '2'
-          UWSGI_THREADS: '2'
-          APP_ENV: appEnvironment
+          PORT: '8000'
+          WORKERS: '4'
+          AUTH_ENABLED: 'false'
           AZURE_CLIENT_ID: userAssignedIdentity.outputs.clientId
         }
         applicationInsightResourceId: enableMonitoring ? applicationInsights!.outputs.resourceId : null
@@ -902,16 +908,8 @@ module webSite 'modules/web-sites.bicep' = {
     vnetRouteAllEnabled: enablePrivateNetworking
     vnetImagePullEnabled: enablePrivateNetworking
     publicNetworkAccess: 'Enabled'
-    privateEndpoints: enablePrivateNetworking ? [
-      {
-        subnetResourceId: virtualNetwork!.outputs.pepsSubnetResourceId
-        privateDnsZoneGroup: {
-          privateDnsZoneGroupConfigs: [
-            { privateDnsZoneResourceId: avmPrivateDnsZones[dnsZoneIndex.appService]!.outputs.resourceId }
-          ]
-        }
-      }
-    ] : null
+    // App Service remains publicly accessible - it connects to private backend via VNet integration
+    // No private endpoint needed for App Service itself
   }
 }
 
@@ -932,22 +930,30 @@ module containerInstance 'modules/container-instance.bicep' = if (enablePrivateN
     userAssignedIdentityResourceId: userAssignedIdentity.outputs.resourceId
     enableTelemetry: enableTelemetry
     environmentVariables: [
+      // Azure OpenAI Settings
       { name: 'AZURE_OPENAI_ENDPOINT', value: 'https://${aiFoundryAiServicesResourceName}.openai.azure.com/' }
       { name: 'AZURE_OPENAI_GPT_MODEL', value: gptModelName }
       { name: 'AZURE_OPENAI_IMAGE_MODEL', value: imageModelConfig[imageModelChoice].name }
-      { name: 'AZURE_OPENAI_EMBEDDING_MODEL', value: embeddingModel }
+      { name: 'AZURE_OPENAI_GPT_IMAGE_ENDPOINT', value: imageModelChoice != 'none' ? 'https://${aiFoundryAiServicesResourceName}.openai.azure.com/' : '' }
       { name: 'AZURE_OPENAI_API_VERSION', value: azureOpenaiAPIVersion }
+      // Azure Cosmos DB Settings
       { name: 'AZURE_COSMOS_ENDPOINT', value: 'https://cosmos-${solutionSuffix}.documents.azure.com:443/' }
-      { name: 'AZURE_COSMOS_DATABASE', value: cosmosDBDatabaseName }
-      { name: 'AZURE_COSMOS_CONVERSATIONS_CONTAINER', value: cosmosDBConversationsContainer }
+      { name: 'AZURE_COSMOS_DATABASE_NAME', value: cosmosDBDatabaseName }
       { name: 'AZURE_COSMOS_PRODUCTS_CONTAINER', value: cosmosDBProductsContainer }
-      { name: 'AZURE_STORAGE_ACCOUNT_NAME', value: storageAccountName }
-      { name: 'AZURE_STORAGE_CONTAINER_NAME', value: productImagesContainer }
-      { name: 'AZURE_STORAGE_GENERATED_CONTAINER_NAME', value: generatedImagesContainer }
-      { name: 'AZURE_SEARCH_ENDPOINT', value: 'https://${aiSearchName}.search.windows.net' }
-      { name: 'AZURE_SEARCH_INDEX_NAME', value: azureSearchIndex }
-      { name: 'USE_CHAT_HISTORY_ENABLED', value: 'True' }
-      { name: 'AZURE_CLIENT_ID', value: '' }
+      { name: 'AZURE_COSMOS_CONVERSATIONS_CONTAINER', value: cosmosDBConversationsContainer }
+      // Azure Blob Storage Settings
+      { name: 'AZURE_BLOB_ACCOUNT_NAME', value: storageAccountName }
+      { name: 'AZURE_BLOB_PRODUCT_IMAGES_CONTAINER', value: productImagesContainer }
+      { name: 'AZURE_BLOB_GENERATED_IMAGES_CONTAINER', value: generatedImagesContainer }
+      // Azure AI Search Settings
+      { name: 'AZURE_AI_SEARCH_ENDPOINT', value: 'https://${aiSearchName}.search.windows.net' }
+      { name: 'AZURE_AI_SEARCH_PRODUCTS_INDEX', value: azureSearchIndex }
+      { name: 'AZURE_AI_SEARCH_IMAGE_INDEX', value: 'product-images' }
+      // App Settings
+      { name: 'AZURE_CLIENT_ID', value: userAssignedIdentity.outputs.clientId }
+      { name: 'PORT', value: '8000' }
+      { name: 'WORKERS', value: '4' }
+      { name: 'RUNNING_IN_PRODUCTION', value: 'true' }
     ]
   }
 }
@@ -999,7 +1005,7 @@ output AI_SEARCH_INDEX string = azureSearchIndex
 output AZURE_OPENAI_MODEL string = gptModelName
 
 @description('Contains Image Model (empty if none selected)')
-output AZURE_DALLE_MODEL string = imageModelConfig[imageModelChoice].name
+output AZURE_OPENAI_IMAGE_MODEL string = imageModelConfig[imageModelChoice].name
 
 @description('Contains OpenAI Resource')
 output AZURE_OPENAI_RESOURCE string = aiFoundryAiServicesResourceName
@@ -1013,17 +1019,14 @@ output AZURE_AI_AGENT_API_VERSION string = azureAiAgentApiVersion
 @description('Contains Application Insights Connection String')
 output AZURE_APPLICATION_INSIGHTS_CONNECTION_STRING string = (enableMonitoring && !useExistingLogAnalytics) ? applicationInsights!.outputs.connectionString : ''
 
-@description('Contains Application Environment')
-output APP_ENV string = appEnvironment
-
 @description('Contains the location used for AI Services deployment')
 output AI_SERVICE_LOCATION string = aiServiceLocation
 
-@description('Contains Container Instance Name (when private networking enabled)')
-output CONTAINER_INSTANCE_NAME string = enablePrivateNetworking ? containerInstance!.outputs.name : ''
+@description('Contains Container Instance Name (when private networking enabled and deployed)')
+output CONTAINER_INSTANCE_NAME string = (enablePrivateNetworking && !skipContainerDeployment) ? containerInstance!.outputs.name : ''
 
-@description('Contains Container Instance Private IP (when private networking enabled)')
-output CONTAINER_INSTANCE_PRIVATE_IP string = enablePrivateNetworking ? containerInstance!.outputs.privateIpAddress : ''
+@description('Contains Container Instance Private IP (when private networking enabled and deployed)')
+output CONTAINER_INSTANCE_PRIVATE_IP string = (enablePrivateNetworking && !skipContainerDeployment) ? containerInstance!.outputs.privateIpAddress : ''
 
 @description('Contains ACR Name (when private networking enabled)')
 output ACR_NAME string = enablePrivateNetworking ? acrResourceName : ''
