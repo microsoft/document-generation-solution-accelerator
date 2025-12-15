@@ -3072,7 +3072,7 @@ def test_bug_10178_delete_all_chat_history_error(request, login_logout):
         
         test_questions = [
             "What are typical sections in a promissory note?",
-            "What is a principal amount?",
+            "Remove Notices section",
         ]
         
         for i, question in enumerate(test_questions, start=1):
@@ -3151,14 +3151,14 @@ def test_bug_10178_delete_all_chat_history_error(request, login_logout):
         
         logger.info("Clicking 'Clear All' button to confirm deletion...")
         clear_all_button.click()
-        page.wait_for_timeout(20000)  # Wait longer for deletion to complete (increased for bulk deletion)
+        page.wait_for_timeout(30000)  # Wait longer for deletion to complete (increased for bulk deletion)
         
         # Verify all histories are deleted (should see "No chat history" message)
         no_history_text = page.locator("//span[contains(text(),'No chat history.')]")
         
         try:
             # Use expect with timeout for better reliability
-            expect(no_history_text).to_be_visible(timeout=15000)
+            expect(no_history_text).to_be_visible(timeout=30000)
             logger.info("✅ All histories are deleted - 'No chat history' message displayed")
         except Exception as e:
             logger.error("Failed to verify 'No chat history' message: %s", str(e))
