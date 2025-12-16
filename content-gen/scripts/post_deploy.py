@@ -2,13 +2,16 @@
 """
 Post-Deployment Script for Content Generation Solution Accelerator.
 
-This unified script handles all post-deployment tasks:
-1. Enable public access on Azure resources (for data ingestion)
-2. Upload product images to Azure Blob Storage
-3. Load sample product data to CosmosDB
-4. Create and populate Azure AI Search index
-5. Disable public access on Azure resources (restore security)
-6. Run application health tests
+This unified script handles all post-deployment tasks by calling admin APIs
+that run inside the VNet (bypassing firewall restrictions):
+1. Upload product images via /api/admin/upload-images
+2. Load sample product data via /api/admin/load-sample-data
+3. Create and populate Azure AI Search index via /api/admin/create-search-index
+4. Run application health tests
+
+The admin APIs run inside the ACI container which has private endpoint access
+to Blob Storage, Cosmos DB, and Azure AI Search - eliminating the need to
+modify firewall rules.
 
 Usage:
     python post_deploy.py --resource-group rg-name [options]
@@ -16,17 +19,17 @@ Usage:
 Options:
     --resource-group, -g    Resource group name (required)
     --app-name              App Service name (auto-detected if not provided)
+    --api-key               Admin API key for authentication (or set ADMIN_API_KEY env var)
     --skip-images           Skip uploading images
     --skip-data             Skip loading sample data
     --skip-index            Skip creating search index
     --skip-tests            Skip application tests
-    --skip-descriptions     Skip generating AI image descriptions
-    --keep-public-access    Don't disable public access after completion
     --dry-run               Show what would be done without executing
 """
 
 import argparse
 import asyncio
+import base64
 import json
 import os
 import subprocess
@@ -36,36 +39,27 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 
-import httpx
-from azure.identity import DefaultAzureCredential
-from azure.storage.blob.aio import BlobServiceClient
-from azure.storage.blob import ContentSettings
-from azure.search.documents import SearchClient
-from azure.search.documents.indexes import SearchIndexClient
-from azure.search.documents.indexes.models import (
-    SearchIndex, SearchField, SearchFieldDataType,
-    SimpleField, SearchableField, VectorSearch,
-    VectorSearchProfile, HnswAlgorithmConfiguration,
-    SemanticConfiguration, SemanticField,
-    SemanticPrioritizedFields, SemanticSearch,
-)
-from azure.core.credentials import AzureKeyCredential
-
-# Add src to path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+try:
+    import httpx
+except ModuleNotFoundError as exc:
+    missing = getattr(exc, "name", "<unknown>")
+    print("\nERROR: Missing Python dependency: %s\n" % missing)
+    print("Install post-deploy dependencies first, e.g.:")
+    print("  python -m pip install httpx")
+    sys.exit(2)
 
 
 @dataclass
 class ResourceConfig:
     """Configuration for Azure resources."""
     resource_group: str
-    storage_account: str
-    cosmos_account: str
-    search_service: str
     app_service: str
+    app_url: str
+    api_key: str = ""
+    storage_account: str = ""  # Only needed for reference, not direct access
+    cosmos_account: str = ""   # Only needed for reference, not direct access
+    search_service: str = ""   # Only needed for reference, not direct access
     container_name: str = "product-images"
-    database_name: str = "content_generation_db"
-    search_index: str = "products"
 
 
 class Colors:
@@ -112,33 +106,9 @@ def run_az_command(args: List[str], capture_output: bool = True) -> subprocess.C
     return subprocess.run(cmd, capture_output=capture_output, text=True)
 
 
-def discover_resources(resource_group: str, app_name: Optional[str] = None) -> ResourceConfig:
+def discover_resources(resource_group: str, app_name: Optional[str] = None, api_key: str = "") -> ResourceConfig:
     """Discover Azure resources in the resource group."""
     print_step("Discovering Azure resources...")
-    
-    # Get storage account
-    result = run_az_command([
-        "storage", "account", "list",
-        "--resource-group", resource_group,
-        "--query", "[0].name", "-o", "tsv"
-    ])
-    storage_account = result.stdout.strip()
-    
-    # Get Cosmos DB account
-    result = run_az_command([
-        "cosmosdb", "list",
-        "--resource-group", resource_group,
-        "--query", "[0].name", "-o", "tsv"
-    ])
-    cosmos_account = result.stdout.strip()
-    
-    # Get AI Search service
-    result = run_az_command([
-        "search", "service", "list",
-        "--resource-group", resource_group,
-        "--query", "[0].name", "-o", "tsv"
-    ])
-    search_service = result.stdout.strip()
     
     # Get App Service (or use provided name)
     if not app_name:
@@ -149,84 +119,89 @@ def discover_resources(resource_group: str, app_name: Optional[str] = None) -> R
         ])
         app_name = result.stdout.strip()
     
+    # Get App URL
+    result = run_az_command([
+        "webapp", "show",
+        "--name", app_name,
+        "--resource-group", resource_group,
+        "--query", "defaultHostName", "-o", "tsv"
+    ])
+    app_url = f"https://{result.stdout.strip()}"
+    
+    # Get storage account (for reference only)
+    result = run_az_command([
+        "storage", "account", "list",
+        "--resource-group", resource_group,
+        "--query", "[0].name", "-o", "tsv"
+    ])
+    storage_account = result.stdout.strip()
+    
+    # Get Cosmos DB account (for reference only)
+    result = run_az_command([
+        "cosmosdb", "list",
+        "--resource-group", resource_group,
+        "--query", "[0].name", "-o", "tsv"
+    ])
+    cosmos_account = result.stdout.strip()
+    
+    # Get AI Search service (for reference only)
+    result = run_az_command([
+        "search", "service", "list",
+        "--resource-group", resource_group,
+        "--query", "[0].name", "-o", "tsv"
+    ])
+    search_service = result.stdout.strip()
+    
     config = ResourceConfig(
         resource_group=resource_group,
+        app_service=app_name,
+        app_url=app_url,
+        api_key=api_key,
         storage_account=storage_account,
         cosmos_account=cosmos_account,
-        search_service=search_service,
-        app_service=app_name
+        search_service=search_service
     )
     
+    print(f"  App Service:     {config.app_service}")
+    print(f"  App URL:         {config.app_url}")
     print(f"  Storage Account: {config.storage_account}")
     print(f"  Cosmos DB:       {config.cosmos_account}")
     print(f"  AI Search:       {config.search_service}")
-    print(f"  App Service:     {config.app_service}")
+    print(f"  API Key:         {'***' if config.api_key else '(not set - development mode)'}")
     
     return config
 
 
-def set_public_access(config: ResourceConfig, enabled: bool, dry_run: bool = False):
-    """Enable or disable public network access on resources."""
-    state = "Enabled" if enabled else "Disabled"
-    action = "Enabling" if enabled else "Disabling"
-    print_header(f"{action} Public Network Access")
+def get_api_headers(config: ResourceConfig) -> Dict[str, str]:
+    """Get headers for admin API requests."""
+    headers = {"Content-Type": "application/json"}
+    if config.api_key:
+        headers["X-Admin-API-Key"] = config.api_key
+    return headers
+
+
+async def check_admin_api_health(config: ResourceConfig) -> bool:
+    """Check if the admin API is available."""
+    print_step("Checking admin API health...")
     
-    if dry_run:
-        print_warning(f"DRY RUN: Would set public access to {state}")
-        return
-    
-    # Storage Account
-    print_step(f"Storage Account: {config.storage_account}")
-    result = run_az_command([
-        "storage", "account", "update",
-        "--name", config.storage_account,
-        "--resource-group", config.resource_group,
-        "--public-network-access", state,
-        "-o", "none"
-    ])
-    if result.returncode == 0:
-        print_success(f"Public access {state.lower()}")
-    else:
-        print_error(f"Failed: {result.stderr}")
-    
-    # Cosmos DB
-    print_step(f"Cosmos DB: {config.cosmos_account}")
-    cosmos_state = "ENABLED" if enabled else "DISABLED"
-    result = run_az_command([
-        "cosmosdb", "update",
-        "--name", config.cosmos_account,
-        "--resource-group", config.resource_group,
-        "--public-network-access", cosmos_state,
-        "-o", "none"
-    ])
-    if result.returncode == 0:
-        print_success(f"Public access {state.lower()}")
-    else:
-        print_error(f"Failed: {result.stderr}")
-    
-    # AI Search
-    print_step(f"AI Search: {config.search_service}")
-    search_state = "enabled" if enabled else "disabled"
-    result = run_az_command([
-        "search", "service", "update",
-        "--name", config.search_service,
-        "--resource-group", config.resource_group,
-        "--public-access", search_state,
-        "-o", "none"
-    ])
-    if result.returncode == 0:
-        print_success(f"Public access {state.lower()}")
-    else:
-        print_error(f"Failed: {result.stderr}")
-    
-    if enabled:
-        print_warning("Waiting 10 seconds for access changes to propagate...")
-        time.sleep(10)
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        try:
+            response = await client.get(f"{config.app_url}/api/admin/health")
+            if response.status_code == 200:
+                data = response.json()
+                print_success(f"Admin API healthy (API key required: {data.get('api_key_required', False)})")
+                return True
+            else:
+                print_error(f"Admin API returned {response.status_code}")
+                return False
+        except Exception as e:
+            print_error(f"Failed to reach admin API: {e}")
+            return False
 
 
 async def upload_images(config: ResourceConfig, dry_run: bool = False) -> int:
-    """Upload product images to Azure Blob Storage."""
-    print_header("Uploading Product Images")
+    """Upload product images via admin API."""
+    print_header("Uploading Product Images via API")
     
     images_folder = Path(__file__).parent / "images"
     if not images_folder.exists():
@@ -247,254 +222,185 @@ async def upload_images(config: ResourceConfig, dry_run: bool = False) -> int:
     print(f"Found {len(image_files)} image files")
     
     if dry_run:
-        print_warning("DRY RUN: Would upload images to blob storage")
+        print_warning("DRY RUN: Would upload images via API")
         for img in sorted(image_files):
             print(f"  - {img.name}")
         return len(image_files)
     
-    account_url = f"https://{config.storage_account}.blob.core.windows.net"
-    credential = DefaultAzureCredential()
-    
-    uploaded = 0
-    async with BlobServiceClient(account_url=account_url, credential=credential) as blob_service:
-        container_client = blob_service.get_container_client(config.container_name)
+    # Prepare images for API call
+    images_data = []
+    for image_path in sorted(image_files):
+        content_type = "image/png" if image_path.suffix.lower() == ".png" else "image/jpeg"
         
-        # Create container if needed
+        with open(image_path, "rb") as f:
+            image_bytes = f.read()
+        
+        images_data.append({
+            "filename": image_path.name,
+            "content_type": content_type,
+            "data": base64.b64encode(image_bytes).decode("utf-8")
+        })
+        print_step(f"Prepared: {image_path.name} ({len(image_bytes):,} bytes)")
+    
+    # Call admin API
+    print_step("Calling /api/admin/upload-images...")
+    
+    async with httpx.AsyncClient(timeout=300.0) as client:  # 5 minute timeout for large uploads
         try:
-            await container_client.create_container()
-            print_success(f"Created container: {config.container_name}")
-        except Exception as e:
-            if "ContainerAlreadyExists" not in str(e):
-                print_warning(f"Container note: {e}")
-        
-        for image_path in sorted(image_files):
-            blob_name = image_path.name
-            content_type = "image/png" if image_path.suffix.lower() == ".png" else "image/jpeg"
+            response = await client.post(
+                f"{config.app_url}/api/admin/upload-images",
+                headers=get_api_headers(config),
+                json={"images": images_data}
+            )
             
-            try:
-                with open(image_path, "rb") as f:
-                    image_data = f.read()
-                
-                blob_client = container_client.get_blob_client(blob_name)
-                await blob_client.upload_blob(
-                    image_data,
-                    overwrite=True,
-                    content_settings=ContentSettings(content_type=content_type)
-                )
-                print_success(f"{blob_name} ({len(image_data):,} bytes)")
-                uploaded += 1
-            except Exception as e:
-                print_error(f"Failed to upload {blob_name}: {e}")
-    
-    print(f"\nUploaded {uploaded}/{len(image_files)} images")
-    return uploaded
+            if response.status_code == 401:
+                print_error("Unauthorized - check your ADMIN_API_KEY")
+                return 0
+            
+            if response.status_code != 200:
+                print_error(f"API returned {response.status_code}: {response.text[:500]}")
+                return 0
+            
+            result = response.json()
+            uploaded = result.get("uploaded", 0)
+            failed = result.get("failed", 0)
+            
+            for r in result.get("results", []):
+                if r.get("status") == "uploaded":
+                    print_success(f"{r['filename']}")
+                else:
+                    print_error(f"{r['filename']}: {r.get('error', 'Unknown error')}")
+            
+            print(f"\nUploaded {uploaded}/{len(image_files)} images ({failed} failed)")
+            return uploaded
+            
+        except Exception as e:
+            print_error(f"API call failed: {e}")
+            return 0
 
 
-async def load_sample_data(config: ResourceConfig, generate_descriptions: bool = True, dry_run: bool = False) -> int:
-    """Load sample product data into CosmosDB."""
-    print_header("Loading Sample Product Data")
+async def load_sample_data(config: ResourceConfig, dry_run: bool = False) -> int:
+    """Load sample product data via admin API."""
+    print_header("Loading Sample Product Data via API")
     
-    # Import here to avoid circular imports
-    from backend.services.cosmos_service import get_cosmos_service
-    from backend.models import Product
-    
-    # Sample products (Contoso Paints)
-    image_base_url = f"https://{config.storage_account}.blob.core.windows.net/{config.container_name}"
-    
+    # Sample products (Contoso Paints) - image URLs use proxy path
     sample_products = [
-        {"product_name": "Snow Veil", "description": "A crisp white with a hint of warmth — perfect for open, modern interiors.", "tags": "soft white, airy, minimal, fresh", "price": 59.95, "sku": "CP-0001", "image_url": f"{image_base_url}/SnowVeil.png", "category": "Paint"},
-        {"product_name": "Porcelain Mist", "description": "A gentle off-white that softens spaces with a cozy, inviting glow.", "tags": "warm neutral, beige, cozy, calm", "price": 59.95, "sku": "CP-0002", "image_url": f"{image_base_url}/PorcelainMist.png", "category": "Paint"},
-        {"product_name": "Stone Dusk", "description": "A balanced mix of gray and beige, ideal for grounding a room without heaviness.", "tags": "greige, muted, balanced, modern", "price": 59.95, "sku": "CP-0003", "image_url": f"{image_base_url}/StoneDusk.png", "category": "Paint"},
-        {"product_name": "Fog Harbor", "description": "A moody gray with blue undertones that feels sleek and contemporary.", "tags": "cool gray, stormy, industrial, sleek", "price": 59.95, "sku": "CP-0004", "image_url": f"{image_base_url}/FogHarbor.png", "category": "Paint"},
-        {"product_name": "Graphite Fade", "description": "A dark graphite shade that adds weight and sophistication to feature walls.", "tags": "charcoal, deep gray, moody, bold", "price": 59.95, "sku": "CP-0005", "image_url": f"{image_base_url}/GraphiteFade.png", "category": "Paint"},
-        {"product_name": "Obsidian Pearl", "description": "A rich black that creates contrast and drama while staying refined.", "tags": "black, matte, dramatic, luxe", "price": 59.95, "sku": "CP-0006", "image_url": f"{image_base_url}/ObsidianPearl.png", "category": "Paint"},
-        {"product_name": "Steel Sky", "description": "A mid-tone slate blue that feels steady, grounded, and architectural.", "tags": "slate, bluish gray, urban, cool", "price": 59.95, "sku": "CP-0007", "image_url": f"{image_base_url}/SteelSky.png", "category": "Paint"},
-        {"product_name": "Blue Ash", "description": "A softened navy with gray undertones — stylish but not overpowering.", "tags": "midnight, muted navy, grounding, refined", "price": 59.95, "sku": "CP-0008", "image_url": f"{image_base_url}/BlueAsh.png", "category": "Paint"},
-        {"product_name": "Cloud Drift", "description": "A breezy pastel blue that brings calm and a sense of open sky.", "tags": "pale blue, soft, tranquil, airy", "price": 59.95, "sku": "CP-0009", "image_url": f"{image_base_url}/CloudDrift.png", "category": "Paint"},
-        {"product_name": "Silver Shore", "description": "A frosty gray with subtle silver hints — sharp, bright, and clean.", "tags": "cool gray, icy, clean, modern", "price": 59.95, "sku": "CP-0010", "image_url": f"{image_base_url}/SilverShore.png", "category": "Paint"},
-        {"product_name": "Seafoam Light", "description": "A soft seafoam tone that feels breezy and coastal without being too bold.", "tags": "pale green, misty, fresh, coastal", "price": 59.95, "sku": "CP-0011", "image_url": f"{image_base_url}/SeafoamLight.png", "category": "Paint"},
-        {"product_name": "Quiet Moss", "description": "A sage-infused gray that adds organic calm to any interior palette.", "tags": "sage gray, organic, muted, grounding", "price": 59.95, "sku": "CP-0012", "image_url": f"{image_base_url}/QuietMoss.png", "category": "Paint"},
-        {"product_name": "Olive Stone", "description": "A grounded olive shade that pairs well with natural textures like wood and linen.", "tags": "earthy, muted green, natural, rustic", "price": 59.95, "sku": "CP-0013", "image_url": f"{image_base_url}/OliveStone.png", "category": "Paint"},
-        {"product_name": "Verdant Haze", "description": "A muted teal that blends serenity with just enough depth for modern accents.", "tags": "soft teal, subdued, calming, serene", "price": 59.95, "sku": "CP-0014", "image_url": f"{image_base_url}/VerdantHaze.png", "category": "Paint"},
-        {"product_name": "Glacier Tint", "description": "A barely-there aqua that brings a refreshing, clean lift to light spaces.", "tags": "pale aqua, refreshing, crisp, airy", "price": 59.95, "sku": "CP-0015", "image_url": f"{image_base_url}/GlacierTint.png", "category": "Paint"},
-        {"product_name": "Pine Shadow", "description": "A forest-tinged gray with a natural edge, anchoring without feeling heavy.", "tags": "forest gray, cool green, earthy, grounding", "price": 59.95, "sku": "CP-0016", "image_url": f"{image_base_url}/PineShadow.png", "category": "Paint"},
+        {"product_name": "Snow Veil", "description": "A crisp white with a hint of warmth — perfect for open, modern interiors.", "tags": "soft white, airy, minimal, fresh", "price": 59.95, "sku": "CP-0001", "image_url": f"https://{config.storage_account}.blob.core.windows.net/product-images/SnowVeil.png", "category": "Paint"},
+        {"product_name": "Porcelain Mist", "description": "A gentle off-white that softens spaces with a cozy, inviting glow.", "tags": "warm neutral, beige, cozy, calm", "price": 59.95, "sku": "CP-0002", "image_url": f"https://{config.storage_account}.blob.core.windows.net/product-images/PorcelainMist.png", "category": "Paint"},
+        {"product_name": "Stone Dusk", "description": "A balanced mix of gray and beige, ideal for grounding a room without heaviness.", "tags": "greige, muted, balanced, modern", "price": 59.95, "sku": "CP-0003", "image_url": f"https://{config.storage_account}.blob.core.windows.net/product-images/StoneDusk.png", "category": "Paint"},
+        {"product_name": "Fog Harbor", "description": "A moody gray with blue undertones that feels sleek and contemporary.", "tags": "cool gray, stormy, industrial, sleek", "price": 59.95, "sku": "CP-0004", "image_url": f"https://{config.storage_account}.blob.core.windows.net/product-images/FogHarbor.png", "category": "Paint"},
+        {"product_name": "Graphite Fade", "description": "A dark graphite shade that adds weight and sophistication to feature walls.", "tags": "charcoal, deep gray, moody, bold", "price": 59.95, "sku": "CP-0005", "image_url": f"https://{config.storage_account}.blob.core.windows.net/product-images/GraphiteFade.png", "category": "Paint"},
+        {"product_name": "Obsidian Pearl", "description": "A rich black that creates contrast and drama while staying refined.", "tags": "black, matte, dramatic, luxe", "price": 59.95, "sku": "CP-0006", "image_url": f"https://{config.storage_account}.blob.core.windows.net/product-images/ObsidianPearl.png", "category": "Paint"},
+        {"product_name": "Steel Sky", "description": "A mid-tone slate blue that feels steady, grounded, and architectural.", "tags": "slate, bluish gray, urban, cool", "price": 59.95, "sku": "CP-0007", "image_url": f"https://{config.storage_account}.blob.core.windows.net/product-images/SteelSky.png", "category": "Paint"},
+        {"product_name": "Blue Ash", "description": "A softened navy with gray undertones — stylish but not overpowering.", "tags": "midnight, muted navy, grounding, refined", "price": 59.95, "sku": "CP-0008", "image_url": f"https://{config.storage_account}.blob.core.windows.net/product-images/BlueAsh.png", "category": "Paint"},
+        {"product_name": "Cloud Drift", "description": "A breezy pastel blue that brings calm and a sense of open sky.", "tags": "pale blue, soft, tranquil, airy", "price": 59.95, "sku": "CP-0009", "image_url": f"https://{config.storage_account}.blob.core.windows.net/product-images/CloudDrift.png", "category": "Paint"},
+        {"product_name": "Silver Shore", "description": "A frosty gray with subtle silver hints — sharp, bright, and clean.", "tags": "cool gray, icy, clean, modern", "price": 59.95, "sku": "CP-0010", "image_url": f"https://{config.storage_account}.blob.core.windows.net/product-images/SilverShore.png", "category": "Paint"},
+        {"product_name": "Seafoam Light", "description": "A soft seafoam tone that feels breezy and coastal without being too bold.", "tags": "pale green, misty, fresh, coastal", "price": 59.95, "sku": "CP-0011", "image_url": f"https://{config.storage_account}.blob.core.windows.net/product-images/SeafoamLight.png", "category": "Paint"},
+        {"product_name": "Quiet Moss", "description": "A sage-infused gray that adds organic calm to any interior palette.", "tags": "sage gray, organic, muted, grounding", "price": 59.95, "sku": "CP-0012", "image_url": f"https://{config.storage_account}.blob.core.windows.net/product-images/QuietMoss.png", "category": "Paint"},
+        {"product_name": "Olive Stone", "description": "A grounded olive shade that pairs well with natural textures like wood and linen.", "tags": "earthy, muted green, natural, rustic", "price": 59.95, "sku": "CP-0013", "image_url": f"https://{config.storage_account}.blob.core.windows.net/product-images/OliveStone.png", "category": "Paint"},
+        {"product_name": "Verdant Haze", "description": "A muted teal that blends serenity with just enough depth for modern accents.", "tags": "soft teal, subdued, calming, serene", "price": 59.95, "sku": "CP-0014", "image_url": f"https://{config.storage_account}.blob.core.windows.net/product-images/VerdantHaze.png", "category": "Paint"},
+        {"product_name": "Glacier Tint", "description": "A barely-there aqua that brings a refreshing, clean lift to light spaces.", "tags": "pale aqua, refreshing, crisp, airy", "price": 59.95, "sku": "CP-0015", "image_url": f"https://{config.storage_account}.blob.core.windows.net/product-images/GlacierTint.png", "category": "Paint"},
+        {"product_name": "Pine Shadow", "description": "A forest-tinged gray with a natural edge, anchoring without feeling heavy.", "tags": "forest gray, cool green, earthy, grounding", "price": 59.95, "sku": "CP-0016", "image_url": f"https://{config.storage_account}.blob.core.windows.net/product-images/PineShadow.png", "category": "Paint"},
     ]
     
     print(f"Sample products: {len(sample_products)} Contoso Paints items")
     
     if dry_run:
-        print_warning("DRY RUN: Would load products to CosmosDB")
+        print_warning("DRY RUN: Would load products via API")
         for p in sample_products:
             print(f"  - {p['product_name']} ({p['sku']})")
         return len(sample_products)
     
-    cosmos_service = await get_cosmos_service()
+    # Call admin API
+    print_step("Calling /api/admin/load-sample-data...")
     
-    # Delete existing products
-    print_step("Deleting existing products...")
-    deleted = await cosmos_service.delete_all_products()
-    print(f"  Deleted {deleted} existing products")
-    
-    # Load new products
-    print_step("Loading products...")
-    loaded = 0
-    for product_data in sample_products:
+    async with httpx.AsyncClient(timeout=120.0) as client:
         try:
-            product = Product(**product_data)
-            await cosmos_service.upsert_product(product)
-            print_success(f"{product.product_name} ({product.sku})")
-            loaded += 1
+            response = await client.post(
+                f"{config.app_url}/api/admin/load-sample-data",
+                headers=get_api_headers(config),
+                json={
+                    "products": sample_products,
+                    "clear_existing": True
+                }
+            )
+            
+            if response.status_code == 401:
+                print_error("Unauthorized - check your ADMIN_API_KEY")
+                return 0
+            
+            if response.status_code != 200:
+                print_error(f"API returned {response.status_code}: {response.text[:500]}")
+                return 0
+            
+            result = response.json()
+            loaded = result.get("loaded", 0)
+            failed = result.get("failed", 0)
+            deleted = result.get("deleted", 0)
+            
+            if deleted > 0:
+                print(f"  Deleted {deleted} existing products")
+            
+            for r in result.get("results", []):
+                if r.get("status") == "loaded":
+                    print_success(f"{r['product_name']} ({r['sku']})")
+                else:
+                    print_error(f"{r['product_name']}: {r.get('error', 'Unknown error')}")
+            
+            print(f"\nLoaded {loaded}/{len(sample_products)} products ({failed} failed)")
+            return loaded
+            
         except Exception as e:
-            print_error(f"Failed to load {product_data['product_name']}: {e}")
-    
-    print(f"\nLoaded {loaded}/{len(sample_products)} products")
-    return loaded
+            print_error(f"API call failed: {e}")
+            return 0
 
 
 async def create_search_index(config: ResourceConfig, dry_run: bool = False) -> int:
-    """Create and populate the Azure AI Search index."""
-    print_header("Creating Search Index")
-    
-    from backend.services.cosmos_service import get_cosmos_service
-    
-    search_endpoint = f"https://{config.search_service}.search.windows.net"
+    """Create and populate the search index via admin API."""
+    print_header("Creating Search Index via API")
     
     if dry_run:
-        print_warning("DRY RUN: Would create search index and index products")
+        print_warning("DRY RUN: Would create search index via API")
         return 0
     
-    # Get search admin key (more reliable than RBAC for indexing)
-    result = run_az_command([
-        "search", "admin-key", "show",
-        "--service-name", config.search_service,
-        "--resource-group", config.resource_group,
-        "--query", "primaryKey", "-o", "tsv"
-    ])
-    admin_key = result.stdout.strip()
+    # Call admin API
+    print_step("Calling /api/admin/create-search-index...")
     
-    if admin_key:
-        credential = AzureKeyCredential(admin_key)
-        print_step("Using API key authentication")
-    else:
-        credential = DefaultAzureCredential()
-        print_step("Using RBAC authentication")
-    
-    # Create index client
-    index_client = SearchIndexClient(endpoint=search_endpoint, credential=credential)
-    
-    # Define index schema
-    fields = [
-        SimpleField(name="id", type=SearchFieldDataType.String, key=True, filterable=True),
-        SearchableField(name="product_name", type=SearchFieldDataType.String, filterable=True, sortable=True),
-        SearchableField(name="sku", type=SearchFieldDataType.String, filterable=True),
-        SearchableField(name="model", type=SearchFieldDataType.String, filterable=True),
-        SearchableField(name="category", type=SearchFieldDataType.String, filterable=True, facetable=True),
-        SearchableField(name="sub_category", type=SearchFieldDataType.String, filterable=True, facetable=True),
-        SearchableField(name="marketing_description", type=SearchFieldDataType.String),
-        SearchableField(name="detailed_spec_description", type=SearchFieldDataType.String),
-        SearchableField(name="image_description", type=SearchFieldDataType.String),
-        SearchableField(name="combined_text", type=SearchFieldDataType.String),
-        SearchField(
-            name="content_vector",
-            type=SearchFieldDataType.Collection(SearchFieldDataType.Single),
-            searchable=True,
-            vector_search_dimensions=1536,
-            vector_search_profile_name="product-vector-profile"
-        )
-    ]
-    
-    vector_search = VectorSearch(
-        algorithms=[HnswAlgorithmConfiguration(name="hnsw-algorithm")],
-        profiles=[VectorSearchProfile(name="product-vector-profile", algorithm_configuration_name="hnsw-algorithm")]
-    )
-    
-    semantic_config = SemanticConfiguration(
-        name="product-semantic-config",
-        prioritized_fields=SemanticPrioritizedFields(
-            title_field=SemanticField(field_name="product_name"),
-            content_fields=[
-                SemanticField(field_name="marketing_description"),
-                SemanticField(field_name="detailed_spec_description"),
-                SemanticField(field_name="image_description"),
-                SemanticField(field_name="combined_text")
-            ],
-            keywords_fields=[
-                SemanticField(field_name="category"),
-                SemanticField(field_name="sub_category"),
-                SemanticField(field_name="sku")
-            ]
-        )
-    )
-    
-    index = SearchIndex(
-        name=config.search_index,
-        fields=fields,
-        vector_search=vector_search,
-        semantic_search=SemanticSearch(configurations=[semantic_config])
-    )
-    
-    # Create or update index
-    print_step(f"Creating index: {config.search_index}")
-    try:
-        index_client.create_or_update_index(index)
-        print_success("Index created/updated")
-    except Exception as e:
-        print_error(f"Failed to create index: {e}")
-        return 0
-    
-    # Get products from CosmosDB
-    print_step("Fetching products from CosmosDB...")
-    cosmos_service = await get_cosmos_service()
-    products = await cosmos_service.get_all_products()
-    print(f"  Found {len(products)} products")
-    
-    if not products:
-        print_warning("No products to index")
-        return 0
-    
-    # Prepare documents
-    print_step("Indexing products...")
-    documents = []
-    for product in products:
-        p = product.model_dump()
-        doc_id = p.get('sku', '').lower().replace("-", "_").replace(" ", "_") or p.get('id', 'unknown')
-        
-        combined_text = f"""
-        {p.get('product_name', '')}
-        Category: {p.get('category', '')} - {p.get('sub_category', '')}
-        SKU: {p.get('sku', '')} | Model: {p.get('model', '')}
-        Marketing: {p.get('marketing_description', '')}
-        Specifications: {p.get('detailed_spec_description', '')}
-        Visual: {p.get('image_description', '')}
-        """
-        
-        documents.append({
-            "id": doc_id,
-            "product_name": p.get("product_name", ""),
-            "sku": p.get("sku", ""),
-            "model": p.get("model", ""),
-            "category": p.get("category", ""),
-            "sub_category": p.get("sub_category", ""),
-            "marketing_description": p.get("marketing_description", ""),
-            "detailed_spec_description": p.get("detailed_spec_description", ""),
-            "image_description": p.get("image_description", ""),
-            "combined_text": combined_text.strip(),
-            "content_vector": [0.0] * 1536
-        })
-        print_success(f"{p.get('product_name', 'Unknown')} ({p.get('sku', 'N/A')})")
-    
-    # Upload documents
-    search_client = SearchClient(endpoint=search_endpoint, index_name=config.search_index, credential=credential)
-    
-    try:
-        result = search_client.upload_documents(documents)
-        succeeded = sum(1 for r in result if r.succeeded)
-        failed = sum(1 for r in result if not r.succeeded)
-        print(f"\nIndexed {succeeded} products ({failed} failed)")
-        return succeeded
-    except Exception as e:
-        print_error(f"Failed to index documents: {e}")
-        return 0
+    async with httpx.AsyncClient(timeout=180.0) as client:  # 3 minute timeout
+        try:
+            response = await client.post(
+                f"{config.app_url}/api/admin/create-search-index",
+                headers=get_api_headers(config),
+                json={"reindex_all": True}
+            )
+            
+            if response.status_code == 401:
+                print_error("Unauthorized - check your ADMIN_API_KEY")
+                return 0
+            
+            if response.status_code != 200:
+                print_error(f"API returned {response.status_code}: {response.text[:500]}")
+                return 0
+            
+            result = response.json()
+            indexed = result.get("indexed", 0)
+            failed = result.get("failed", 0)
+            index_name = result.get("index_name", "products")
+            
+            print(f"  Index name: {index_name}")
+            
+            for r in result.get("results", []):
+                if r.get("status") == "indexed":
+                    print_success(f"{r['product_name']} ({r['sku']})")
+                else:
+                    print_error(f"{r['product_name']}: {r.get('error', 'Unknown error')}")
+            
+            print(f"\nIndexed {indexed} products ({failed} failed)")
+            return indexed
+            
+        except Exception as e:
+            print_error(f"API call failed: {e}")
+            return 0
 
 
 async def run_application_tests(config: ResourceConfig, dry_run: bool = False) -> Dict[str, bool]:
@@ -505,15 +411,7 @@ async def run_application_tests(config: ResourceConfig, dry_run: bool = False) -
         print_warning("DRY RUN: Would run application tests")
         return {}
     
-    # Get app URL
-    result = run_az_command([
-        "webapp", "show",
-        "--name", config.app_service,
-        "--resource-group", config.resource_group,
-        "--query", "defaultHostName", "-o", "tsv"
-    ])
-    app_url = f"https://{result.stdout.strip()}"
-    
+    app_url = config.app_url
     print(f"App URL: {app_url}")
     print()
     
@@ -651,15 +549,17 @@ async def main():
     )
     parser.add_argument("-g", "--resource-group", required=True, help="Azure resource group name")
     parser.add_argument("--app-name", help="App Service name (auto-detected if not provided)")
+    parser.add_argument("--api-key", help="Admin API key (or set ADMIN_API_KEY env var)")
     parser.add_argument("--skip-images", action="store_true", help="Skip uploading images")
     parser.add_argument("--skip-data", action="store_true", help="Skip loading sample data")
     parser.add_argument("--skip-index", action="store_true", help="Skip creating search index")
     parser.add_argument("--skip-tests", action="store_true", help="Skip application tests")
-    parser.add_argument("--skip-descriptions", action="store_true", help="Skip AI image descriptions")
-    parser.add_argument("--keep-public-access", action="store_true", help="Keep public access enabled after completion")
     parser.add_argument("--dry-run", action="store_true", help="Show what would be done")
     
     args = parser.parse_args()
+    
+    # Get API key from args or environment
+    api_key = args.api_key or os.environ.get("ADMIN_API_KEY", "")
     
     print_header("Content Generation Solution Accelerator - Post Deployment")
     print(f"Resource Group: {args.resource_group}")
@@ -667,7 +567,14 @@ async def main():
     print()
     
     # Discover resources
-    config = discover_resources(args.resource_group, args.app_name)
+    config = discover_resources(args.resource_group, args.app_name, api_key)
+    
+    # Check admin API health first
+    if not args.dry_run:
+        if not await check_admin_api_health(config):
+            print_error("Admin API not available. Make sure the app is deployed and running.")
+            print("You can check the app at: " + config.app_url)
+            sys.exit(1)
     
     images_uploaded = 0
     products_loaded = 0
@@ -675,28 +582,17 @@ async def main():
     test_results = {}
     
     try:
-        # Enable public access
-        set_public_access(config, enabled=True, dry_run=args.dry_run)
-        
-        # Upload images
+        # Upload images via API
         if not args.skip_images:
             images_uploaded = await upload_images(config, dry_run=args.dry_run)
         
-        # Load sample data
+        # Load sample data via API
         if not args.skip_data:
-            products_loaded = await load_sample_data(
-                config,
-                generate_descriptions=not args.skip_descriptions,
-                dry_run=args.dry_run
-            )
+            products_loaded = await load_sample_data(config, dry_run=args.dry_run)
         
-        # Create search index
+        # Create search index via API
         if not args.skip_index:
             products_indexed = await create_search_index(config, dry_run=args.dry_run)
-        
-        # Disable public access (restore security)
-        if not args.keep_public_access:
-            set_public_access(config, enabled=False, dry_run=args.dry_run)
         
         # Run application tests
         if not args.skip_tests:
@@ -704,12 +600,6 @@ async def main():
         
     except Exception as e:
         print_error(f"Error during post-deployment: {e}")
-        
-        # Try to disable public access even on error
-        if not args.keep_public_access:
-            print_warning("Attempting to disable public access...")
-            set_public_access(config, enabled=False, dry_run=args.dry_run)
-        
         raise
     
     # Print summary

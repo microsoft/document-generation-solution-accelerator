@@ -196,9 +196,17 @@ hooks:
         Write-Host ""
         Write-Host "===== Running Post-Deploy Script =====" -ForegroundColor Yellow
         Write-Host "This will upload sample data and create the search index..."
+
+        # Ensure post-deploy Python dependencies are installed
+        $python = "python"
+        if (Test-Path "./.venv/Scripts/python.exe") { $python = "./.venv/Scripts/python.exe" }
+        elseif (Test-Path "../.venv/Scripts/python.exe") { $python = "../.venv/Scripts/python.exe" }
+        elseif (Test-Path "./.venv/bin/python") { $python = "./.venv/bin/python" }
+        elseif (Test-Path "../.venv/bin/python") { $python = "../.venv/bin/python" }
+        & $python -m pip install -r ./scripts/requirements-post-deploy.txt
         
         if (Test-Path "./scripts/post_deploy.py") {
-          python ./scripts/post_deploy.py `
+          & $python ./scripts/post_deploy.py `
             --resource-group $env:RESOURCE_GROUP_NAME `
             --app-name $env:APP_SERVICE_NAME `
             --skip-tests
@@ -318,7 +326,17 @@ hooks:
         echo "This will upload sample data and create the search index..."
         
         if [ -f "./scripts/post_deploy.py" ]; then
-          python3 ./scripts/post_deploy.py \
+          # Prefer local venv if present (repo root or content-gen)
+          if [ -x "./.venv/bin/python" ]; then
+            PYTHON_BIN="./.venv/bin/python"
+          elif [ -x "../.venv/bin/python" ]; then
+            PYTHON_BIN="../.venv/bin/python"
+          else
+            PYTHON_BIN="python3"
+          fi
+
+          "$PYTHON_BIN" -m pip install -r ./scripts/requirements-post-deploy.txt \
+            && "$PYTHON_BIN" ./scripts/post_deploy.py \
             --resource-group "$RESOURCE_GROUP_NAME" \
             --app-name "$APP_SERVICE_NAME" \
             --skip-tests \

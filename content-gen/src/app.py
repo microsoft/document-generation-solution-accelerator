@@ -21,6 +21,7 @@ from backend.models import CreativeBrief, Product
 from backend.orchestrator import get_orchestrator
 from backend.services.cosmos_service import get_cosmos_service
 from backend.services.blob_service import get_blob_service
+from backend.api.admin import admin_bp
 
 # In-memory task storage for generation tasks
 # In production, this should be replaced with Redis or similar
@@ -36,6 +37,9 @@ logger = logging.getLogger(__name__)
 # Create Quart app
 app = Quart(__name__)
 app = cors(app, allow_origin="*")
+
+# Register blueprints
+app.register_blueprint(admin_bp)
 
 
 # ==================== Authentication Helper ====================

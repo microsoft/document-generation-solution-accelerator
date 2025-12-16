@@ -106,8 +106,8 @@ param acrName string = ''
 @description('Optional. Image Tag.')
 param imageTag string = 'latest'
 
-@description('Optional. Skip container (ACI) deployment. Use this on first provision, then set to false after image is built.')
-param skipContainerDeployment bool = false
+@description('Optional. Skip container (ACI) deployment. Default true for first provision - set to false after image is built and pushed to ACR.')
+param skipContainerDeployment bool = true
 
 @description('Optional. Enable/Disable usage telemetry.')
 param enableTelemetry bool = true
@@ -540,9 +540,6 @@ module aiServicesPrivateEndpoint 'br/public:avm/res/network/private-endpoint:0.1
       ]
     }
   }
-  dependsOn: [
-    aiFoundryAiServices
-  ]
 }
 
 module aiFoundryAiServicesProject 'modules/ai-project.bicep' = if (!useExistingAiFoundryAiProject) {
@@ -816,7 +813,12 @@ module webServerFarm 'br/public:avm/res/web/serverfarm:0.5.0' = {
 // ========== Web App ========== //
 var webSiteResourceName = 'app-${solutionSuffix}'
 // ACI private IP is in the 10.0.4.x subnet range (aci subnet)
-var aciPrivateIpPlaceholder = '10.0.4.4' // ACI gets this IP from the aci subnet
+// Use the deployed ACI private IP when available; otherwise keep a safe fallback for initial provisioning.
+var aciPrivateIpFallback = '10.0.4.4'
+var aciPrivateIpAddress = (enablePrivateNetworking && !skipContainerDeployment)
+  ? containerInstance!.outputs.privateIpAddress
+  : aciPrivateIpFallback
+var aciBackendUrl = 'http://${aciPrivateIpAddress}:8000'
 module webSite 'modules/web-sites.bicep' = {
   name: take('module.web-sites.${webSiteResourceName}', 64)
   params: {
@@ -848,7 +850,7 @@ module webSite 'modules/web-sites.bicep' = {
         properties: {
           SCM_DO_BUILD_DURING_DEPLOYMENT: 'true'
           // Backend URL points to ACI private IP
-          BACKEND_URL: 'http://${aciPrivateIpPlaceholder}:8000'
+          BACKEND_URL: aciBackendUrl
           AZURE_CLIENT_ID: userAssignedIdentity.outputs.clientId
         }
         applicationInsightResourceId: enableMonitoring ? applicationInsights!.outputs.resourceId : null
@@ -959,6 +961,9 @@ module containerInstance 'modules/container-instance.bicep' = if (enablePrivateN
 }
 
 // ========== Outputs ========== //
+@description('Contains App Service Name')
+output APP_SERVICE_NAME string = webSite.outputs.name
+
 @description('Contains WebApp URL')
 output WEB_APP_URL string = 'https://${webSite.outputs.name}.azurewebsites.net'
 

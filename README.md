@@ -1,7 +1,6 @@
 # Content generation solution accelerator
 
-This solution accelerator is an internal chatbot that can interpret and
-understand context and direction from a creative brief to create multi-modal text and image content for a marketing ad campaign.​ 
+This solution accelerator is an internal chatbot that interprets and understands context and direction from creative briefs to create multi-modal text and image content for marketing ad campaigns. Built on the Microsoft Agent Framework with HandoffBuilder orchestration, it uses specialized AI agents to parse briefs, research product data, generate content, and validate brand compliance.
 <br/>
 
 <div align="center">
@@ -18,12 +17,12 @@ understand context and direction from a creative brief to create multi-modal tex
 Solution overview
 </h2>
 
-It leverages Azure OpenAI Service and Azure AI Search, to identify relevant documents, summarize unstructured information, and generate document templates. 
+This solution leverages Azure OpenAI Service (GPT and DALL-E 3), Azure Cosmos DB, and Azure Blob Storage to interpret creative briefs, retrieve product information, generate marketing content, and validate brand compliance.
 
-The sample data is sourced from generic AI-generated promissory notes. The documents are intended for use as sample data only.
+The sample data includes synthetic product catalogs and brand guidelines. The data is intended for use as sample data only.
 
 ### Solution architecture
-|TBD|
+|![image](./docs/images/readme/solution_architecture.png)|
 |---|
 
 
@@ -33,7 +32,9 @@ The sample data is sourced from generic AI-generated promissory notes. The docum
 
 [Azure OpenAI Service](https://learn.microsoft.com/en-us/azure/ai-services/openai/) 
 
-[Azure AI Search](https://learn.microsoft.com/en-us/azure/search/) 
+[Microsoft Agent Framework](https://github.com/microsoft/agent-framework)
+
+[Azure Cosmos DB](https://learn.microsoft.com/en-us/azure/cosmos-db/)
 
 [Azure AI Foundry](https://learn.microsoft.com/en-us/azure/ai-studio/)
 
@@ -44,8 +45,17 @@ The sample data is sourced from generic AI-generated promissory notes. The docum
 <details open>
   <summary>Click to learn more about the key features this solution enables</summary>
 
-  - **TBD** <br/>
-  Azure...​
+  - **Creative Brief Interpretation** <br/>
+  Parse free-text creative briefs into structured fields (overview, objectives, target audience, key message, tone/style, deliverable, timelines, visual guidelines, CTA).
+
+  - **Multimodal Content Generation** <br/>
+  Generate marketing copy and images using GPT models and DALL-E 3 grounded in enterprise product data.
+
+  - **Brand Compliance Validation** <br/>
+  Validate all generated content against brand guidelines with severity-categorized feedback (Error, Warning, Info).
+
+  - **Specialized Agent Orchestration** <br/>
+  Uses Microsoft Agent Framework with HandoffBuilder to coordinate Triage, Planning, Research, Text Content, Image Content, and Compliance agents.
        
 </details>
 
@@ -59,7 +69,7 @@ Follow the quick deploy steps on the deployment guide to deploy this solution to
 
 > **Note:** This solution accelerator requires **Azure Developer CLI (azd) version 1.18.0 or higher**. Please ensure you have the latest version installed before proceeding with deployment. [Download azd here](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd).
 
-[Click here to launch the deployment guide](./docs/DeploymentGuide.md)
+[Click here to launch the deployment guide](./content-gen/docs/DEPLOYMENT.md)
 <br/><br/>
 
 | [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/microsoft/document-generation-solution-accelerator) | [![Open in Dev Containers](https://img.shields.io/static/v1?style=for-the-badge&label=Dev%20Containers&message=Open&color=blue&logo=visualstudiocode)](https://vscode.dev/redirect?url=vscode://ms-vscode-remote.remote-containers/cloneInVolume?url=https://github.com/microsoft/document-generation-solution-accelerator) | [![Open in Visual Studio Code Web](https://img.shields.io/static/v1?style=for-the-badge&label=Visual%20Studio%20Code%20(Web)&message=Open&color=blue&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/azure/?vscode-azure-exp=foundry&agentPayload=eyJiYXNlVXJsIjogImh0dHBzOi8vcmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbS9taWNyb3NvZnQvZG9jdW1lbnQtZ2VuZXJhdGlvbi1zb2x1dGlvbi1hY2NlbGVyYXRvci9yZWZzL2hlYWRzL21haW4vaW5mcmEvdnNjb2RlX3dlYiIsICJpbmRleFVybCI6ICIvaW5kZXguanNvbiIsICJ2YXJpYWJsZXMiOiB7ImFnZW50SWQiOiAiIiwgImNvbm5lY3Rpb25TdHJpbmciOiAiIiwgInRocmVhZElkIjogIiIsICJ1c2VyTWVzc2FnZSI6ICIiLCAicGxheWdyb3VuZE5hbWUiOiAiIiwgImxvY2F0aW9uIjogIiIsICJzdWJzY3JpcHRpb25JZCI6ICIiLCAicmVzb3VyY2VJZCI6ICIiLCAicHJvamVjdFJlc291cmNlSWQiOiAiIiwgImVuZHBvaW50IjogIiJ9LCAiY29kZVJvdXRlIjogWyJhaS1wcm9qZWN0cy1zZGsiLCAicHl0aG9uIiwgImRlZmF1bHQtYXp1cmUtYXV0aCIsICJlbmRwb2ludCJdfQ==) |
@@ -91,14 +101,14 @@ _Note: This is not meant to outline all costs as selected SKUs, scaled use, cust
 | Product | Description | Cost |
 |---|---|---|
 | [Azure AI Foundry](https://learn.microsoft.com/en-us/azure/ai-foundry/) | Free tier. Build generative AI applications on an enterprise-grade platform. | [Pricing](https://azure.microsoft.com/pricing/details/ai-studio/) |
-| [Azure AI Search](https://learn.microsoft.com/en-us/azure/search/) | Standard tier, S1. Pricing is based on the number of documents and operations. Information retrieval at scale for vector and text content in traditional or generative search scenarios. | [Pricing](https://azure.microsoft.com/pricing/details/search/) |
-| [Azure Storage Account](https://learn.microsoft.com/en-us/azure/storage/blobs/) | Standard tier, LRS. Pricing is based on storage and operations. Blob storage in the clopud, optimized for storing massive amounts of unstructured data. | [Pricing](https://azure.microsoft.com/pricing/details/storage/blobs/) |
+| [Azure Storage Account](https://learn.microsoft.com/en-us/azure/storage/blobs/) | Standard tier, LRS. Pricing is based on storage and operations. Blob storage for product images and generated content. | [Pricing](https://azure.microsoft.com/pricing/details/storage/blobs/) |
 | [Azure Key Vault](https://learn.microsoft.com/en-us/azure/key-vault/) | Standard tier. Pricing is based on the number of operations. Maintain keys that access and encrypt your cloud resources, apps, and solutions. | [Pricing](https://azure.microsoft.com/pricing/details/key-vault/) |
-| [Azure AI Services](https://learn.microsoft.com/en-us/azure/ai-services/) | S0 tier, defaults to gpt-4.1 and text-embedding-ada-002 models. Pricing is based on token count. | [Pricing](https://azure.microsoft.com/pricing/details/cognitive-services/) |
-| [Azure Container App](https://learn.microsoft.com/en-us/azure/container-apps/) | Consumption tier with 0.5 CPU, 1GiB memory/storage. Pricing is based on resource allocation, and each month allows for a certain amount of free usage. Allows you to run containerized applications without worrying about orchestration or infrastructure. | [Pricing](https://azure.microsoft.com/pricing/details/container-apps/) |
+| [Azure AI Services](https://learn.microsoft.com/en-us/azure/ai-services/) | S0 tier, defaults to gpt-5.1 (GPT) and gpt-image-1 (DALL-E 3) models. Pricing is based on token count. | [Pricing](https://azure.microsoft.com/pricing/details/cognitive-services/) |
+| [Azure Container Instance](https://learn.microsoft.com/en-us/azure/container-instances/) | Backend API hosting with private VNet integration. Pricing is based on resource allocation. | [Pricing](https://azure.microsoft.com/pricing/details/container-instances/) |
+| [Azure App Service](https://learn.microsoft.com/en-us/azure/app-service/) | B1 tier. Frontend hosting with Node.js proxy server. | [Pricing](https://azure.microsoft.com/pricing/details/app-service/) |
 | [Azure Container Registry](https://learn.microsoft.com/en-us/azure/container-registry/) | Basic tier. Build, store, and manage container images and artifacts in a private registry for all types of container deployments | [Pricing](https://azure.microsoft.com/pricing/details/container-registry/) |
 | [Log analytics](https://learn.microsoft.com/en-us/azure/azure-monitor/) | Pay-as-you-go tier. Costs based on data ingested. Collect and analyze on telemetry data generated by Azure. | [Pricing](https://azure.microsoft.com/pricing/details/monitor/) |
-| [Azure Cosmos DB](https://learn.microsoft.com/en-us/azure/cosmos-db/) | Fully managed, distributed NoSQL, relational, and vector database for modern app development. | [Pricing](https://azure.microsoft.com/en-us/pricing/details/cosmos-db/autoscale-provisioned/) |
+| [Azure Cosmos DB](https://learn.microsoft.com/en-us/azure/cosmos-db/) | Serverless tier. Product catalog and conversation history storage. | [Pricing](https://azure.microsoft.com/en-us/pricing/details/cosmos-db/autoscale-provisioned/) |
 
 
 
@@ -108,7 +118,7 @@ _Note: This is not meant to outline all costs as selected SKUs, scaled use, cust
 either by deleting the resource group in the Portal or running `azd down`.
 
 <br /><br />
-<h2><img src="./docs/images/readme/business-scenario.png" width="48" />
+<h2><img src="./docs/images/readme/business_scenario.png" width="48" />
 Business Scenario
 </h2>
 
@@ -118,7 +128,7 @@ Business Scenario
 
 <br/>
 
-Put your data to work by reducing blank page anxiety, speeding up document drafting, improving draft document quality, and reference information quickly - keeping experts in their expertise. Draft document templates for your organization including Invoices, End-user Contracts, Purchase Orders, Investment Proposals, and Grant Submissions.
+Accelerate your marketing content creation by leveraging AI to interpret creative briefs and generate on-brand, multimodal content. The solution helps marketing teams reduce time-to-market for campaigns by automating the creation of compliant marketing copy and images grounded in product data.
 
 ⚠️ The sample data used in this repository is synthetic and generated using Azure OpenAI Service. The data is intended for use as sample data only.
 
@@ -127,20 +137,20 @@ Put your data to work by reducing blank page anxiety, speeding up document draft
 <details>
   <summary>Click to learn more about what value this solution provides</summary>
 
-  - **Draft templates quickly** <br/>
-  Put your data to work to create any kind of document that is supported by a large data library.
+  - **Interpret creative briefs** <br/>
+  Parse unstructured creative briefs into structured fields automatically, ensuring all campaign requirements are captured.
 
-  - **Share** <br/>
-  Share with co-authors, contributors and approvers quickly. 
+  - **Generate multimodal content** <br/>
+  Create marketing copy and images that align with your brand voice and product catalog using GPT and DALL-E 3.
 
-  - **Contextualize information** <br/>
-  Provide context using natural language. Primary and secondary queries allow for access to supplemental detail – reducing cognitive load, increasing efficiency, and enabling focus on higher value work.
+  - **Ensure brand compliance** <br/>
+  Validate all generated content against brand guidelines with severity-categorized feedback before publication.
 
-  - **Gain confidence in responses** <br/>
-  Trust responses to queries by customizing how data is referenced and returned to users, reducing the risk of hallucinated responses.<br /><br />Access reference documents in the same chat window to get more detail and confirm accuracy.
+  - **Ground in enterprise data** <br/>
+  Leverage product information, images, and brand guidelines stored in Azure to ensure accurate, relevant content.
 
-  - **Secure data and responsible AI for innovation** <br/>
-  Improve data security to minimize breaches, fostering a culture of responsible AI adoption, maximize innovation opportunities, and sustain competitive edge.
+  - **Secure data and responsible AI** <br/>
+  Maintain data security with managed identities and private networking while fostering responsible AI adoption.
 
      
 </details>
@@ -153,16 +163,16 @@ Supporting documentation
 
 ### Security guidelines
 
-This template uses Azure Key Vault to store all connections to communicate between resources.
+This template uses [Managed Identity](https://learn.microsoft.com/entra/identity/managed-identities-azure-resources/overview) for authentication between Azure services.
 
-This template also uses [Managed Identity](https://learn.microsoft.com/entra/identity/managed-identities-azure-resources/overview) for local development and deployment.
+The backend runs in Azure Container Instance within a private VNet subnet, accessible only through the App Service frontend proxy. Private networking can be enabled via the `enablePrivateNetworking` parameter.
 
 To ensure continued best practices in your own repository, we recommend that anyone creating solutions based on our templates ensure that the [Github secret scanning](https://docs.github.com/code-security/secret-scanning/about-secret-scanning) setting is enabled.
 
 You may want to consider additional security measures, such as:
 
 * Enabling Microsoft Defender for Cloud to [secure your Azure resources](https://learn.microsoft.com/azure/defender-for-cloud).
-* Protecting the Azure Container Apps instance with a [firewall](https://learn.microsoft.com/azure/container-apps/waf-app-gateway) and/or [Virtual Network](https://learn.microsoft.com/azure/container-apps/networking?tabs=workload-profiles-env%2Cazure-cli).
+* Protecting the Azure App Service with [authentication](https://learn.microsoft.com/azure/app-service/overview-authentication-authorization) and/or [Virtual Network integration](https://learn.microsoft.com/azure/app-service/overview-vnet-integration).
 
 <br/>
 
@@ -186,7 +196,7 @@ Have questions, find a bug, or want to request a feature? [Submit a new issue](h
 <br/>
 
 ## Responsible AI Transparency FAQ 
-Please refer to [Transparency FAQ](./docs/TRANSPARENCY_FAQ.md) for responsible AI transparency details of this solution accelerator.
+Please refer to [Transparency FAQ](./content-gen/docs/TRANSPARENCY_FAQ.md) for responsible AI transparency details of this solution accelerator.
 
 <br/>
 
