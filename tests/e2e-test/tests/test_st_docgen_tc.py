@@ -45,7 +45,7 @@ def capture_screenshot(page, step_name, test_prefix="test"):
         logger.warning("⚠️ Failed to capture screenshot for %s: %s", step_name, str(e))
 
 
-@pytest.mark.smoke
+@pytest.mark.goldenpath
 def test_docgen_golden_path_refactored(login_logout, request):
     """
     DocGen Golden Path Smoke Test:
