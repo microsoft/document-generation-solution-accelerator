@@ -66,3 +66,7 @@ pdf
 *.bak
 *.tmp
 *.zip
+
+# RAI evaluation results
+rai_results/
+**/rai_results/
