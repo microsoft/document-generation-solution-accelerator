@@ -298,32 +298,32 @@ class ContentGenerationOrchestrator:
         self._workflow = (
             HandoffBuilder(
                 name="content_generation_workflow",
-                participants=[
-                    triage_agent,
-                    planning_agent,
-                    research_agent,
-                    text_content_agent,
-                    image_content_agent,
-                    compliance_agent,
-                ],
             )
-            .set_coordinator("triage_agent")
+            .participants([
+                triage_agent,
+                planning_agent,
+                research_agent,
+                text_content_agent,
+                image_content_agent,
+                compliance_agent,
+            ])
+            .set_coordinator(triage_agent)
             # Triage can hand off to all specialists
-            .add_handoff("triage_agent", [
-                "planning_agent", 
-                "research_agent", 
-                "text_content_agent", 
-                "image_content_agent", 
-                "compliance_agent"
+            .add_handoff(triage_agent, [
+                planning_agent, 
+                research_agent, 
+                text_content_agent, 
+                image_content_agent, 
+                compliance_agent
             ])
             # All specialists can hand back to triage
-            .add_handoff("planning_agent", ["triage_agent"])
-            .add_handoff("research_agent", ["triage_agent"])
+            .add_handoff(planning_agent, [triage_agent])
+            .add_handoff(research_agent, [triage_agent])
             # Content agents can request compliance check
-            .add_handoff("text_content_agent", ["compliance_agent", "triage_agent"])
-            .add_handoff("image_content_agent", ["compliance_agent", "triage_agent"])
+            .add_handoff(text_content_agent, [compliance_agent, triage_agent])
+            .add_handoff(image_content_agent, [compliance_agent, triage_agent])
             # Compliance can hand back to content agents for corrections or to triage
-            .add_handoff("compliance_agent", ["text_content_agent", "image_content_agent", "triage_agent"])
+            .add_handoff(compliance_agent, [text_content_agent, image_content_agent, triage_agent])
             .with_termination_condition(
                 # Terminate after 10 user messages to prevent infinite loops
                 lambda conv: sum(1 for msg in conv if msg.role.value == "user") >= 10

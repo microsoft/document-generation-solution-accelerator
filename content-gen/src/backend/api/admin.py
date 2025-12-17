@@ -18,6 +18,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from quart import Blueprint, request, jsonify
+from azure.storage.blob import ContentSettings
 
 from backend.settings import app_settings
 from backend.services.cosmos_service import get_cosmos_service
@@ -129,7 +130,7 @@ async def upload_images():
                 await blob_client.upload_blob(
                     image_data,
                     overwrite=True,
-                    content_settings={"content_type": content_type}
+                    content_settings=ContentSettings(content_type=content_type)
                 )
                 
                 results.append({
@@ -233,12 +234,15 @@ async def load_sample_data():
             
             try:
                 # Map incoming fields to Product model fields
+                # Note: Product model requires 'description' field, map from incoming 'description' or 'marketing_description'
+                description_value = product_data.get("description", product_data.get("marketing_description", ""))
                 product_fields = {
                     "product_name": product_data.get("product_name", ""),
                     "sku": product_data.get("sku", ""),
+                    "description": description_value,  # Required field
                     "category": product_data.get("category", ""),
                     "sub_category": product_data.get("sub_category", ""),
-                    "marketing_description": product_data.get("description", product_data.get("marketing_description", "")),
+                    "marketing_description": description_value,  # Also set for backward compat
                     "detailed_spec_description": product_data.get("detailed_spec_description", ""),
                     "image_url": product_data.get("image_url", ""),
                     "image_description": product_data.get("image_description", ""),

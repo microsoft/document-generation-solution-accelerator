@@ -279,7 +279,7 @@ class CosmosDBService:
         
         Args:
             conversation_id: Unique conversation identifier
-            user_id: User ID for partition key
+            user_id: User ID for partition key (may not match if conversation was created by different user)
         
         Returns:
             Conversation data if found
@@ -287,13 +287,31 @@ class CosmosDBService:
         await self.initialize()
         
         try:
+            # First try direct read with provided user_id (fast path)
             item = await self._conversations_container.read_item(
                 item=conversation_id,
                 partition_key=user_id
             )
             return item
         except Exception:
-            return None
+            pass
+        
+        # Fallback: cross-partition query to find conversation by ID
+        # This handles cases where the conversation was created with a different user_id
+        try:
+            query = "SELECT * FROM c WHERE c.id = @id"
+            params = [{"name": "@id", "value": conversation_id}]
+            
+            async for item in self._conversations_container.query_items(
+                query=query,
+                parameters=params,
+                max_item_count=1
+            ):
+                return item
+        except Exception:
+            pass
+        
+        return None
     
     async def save_conversation(
         self,
@@ -499,14 +517,30 @@ class CosmosDBService:
         await self.initialize()
         
         try:
+            # First try to delete with provided user_id
             await self._conversations_container.delete_item(
                 item=conversation_id,
                 partition_key=user_id
             )
             return True
+        except Exception:
+            pass
+        
+        # Fallback: find the conversation first to get the correct partition key
+        try:
+            conversation = await self.get_conversation(conversation_id, user_id)
+            if conversation:
+                actual_user_id = conversation.get("user_id", "")
+                await self._conversations_container.delete_item(
+                    item=conversation_id,
+                    partition_key=actual_user_id
+                )
+                return True
         except Exception as e:
             logger.warning(f"Failed to delete conversation {conversation_id}: {e}")
             raise
+        
+        return False
 
 
 # Singleton instance
