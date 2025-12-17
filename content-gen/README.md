@@ -179,6 +179,7 @@ BRAND_SECONDARY_COLOR=#107C10
 
 ## Documentation
 
+- [Local Development Guide](docs/LOCAL_DEPLOYMENT.md) - Run locally for development
 - [AZD Deployment Guide](docs/AZD_DEPLOYMENT.md) - Deploy with Azure Developer CLI
 - [Manual Deployment Guide](docs/DEPLOYMENT.md) - Step-by-step manual deployment
 - [Image Generation Configuration](docs/IMAGE_GENERATION.md) - DALL-E 3 and GPT-Image-1 setup
