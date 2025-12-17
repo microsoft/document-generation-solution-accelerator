@@ -103,7 +103,24 @@ The system extracts the following fields from free-text creative briefs:
 - Python 3.11+
 - Node.js 18+
 
-### Quick Deployment
+### Quick Deployment (Recommended)
+
+Using Azure Developer CLI (`azd`):
+
+```bash
+# Clone the repository
+git clone <repository-url>
+cd content-gen
+
+# Deploy everything with one command
+azd up
+```
+
+See [docs/AZD_DEPLOYMENT.md](docs/AZD_DEPLOYMENT.md) for detailed `azd` deployment instructions.
+
+### Manual Deployment
+
+For more control over individual resources:
 
 ```bash
 # Clone the repository
@@ -114,7 +131,7 @@ cd content-gen
 ./scripts/deploy.sh
 ```
 
-See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for detailed deployment instructions.
+See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for detailed manual deployment instructions.
 
 ### Local Development
 
@@ -162,8 +179,9 @@ BRAND_SECONDARY_COLOR=#107C10
 
 ## Documentation
 
-- [DALL-E 3 Image Generation Limitations](docs/IMAGE_GENERATION.md)
-- [Deployment Guide](docs/DEPLOYMENT.md)
+- [AZD Deployment Guide](docs/AZD_DEPLOYMENT.md) - Deploy with Azure Developer CLI
+- [Manual Deployment Guide](docs/DEPLOYMENT.md) - Step-by-step manual deployment
+- [Image Generation Configuration](docs/IMAGE_GENERATION.md) - DALL-E 3 and GPT-Image-1 setup
 - [API Reference](docs/API.md)
 
 ## License
