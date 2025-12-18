@@ -598,9 +598,22 @@ class DraftPage(BasePage):
 
     def click_export_document_button(self):
         """
-        Click the 'Export Document' button at the bottom of the Draft page
+        Click the 'Export Document' button at the bottom of the Draft page.
+        Waits for the button to be enabled before clicking to ensure document is ready.
         """
         try:
+            # First, ensure no section generation is in progress
+            # Check for any visible spinners indicating sections are still being generated
+            spinner_locator = self.page.locator("//div[@id='section-card-spinner']")
+            if spinner_locator.first.is_visible(timeout=2000):
+                logger.warning("⚠️ Sections still generating, waiting for completion...")
+                # Wait for all spinners to disappear (max 5 minutes for complex documents)
+                try:
+                    spinner_locator.first.wait_for(state="hidden", timeout=300000)
+                    logger.info("✅ All sections finished generating")
+                except Exception as e:
+                    logger.warning(f"⚠️ Timeout waiting for spinners: {e}")
+            
             # Locate the Export Document button using the class and text
             # Button structure: <button class="ms-Button ms-Button--commandBar _exportDocumentIcon_1x53n_11 root-239" aria-label="export document">
             export_button = self.page.locator("button[aria-label='export document']")
@@ -609,14 +622,21 @@ class DraftPage(BasePage):
                 # Try alternative locator by text
                 export_button = self.page.locator("button:has-text('Export Document')")
             
+            # Wait for button to be visible and enabled (critical for ensuring document is ready)
+            expect(export_button).to_be_visible(timeout=15000)
+            expect(export_button).to_be_enabled(timeout=60000)  # Wait up to 60s for document to be ready
+            
             # Scroll to button if needed
             export_button.scroll_into_view_if_needed()
-            self.page.wait_for_timeout(500)
+            self.page.wait_for_timeout(1000)
             
             # Click the button
             export_button.click()
             
             logger.info("✅ Clicked 'Export Document' button")
+            
+            # Wait for the export process to initiate (allows download event to trigger)
+            self.page.wait_for_timeout(3000)
             
         except Exception as e:
             logger.error(f"❌ Failed to click Export Document button: {e}")
