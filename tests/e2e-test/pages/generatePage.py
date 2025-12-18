@@ -70,9 +70,12 @@ class GeneratePage(BasePage):
         self.page.wait_for_timeout(2000)  # Reduced from 5s
 
     def click_generate_draft_button(self):
-        # Type a question in the text area
-        self.page.locator(self.GENERATE_DRAFT).click()
-        self.page.wait_for_timeout(8000)  # Reduced from 15s
+        # Wait for Generate Draft button to be visible and enabled
+        draft_btn = self.page.locator(self.GENERATE_DRAFT)
+        expect(draft_btn).to_be_visible(timeout=8000)
+        expect(draft_btn).to_be_enabled(timeout=15000)  # Wait up to 30s for button to be enabled
+        draft_btn.click()
+        self.page.wait_for_load_state("networkidle", timeout=20000)
     
     def click_browse_button(self):
         # click on BROWSE
@@ -259,10 +262,14 @@ class GeneratePage(BasePage):
 
         # 2️⃣ Locate the thread at the given index
         thread = threads.nth(thread_index)
+        
+        # 2a️⃣ Hover over the thread to reveal action icons
+        thread.hover()
+        self.page.wait_for_timeout(500)  # Wait for icons to appear
 
         # 3️⃣ Click the Delete icon in that thread
         delete_icon = thread.locator('button[title="Delete"]')
-        assert delete_icon.is_visible(), f"Delete icon not visible for thread at index {thread_index}"
+        expect(delete_icon).to_be_visible(timeout=3000)
         delete_icon.click()
         logger.info(f"Clicked delete icon on thread at index {thread_index}")
 
@@ -322,10 +329,14 @@ class GeneratePage(BasePage):
 
         # 2️⃣ Locate the specified thread
         thread = threads.nth(thread_index)
+        
+        # 2a️⃣ Hover over the thread to reveal action icons
+        thread.hover()
+        self.page.wait_for_timeout(500)  # Wait for icons to appear
 
         # 3️⃣ Click the Edit icon in that thread
         edit_icon = thread.locator('button[title="Edit"]')
-        assert edit_icon.is_visible(), f"Edit icon not visible for thread at index {thread_index}"
+        expect(edit_icon).to_be_visible(timeout=3000)
         edit_icon.click()
         logger.info(f"Clicked edit icon on thread at index {thread_index}") 
 
@@ -618,7 +629,7 @@ class GeneratePage(BasePage):
                     # Pattern 1: "1. Section Name" or "1) Section Name"
                     match = re.match(r'^(\d+)[.)]?\s*(.+)$', line)
                     if match and len(match.group(2).strip()) > 3:  # Avoid short non-section text
-                        section_name = match.group(2).strip()
+                        section_name = match.group(2).strip().rstrip(',.;:')  # Remove trailing punctuation
                         # Filter out non-section lines (like "30 seconds")
                         if not re.search(r'\d+\s*(second|minute|hour)', section_name, re.IGNORECASE):
                             section_names.append(section_name)
@@ -628,7 +639,7 @@ class GeneratePage(BasePage):
                     # Pattern 2: "- Section Name" or "• Section Name"
                     match = re.match(r'^[-•*]\s*(.+)$', line)
                     if match and len(match.group(1).strip()) > 3:
-                        section_name = match.group(1).strip()
+                        section_name = match.group(1).strip().rstrip(',.;:')  # Remove trailing punctuation
                         section_names.append(section_name)
                         logger.info(f"  - Found bullet section: {section_name}")
                         continue
@@ -639,14 +650,17 @@ class GeneratePage(BasePage):
                         'principal', 'amount', 'interest', 'payment', 'maturity', 
                         'borrower', 'lender', 'promissory', 'repayment', 'default',
                         'collateral', 'guarantor', 'acceleration', 'prepayment',
-                        'governing law', 'notices', 'signatures', 'information'
+                        'governing law', 'jurisdiction', 'waivers', 'remedies',
+                        'notices', 'signatures', 'information', 'assignment', 'amendments'
                     ]
                     
                     if any(keyword in line.lower() for keyword in section_keywords):
                         # Check if it looks like a section header (not too long)
                         if len(line) < 100 and not line.endswith('.'):
-                            section_names.append(line)
-                            logger.info(f"  - Found keyword section: {line}")
+                            # Strip trailing punctuation (commas, periods) for consistency
+                            clean_line = line.rstrip(',.;:')
+                            section_names.append(clean_line)
+                            logger.info(f"  - Found keyword section: {clean_line}")
             
             # Remove duplicates while preserving order
             seen = set()
