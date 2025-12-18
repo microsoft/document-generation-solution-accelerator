@@ -288,19 +288,37 @@ function App() {
         
         if (isBriefLike && !confirmedBrief) {
           // Parse as a creative brief
-          setGenerationStatus('Parsing creative brief...');
+          setGenerationStatus('Analyzing creative brief...');
           const parsed = await parseBrief(content, conversationId, userId, signal);
-          setPendingBrief(parsed.brief);
-          setGenerationStatus('');
           
-          const assistantMessage: ChatMessage = {
-            id: uuidv4(),
-            role: 'assistant',
-            content: "I've parsed your creative brief. Please review the details below and let me know if you'd like to make any changes. You can say things like \"change the target audience to...\" or \"add a call to action...\". When everything looks good, click **Confirm Brief** to proceed.",
-            agent: 'PlanningAgent',
-            timestamp: new Date().toISOString(),
-          };
-          setMessages(prev => [...prev, assistantMessage]);
+          // Check if clarification is needed
+          if (parsed.requires_clarification && parsed.clarifying_questions) {
+            // Set partial brief for display but show clarifying questions
+            setPendingBrief(parsed.brief);
+            setGenerationStatus('');
+            
+            const assistantMessage: ChatMessage = {
+              id: uuidv4(),
+              role: 'assistant',
+              content: parsed.clarifying_questions,
+              agent: 'PlanningAgent',
+              timestamp: new Date().toISOString(),
+            };
+            setMessages(prev => [...prev, assistantMessage]);
+          } else {
+            // Brief is complete, show for confirmation
+            setPendingBrief(parsed.brief);
+            setGenerationStatus('');
+            
+            const assistantMessage: ChatMessage = {
+              id: uuidv4(),
+              role: 'assistant',
+              content: "I've parsed your creative brief. Please review the details below and let me know if you'd like to make any changes. You can say things like \"change the target audience to...\" or \"add a call to action...\". When everything looks good, click **Confirm Brief** to proceed.",
+              agent: 'PlanningAgent',
+              timestamp: new Date().toISOString(),
+            };
+            setMessages(prev => [...prev, assistantMessage]);
+          }
         } else {
           // Stream chat response
           let fullContent = '';

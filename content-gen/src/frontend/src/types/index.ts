@@ -94,7 +94,10 @@ export interface BrandGuidelines {
 export interface ParsedBriefResponse {
   brief: CreativeBrief;
   requires_confirmation: boolean;
+  requires_clarification?: boolean;
+  clarifying_questions?: string;
   message: string;
+  conversation_id?: string;
 }
 
 export interface GeneratedContent {

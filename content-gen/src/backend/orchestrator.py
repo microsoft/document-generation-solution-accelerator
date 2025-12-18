@@ -95,6 +95,12 @@ DO NOT:
 - Image creation → hand off to image_content_agent
 - Content validation → hand off to compliance_agent
 
+### Handling Planning Agent Responses:
+When the planning_agent returns:
+- If it returns CLARIFYING QUESTIONS (not a JSON brief), relay those questions to the user and WAIT for their response before proceeding
+- If it returns a COMPLETE parsed brief (JSON), proceed with the content generation workflow
+- Do NOT proceed to research or content generation until you have a complete, user-confirmed brief
+
 {app_settings.brand_guidelines.get_compliance_prompt()}
 """
 
@@ -102,18 +108,69 @@ PLANNING_INSTRUCTIONS = """You are a Planning Agent specializing in creative bri
 Your scope is limited to parsing and structuring marketing creative briefs.
 Do not process requests unrelated to marketing content creation.
 
-When given a creative brief, extract and return a JSON object with:
-- overview: Campaign summary
-- objectives: What the campaign aims to achieve
-- target_audience: Who the content is for
-- key_message: Core message to communicate
-- tone_and_style: Voice and aesthetic direction
-- deliverable: Expected outputs (social posts, ads, etc.)
-- timelines: Any deadline information
-- visual_guidelines: Visual style requirements
-- cta: Call to action
+When given a creative brief, extract and structure a JSON object with these REQUIRED fields:
+- overview: Campaign summary (what is the campaign about?)
+- objectives: What the campaign aims to achieve (goals, KPIs, success metrics)
+- target_audience: Who the content is for (demographics, psychographics, customer segments)
+- key_message: Core message to communicate (main value proposition)
+- tone_and_style: Voice and aesthetic direction (professional, playful, urgent, etc.)
+- deliverable: Expected outputs (social posts, ads, email, banner, etc.)
+- timelines: Any deadline information (launch date, review dates)
+- visual_guidelines: Visual style requirements (colors, imagery style, product focus)
+- cta: Call to action (what should the audience do?)
 
-After parsing, hand back to the triage agent with your results.
+CRITICAL - NO HALLUCINATION POLICY:
+You MUST NOT make up, infer, assume, or hallucinate information that was not explicitly provided by the user.
+If the user did not mention a field, that field is MISSING - do not fill it with assumed values.
+Only extract information that is DIRECTLY STATED in the user's input.
+
+CRITICAL FIELDS (must be explicitly provided before proceeding):
+- objectives
+- target_audience  
+- key_message
+- deliverable
+- tone_and_style
+
+CLARIFYING QUESTIONS PROCESS:
+Step 1: Analyze the user's input and identify what information was EXPLICITLY provided.
+Step 2: Determine which CRITICAL fields are missing or unclear.
+Step 3: Generate a DYNAMIC response that:
+   a) Acknowledges SPECIFICALLY what the user DID provide (reference their actual words/content)
+   b) Clearly lists ONLY the missing critical fields as bullet points
+   c) Asks targeted questions for ONLY the missing fields (do not ask about fields already provided)
+
+RESPONSE FORMAT FOR MISSING INFORMATION:
+---
+Thanks for sharing your creative brief! Here's what I understood:
+✓ [List each piece of information the user DID provide, referencing their specific input]
+
+However, I'm missing some key details to create effective marketing content:
+
+**Missing Information:**
+• **[Field Name]**: [Contextual question based on what they provided]
+[Only list fields that are actually missing]
+
+Once you provide these details, I'll create a comprehensive content plan for your campaign.
+---
+
+DYNAMIC QUESTION EXAMPLES:
+- If user mentions a product but no audience: "Who is the target audience for [their product name]?"
+- If user mentions audience but no deliverable: "What type of content would resonate best with [their audience]?"
+- If user mentions a goal but no tone: "What tone would best convey [their stated goal] to your audience?"
+
+DO NOT:
+- Ask about fields the user already provided
+- Use generic questions - always reference the user's specific input
+- Invent objectives the user didn't state
+- Assume a target audience based on the product
+- Create a key message that wasn't provided
+- Guess at deliverable types
+- Fill in "reasonable defaults" for missing information
+- Return a JSON brief until ALL critical fields are explicitly provided
+
+When you have sufficient EXPLICIT information for all critical fields, return a JSON object with all fields populated.
+For non-critical fields that are missing (timelines, visual_guidelines, cta), you may use "Not specified" - do NOT make up values.
+After parsing a complete brief, hand back to the triage agent with your results.
 """
 
 RESEARCH_INSTRUCTIONS = """You are a Research Agent for a retail marketing system.
@@ -497,44 +554,74 @@ class ContentGenerationOrchestrator:
     async def parse_brief(
         self,
         brief_text: str
-    ) -> CreativeBrief:
+    ) -> tuple[CreativeBrief, str | None]:
         """
         Parse a free-text creative brief into structured format.
+        If critical information is missing, return clarifying questions.
         
         Args:
             brief_text: Free-text creative brief from user
         
         Returns:
-            CreativeBrief: Parsed and structured creative brief
+            tuple: (CreativeBrief, clarifying_questions_or_none)
+                - If all critical fields are provided: (brief, None)
+                - If critical fields are missing: (partial_brief, clarifying_questions_string)
         """
         if not self._initialized:
             self.initialize()
         
         planning_agent = self._agents["planning"]
         
-        parse_prompt = f"""
-Parse the following creative brief into the structured JSON format:
+        # First, analyze the brief and check for missing critical fields
+        analysis_prompt = f"""
+Analyze this creative brief request and determine if all critical information is provided.
 
+**User's Request:**
 {brief_text}
 
-Return ONLY a valid JSON object with these fields:
-- overview
-- objectives
-- target_audience
-- key_message
-- tone_and_style
-- deliverable
-- timelines
-- visual_guidelines
-- cta
+**Critical Fields Required:**
+1. objectives - What is the campaign trying to achieve?
+2. target_audience - Who is the intended audience?
+3. key_message - What is the core message or value proposition?
+4. deliverable - What content format is needed (e.g., email, social post, ad)?
+5. tone_and_style - What is the desired tone (professional, casual, playful)?
+
+**Your Task:**
+1. Extract any information that IS explicitly provided
+2. Identify which critical fields are MISSING or unclear
+3. Return a JSON response in this EXACT format:
+
+```json
+{{
+    "status": "complete" or "incomplete",
+    "extracted_fields": {{
+        "overview": "...",
+        "objectives": "...",
+        "target_audience": "...",
+        "key_message": "...",
+        "tone_and_style": "...",
+        "deliverable": "...",
+        "timelines": "...",
+        "visual_guidelines": "...",
+        "cta": "..."
+    }},
+    "missing_fields": ["field1", "field2"],
+    "clarifying_message": "If incomplete, a friendly message acknowledging what was provided and asking specific questions about what's missing. Reference the user's actual input. If complete, leave empty."
+}}
+```
+
+**Rules:**
+- Set status to "complete" only if objectives, target_audience, key_message, deliverable, AND tone_and_style are all clearly specified
+- For extracted_fields, use empty string "" for any field not mentioned
+- Do NOT invent or assume information that wasn't explicitly stated
+- Make clarifying questions specific to the user's context (reference their product/campaign)
 """
         
-        # Use the agent's run method (async in Agent Framework)
-        response = await planning_agent.run(parse_prompt)
+        # Use the agent's run method
+        response = await planning_agent.run(analysis_prompt)
         
-        # Parse the JSON response
+        # Parse the analysis response
         try:
-            # Extract JSON from the response
             response_text = str(response)
             if "```json" in response_text:
                 json_start = response_text.index("```json") + 7
@@ -545,26 +632,38 @@ Return ONLY a valid JSON object with these fields:
                 json_end = response_text.index("```", json_start)
                 response_text = response_text[json_start:json_end].strip()
             
-            brief_data = json.loads(response_text)
+            analysis = json.loads(response_text)
+            brief_data = analysis.get("extracted_fields", {})
             
-            # Ensure all fields are strings (agent might return dicts for some fields)
+            # Ensure all fields are strings
             for key in brief_data:
                 if isinstance(brief_data[key], dict):
-                    # Convert dict to formatted string
                     brief_data[key] = " | ".join(f"{k}: {v}" for k, v in brief_data[key].items())
                 elif isinstance(brief_data[key], list):
-                    # Convert list to comma-separated string
                     brief_data[key] = ", ".join(str(item) for item in brief_data[key])
                 elif brief_data[key] is None:
                     brief_data[key] = ""
                 elif not isinstance(brief_data[key], str):
                     brief_data[key] = str(brief_data[key])
             
-            return CreativeBrief(**brief_data)
+            # Ensure all required fields exist
+            for field in ['overview', 'objectives', 'target_audience', 'key_message', 
+                          'tone_and_style', 'deliverable', 'timelines', 'visual_guidelines', 'cta']:
+                if field not in brief_data:
+                    brief_data[field] = ""
+            
+            brief = CreativeBrief(**brief_data)
+            
+            # Check if we need clarifying questions
+            if analysis.get("status") == "incomplete" and analysis.get("clarifying_message"):
+                return (brief, analysis["clarifying_message"])
+            
+            return (brief, None)
+            
         except Exception as e:
-            logger.error(f"Failed to parse brief response: {e}")
-            # Try to extract fields manually from the input text
-            return self._extract_brief_from_text(brief_text)
+            logger.error(f"Failed to parse brief analysis response: {e}")
+            # Fallback to basic extraction
+            return (self._extract_brief_from_text(brief_text), None)
     
     def _extract_brief_from_text(self, text: str) -> CreativeBrief:
         """Extract brief fields from labeled text like 'Overview: ...'"""

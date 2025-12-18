@@ -179,6 +179,7 @@ async def chat():
 async def parse_brief():
     """
     Parse a free-text creative brief into structured format.
+    If critical information is missing, return clarifying questions.
     
     Request body:
     {
@@ -188,7 +189,8 @@ async def parse_brief():
     }
     
     Returns:
-        Structured CreativeBrief JSON for user confirmation.
+        Structured CreativeBrief JSON for user confirmation,
+        or clarifying questions if info is missing.
     """
     data = await request.get_json()
     brief_text = data.get("brief_text", "")
@@ -214,7 +216,34 @@ async def parse_brief():
         logger.warning(f"Failed to save brief message to CosmosDB: {e}")
     
     orchestrator = get_orchestrator()
-    parsed_brief = await orchestrator.parse_brief(brief_text)
+    parsed_brief, clarifying_questions = await orchestrator.parse_brief(brief_text)
+    
+    # Check if we need clarifying questions
+    if clarifying_questions:
+        # Save the clarifying questions as assistant response
+        try:
+            cosmos_service = await get_cosmos_service()
+            await cosmos_service.add_message_to_conversation(
+                conversation_id=conversation_id,
+                user_id=user_id,
+                message={
+                    "role": "assistant",
+                    "content": clarifying_questions,
+                    "agent": "PlanningAgent",
+                    "timestamp": datetime.now(timezone.utc).isoformat()
+                }
+            )
+        except Exception as e:
+            logger.warning(f"Failed to save clarifying questions to CosmosDB: {e}")
+        
+        return jsonify({
+            "brief": parsed_brief.model_dump(),
+            "requires_clarification": True,
+            "requires_confirmation": False,
+            "clarifying_questions": clarifying_questions,
+            "conversation_id": conversation_id,
+            "message": clarifying_questions
+        })
     
     # Save the assistant's parsing response
     try:
@@ -234,6 +263,7 @@ async def parse_brief():
     
     return jsonify({
         "brief": parsed_brief.model_dump(),
+        "requires_clarification": False,
         "requires_confirmation": True,
         "conversation_id": conversation_id,
         "message": "Please review and confirm the parsed creative brief"
