@@ -3,11 +3,7 @@ import {
   Text,
   tokens,
 } from '@fluentui/react-components';
-import {
-  Image24Regular,
-  TextBulletList24Regular,
-  Sparkle24Regular,
-} from '@fluentui/react-icons';
+import SamplePromptIcon from '../styles/images/SamplePrompt.png';
 
 // Copilot-style hexagon icon
 function CopilotIcon() {
@@ -35,7 +31,6 @@ function CopilotIcon() {
 }
 
 interface SuggestionCard {
-  icon: React.ReactNode;
   title: string;
   description: string;
   prompt: string;
@@ -43,22 +38,19 @@ interface SuggestionCard {
 
 const suggestions: SuggestionCard[] = [
   {
-    icon: <TextBulletList24Regular />,
-    title: 'Create a marketing campaign',
+    title: 'Generate ad copy and image ideas for a Facebook campaign promoting Paint for Home Décor.',
     description: 'Generate compelling copy for your next campaign',
-    prompt: 'I need to create a marketing campaign for a new product launch targeting young professionals.',
+    prompt: 'Generate ad copy and image ideas for a Facebook campaign promoting Paint for Home Décor.',
   },
   {
-    icon: <Image24Regular />,
-    title: 'Generate visual content',
-    description: 'Create images for social media or ads',
-    prompt: 'Generate a hero image for our summer sale campaign featuring outdoor products.',
+    title: 'Summarize my creative brief and suggest mood, audience, and image style for the campaign.',
+    description: 'Summarize your creative brief for better insights',
+    prompt: 'Summarize my creative brief and suggest mood, audience, and image style for the campaign.',
   },
   {
-    icon: <Sparkle24Regular />,
-    title: 'Draft a creative brief',
-    description: 'Build a comprehensive creative brief',
-    prompt: 'Help me create a creative brief for a holiday marketing campaign with the objective of increasing brand awareness.',
+    title: 'Create a multi-modal content plan with visuals and captions based on brand guidelines.',
+    description: 'Create a content plan with visuals and captions',
+    prompt: 'Create a multi-modal content plan with visuals and captions based on brand guidelines.',
   },
 ];
 
@@ -155,7 +147,6 @@ export function WelcomeCard({ onSuggestionClick }: WelcomeCardProps) {
                 gap: 'clamp(8px, 1.5vw, 12px)',
               }}>
                 <div style={{ 
-                  color: tokens.colorBrandForeground1, 
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -163,11 +154,17 @@ export function WelcomeCard({ onSuggestionClick }: WelcomeCardProps) {
                   height: 'clamp(32px, 5vw, 40px)',
                   minWidth: '32px',
                   minHeight: '32px',
-                  backgroundColor: tokens.colorBrandBackground2,
-                  borderRadius: '8px',
                   flexShrink: 0,
                 }}>
-                  {suggestion.icon}
+                  <img 
+                    src={SamplePromptIcon} 
+                    alt="Sample prompt" 
+                    style={{ 
+                      width: '100%', 
+                      height: '100%', 
+                      objectFit: 'contain' 
+                    }} 
+                  />
                 </div>
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <Text 

@@ -2,8 +2,14 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import {
   Text,
   Avatar,
+  Button,
+  Tooltip,
   tokens,
 } from '@fluentui/react-components';
+import {
+  History24Regular,
+  History24Filled,
+} from '@fluentui/react-icons';
 import { v4 as uuidv4 } from 'uuid';
 
 import { ChatPanel } from './components/ChatPanel';
@@ -50,6 +56,9 @@ function App() {
 
   // Trigger for refreshing chat history
   const [historyRefreshTrigger, setHistoryRefreshTrigger] = useState(0);
+
+  // Toggle for showing/hiding chat history panel
+  const [showChatHistory, setShowChatHistory] = useState(true);
 
   // Abort controller for cancelling ongoing requests
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -594,12 +603,22 @@ function App() {
             Contoso
           </Text>
         </div>
-        <Avatar 
-          name={userId || 'User'}
-          initials={getUserInitials()}
-          color="colorful"
-          size={36}
-        />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <Tooltip content={showChatHistory ? 'Hide chat history' : 'Show chat history'} relationship="label">
+            <Button
+              appearance="subtle"
+              icon={showChatHistory ? <History24Filled /> : <History24Regular />}
+              onClick={() => setShowChatHistory(!showChatHistory)}
+              aria-label={showChatHistory ? 'Hide chat history' : 'Show chat history'}
+            />
+          </Tooltip>
+          <Avatar 
+            name={userId || 'User'}
+            initials={getUserInitials()}
+            color="colorful"
+            size={36}
+          />
+        </div>
       </header>
       
       {/* Main Content */}
@@ -626,15 +645,17 @@ function App() {
         </div>
         
         {/* Chat History Sidebar - RIGHT side */}
-        <div className="history-panel">
-          <ChatHistory
+        {showChatHistory && (
+          <div className="history-panel">
+            <ChatHistory
             currentConversationId={conversationId}
             currentMessages={messages}
             onSelectConversation={handleSelectConversation}
             onNewConversation={handleNewConversation}
-            refreshTrigger={historyRefreshTrigger}
-          />
-        </div>
+              refreshTrigger={historyRefreshTrigger}
+            />
+          </div>
+        )}
       </div>
     </div>
   );
