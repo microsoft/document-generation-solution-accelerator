@@ -4,7 +4,6 @@ on:
   push:
     paths:
       - 'src/**/*.py'
-      - '!src/tests/**'
       - '.flake8'
       - '.github/workflows/pylint.yml'
 
