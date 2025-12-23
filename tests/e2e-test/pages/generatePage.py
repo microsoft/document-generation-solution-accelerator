@@ -2,8 +2,6 @@ from base.base import BasePage
 from playwright.sync_api import expect
 import logging
 logger = logging.getLogger(__name__)
-from pytest_check import check
-
 
 class GeneratePage(BasePage):
     GENERATE_DRAFT = "//button[@title='Generate Draft']"
