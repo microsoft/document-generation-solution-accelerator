@@ -381,7 +381,7 @@ class DraftPage(BasePage):
             original_content = content_locator.text_content(timeout=3000).strip()
             
             # Step 1: Click Generate button for this section
-            section_title = self.click_section_generate_button(i)
+            self.click_section_generate_button(i)
             
             # Step 2: Verify regenerate popup is displayed
             self.verify_regenerate_popup_displayed()
