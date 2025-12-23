@@ -493,7 +493,7 @@ class DraftPage(BasePage):
             title = title_element.inner_text(timeout=3000).strip()
             logger.info(f"Testing section: '{title}'")
         except Exception:
-            title = f"Section {section_index + 1}"
+            logger.info(f"Testing section: 'Section {section_index + 1}'")
         
         # Scroll section into view
         section.scroll_into_view_if_needed()
