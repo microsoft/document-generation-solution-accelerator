@@ -67,13 +67,11 @@ def pytest_runtest_makereport(item, call):
                     if not hasattr(report, 'extra'):
                         report.extra = []
                     
-                    # Add screenshot as a file URL that will work when report is opened in browser
-                    # Convert to absolute path and then to file URL
-                    absolute_path = os.path.abspath(screenshot_path)
-                    file_url = f"file:///{absolute_path.replace(os.sep, '/')}"
+                    # Use relative path for screenshots to work in the Test-Report folder structure
+                    relative_screenshot_path = f"../screenshots/{screenshot_name}"
                     
                     # pytest-html expects this format for extras
-                    report.extra.append(extras.url(file_url, name='Screenshot'))
+                    report.extra.append(extras.url(relative_screenshot_path, name='Screenshot'))
                     
                     logging.info("Screenshot saved: %s", screenshot_path)
                 except Exception as exc:  # pylint: disable=broad-exception-caught
