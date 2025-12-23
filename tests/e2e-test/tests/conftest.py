@@ -1,4 +1,5 @@
 import atexit
+import base64
 import io
 import logging
 import os
@@ -61,21 +62,22 @@ def pytest_runtest_makereport(item, call):
                     screenshot_path = os.path.join(SCREENSHOTS_DIR, screenshot_name)
                     
                     # Take screenshot
-                    page.screenshot(path=screenshot_path)
+                    screenshot_bytes = page.screenshot(path=screenshot_path)
                     
-                    # Add screenshot link to report
+                    # Add screenshot embedded in report
                     if not hasattr(report, 'extra'):
                         report.extra = []
                     
-                    # Add screenshot as a file URL that will work when report is opened in browser
-                    # Convert to absolute path and then to file URL
-                    absolute_path = os.path.abspath(screenshot_path)
-                    file_url = f"file:///{absolute_path.replace(os.sep, '/')}"
+                    # Encode screenshot as base64 for embedding in HTML
+                    base64_screenshot = base64.b64encode(screenshot_bytes).decode('utf-8')
                     
-                    # pytest-html expects this format for extras
-                    report.extra.append(extras.url(file_url, name='Screenshot'))
+                    # Create embedded image HTML
+                    img_html = f'<div><img src="data:image/png;base64,{base64_screenshot}" alt="Screenshot" style="max-width:100%; border:1px solid #ccc; margin-top:10px;"/></div>'
                     
-                    logging.info("Screenshot saved: %s", screenshot_path)
+                    # Add as HTML extra for pytest-html
+                    report.extra.append(extras.html(img_html))
+                    
+                    logging.info("Screenshot saved and embedded: %s", screenshot_path)
                 except Exception as exc:  # pylint: disable=broad-exception-caught
                     logging.error("Failed to capture screenshot: %s", str(exc))
 
