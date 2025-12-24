@@ -8,8 +8,8 @@ This guide provides comprehensive instructions for setting up the Document Gener
 
 This application consists of **two separate services** that run independently:
 
-2. **Backend API** - REST API server for the frontend
-3. **Frontend** - React-based user interface
+1. **Backend API** - REST API server for the frontend
+2. **Frontend** - React-based user interface
 
 > **⚠️ Critical: Each service must run in its own terminal/console window**
 >
@@ -34,7 +34,6 @@ document-generation-solution-accelerator/   ← Repository root (start here)
 │   │   ├── security/                       ← Security-related modules
 │   │   └── settings.py                     ← Backend configuration
 │   ├── frontend/                           
-│   │   ├── .venv/                          ← Node.js dependencies
 │   │   ├── node_modules/                   
 │   │   ├── src/                            ← React/TypeScript source
 │   │   └── package.json                    ← Frontend dependencies
@@ -89,18 +88,18 @@ Install these tools before you start:
 #### Option 1: Native Windows (PowerShell)
 
 ```powershell
-# Install Python 3.12+ and Git
-winget install Python.Python.3.12
+# Install Python 3.11+ and Git
+winget install Python.Python.3.11
 winget install Git.Git
 
 # Install Node.js for frontend
 winget install OpenJS.NodeJS.LTS
 
 # Install uv package manager
-py -3.12 -m pip install uv
+py -3.11 -m pip install uv
 ```
 
-**Note**: On Windows, use `py -3.12 -m uv` instead of `uv` for all commands to ensure you're using Python 3.12.
+**Note**: On Windows, use `py -3.11 -m uv` instead of `uv` for all commands to ensure you're using Python 3.11.
 
 #### Option 2: Windows with WSL2 (Recommended)
 
@@ -109,7 +108,7 @@ py -3.12 -m pip install uv
 # wsl --install -d Ubuntu
 
 # Then in WSL2 Ubuntu terminal:
-sudo apt update && sudo apt install python3.12 python3.12-venv git curl nodejs npm -y
+sudo apt update && sudo apt install python3.11 python3.11-venv git curl nodejs npm -y
 
 # Install uv
 curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -122,7 +121,7 @@ source ~/.bashrc
 
 ```bash
 # Install prerequisites
-sudo apt update && sudo apt install python3.12 python3.12-venv git curl nodejs npm -y
+sudo apt update && sudo apt install python3.11 python3.11-venv git curl nodejs npm -y
 
 # Install uv package manager
 curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -133,7 +132,7 @@ source ~/.bashrc
 
 ```bash
 # Install prerequisites
-sudo dnf install python3.12 python3.12-devel git curl gcc nodejs npm -y
+sudo dnf install python3.11 python3.11-devel git curl gcc nodejs npm -y
 
 # Install uv
 curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -224,7 +223,7 @@ az account set --subscription "your-subscription-id"
 az account show
 ```
 
-## Step 5: Local Setup/Deplpoyment
+## Step 5: Local Setup/Deployment
 
 Follow these steps to set up and run the application locally:
 
@@ -239,7 +238,7 @@ Navigate to the `src` directory of the repository using Visual Studio Code.
 - Copy the `.env.sample` file to a new file named `.env`.
 - Update the `.env` file with the required values from your Azure resource group in Azure Portal App Service environment variables.
 - You can get all env value in your deployed resource group under App Service:
-![Enviorment Variables](images/Enviorment_variables.png)
+![Environment Variables](images/Enviorment_variables.png)
 - Alternatively, if resources were
 provisioned using `azd provision` or `azd up`, a `.env` file is automatically generated in the `.azure/<env-name>/.env`
 file. To get your `<env-name>` run `azd env list` to see which env is default.
@@ -345,25 +344,26 @@ python -m pip install --upgrade pip
 # Install Python dependencies
 pip install -r requirements.txt
 
-# Install Fronend Packages
-cd src/frontend
+# Install Frontend Packages
+cd frontend
+
 npm install
 npm run build
 
 # Run the backend API (Windows)
-cd src/
+cd ..
 
 start http://127.0.0.1:50505
 call python -m uvicorn app:app --port 50505 --reload 
 
 # Run the backend API (MacOs)
-cd src/
+cd ..
 
 open http://127.0.0.1:50505
 python -m uvicorn app:app --port 50505 --reload
 
 # Run the backend API (Linux)
-cd src/
+cd ..
 
 xdg-open http://127.0.0.1:50505
 python -m uvicorn app:app --port 50505 --reload
@@ -383,12 +383,12 @@ The App will run on `http://127.0.0.1:50505/#/` by default.
 ```bash
 # Check available Python versions
 python3 --version
-python3.12 --version
+python3.11 --version
 
-# If python3.12 not found, install it:
-# Ubuntu: sudo apt install python3.12
-# macOS: brew install python@3.12
-# Windows: winget install Python.Python.3.12
+# If python3.11 not found, install it:
+# Ubuntu: sudo apt install python3.11
+# macOS: brew install python@3.11
+# Windows: winget install Python.Python.3.11
 ```
 
 #### Virtual Environment Issues
@@ -402,7 +402,7 @@ uv venv .venv
 # Activate and reinstall
 source .venv/bin/activate  # Linux/macOS
 # or .\.venv\Scripts\Activate.ps1  # Windows
-uv sync --python 3.12
+uv sync --python 3.11
 ```
 
 #### Permission Issues (Linux/macOS)
