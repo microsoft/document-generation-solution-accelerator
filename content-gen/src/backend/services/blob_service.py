@@ -17,7 +17,7 @@ from azure.storage.blob.aio import BlobServiceClient, ContainerClient
 from azure.identity.aio import DefaultAzureCredential, ManagedIdentityCredential
 from openai import AsyncAzureOpenAI
 
-from backend.settings import app_settings
+from settings import app_settings
 
 logger = logging.getLogger(__name__)
 
