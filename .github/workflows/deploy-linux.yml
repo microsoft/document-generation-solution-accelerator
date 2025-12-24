@@ -3,6 +3,16 @@ on:
   pull_request:
     branches:
       - main
+    paths:
+      - 'src/frontend/**'
+      - 'src/**/*.py'
+      - 'src/requirements*.txt'
+      - 'src/WebApp.Dockerfile'
+      - '!src/tests/**'
+      - 'infra/**/*.bicep'
+      - 'infra/**/*.json'
+      - '*.yaml'
+      - '.github/workflows/deploy-*.yml'
   workflow_run:
     workflows: ["Build Docker and Optional Push"]
     types:
