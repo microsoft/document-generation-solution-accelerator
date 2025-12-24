@@ -1,5 +1,6 @@
 // ========== container-instance.bicep ========== //
 // Azure Container Instance module for backend API deployment
+// Supports both private (VNet) and public IP modes
 
 @description('Required. Name of the container group.')
 param name string
@@ -22,8 +23,8 @@ param memoryInGB int = 4
 @description('Optional. Port to expose.')
 param port int = 8000
 
-@description('Required. Subnet resource ID for VNet integration.')
-param subnetResourceId string
+@description('Optional. Subnet resource ID for VNet integration. If empty, public IP will be used.')
+param subnetResourceId string = ''
 
 @description('Required. Environment variables for the container.')
 param environmentVariables array
@@ -36,6 +37,12 @@ param registryServer string
 
 @description('Optional. User-assigned managed identity resource ID for ACR pull.')
 param userAssignedIdentityResourceId string = ''
+
+// ============== //
+// Variables      //
+// ============== //
+
+var isPrivateNetworking = !empty(subnetResourceId)
 
 // ============== //
 // Resources      //
@@ -88,26 +95,23 @@ resource containerGroup 'Microsoft.ContainerInstance/containerGroups@2023-05-01'
     ]
     osType: 'Linux'
     restartPolicy: 'Always'
-    subnetIds: [
+    subnetIds: isPrivateNetworking ? [
       {
         id: subnetResourceId
       }
-    ]
+    ] : null
     ipAddress: {
-      type: 'Private'
+      type: isPrivateNetworking ? 'Private' : 'Public'
       ports: [
         {
           port: port
           protocol: 'TCP'
         }
       ]
+      dnsNameLabel: isPrivateNetworking ? null : name
     }
-    imageRegistryCredentials: [
-      {
-        server: registryServer
-        identity: userAssignedIdentityResourceId
-      }
-    ]
+    // Removed imageRegistryCredentials - ACR is public with anonymous pull enabled
+    // If you need managed identity auth, add AcrPull role to the managed identity on the ACR
   }
 }
 
@@ -121,5 +125,8 @@ output name string = containerGroup.name
 @description('The resource ID of the container group.')
 output resourceId string = containerGroup.id
 
-@description('The private IP address of the container.')
-output privateIpAddress string = containerGroup.properties.ipAddress.ip
+@description('The IP address of the container (private or public depending on mode).')
+output ipAddress string = containerGroup.properties.ipAddress.ip
+
+@description('The FQDN of the container (only available for public mode).')
+output fqdn string = isPrivateNetworking ? '' : containerGroup.properties.ipAddress.fqdn

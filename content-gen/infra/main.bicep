@@ -100,14 +100,11 @@ param enableRedundancy bool = false
 @description('Optional. Enable private networking for applicable resources (WAF-aligned).')
 param enablePrivateNetworking bool = false
 
-@description('Optional. The Container Registry hostname. Defaults to acr<solutionSuffix>.')
-param acrName string = ''
+@description('Required. The existing Container Registry name (without .azurecr.io). Must contain pre-built images: content-gen-app and content-gen-api.')
+param acrName string = 'contentgenacrmaint'
 
 @description('Optional. Image Tag.')
 param imageTag string = 'latest'
-
-@description('Optional. Skip container (ACI) deployment. Default true for first provision - set to false after image is built and pushed to ACR.')
-param skipContainerDeployment bool = true
 
 @description('Optional. Enable/Disable usage telemetry.')
 param enableTelemetry bool = true
@@ -187,7 +184,8 @@ var aiServiceLocation = contains(validAiServiceRegions, requestedAiLocation)
   ? requestedAiLocation 
   : (aiServiceRegionFallback[?solutionLocation] ?? 'eastus2')
 
-var acrResourceName = empty(acrName) ? 'acr${solutionSuffix}' : acrName
+// acrName is required - points to existing ACR with pre-built images
+var acrResourceName = acrName
 var solutionSuffix = toLower(trim(replace(
   replace(
     replace(replace(replace(replace('${solutionName}${solutionUniqueText}', '-', ''), '_', ''), '.', ''), '/', ''),
@@ -681,25 +679,31 @@ module storageAccount 'br/public:avm/res/storage/storage-account:0.30.0' = {
 }
 
 // ========== Azure Container Registry ========== //
-module containerRegistry 'br/public:avm/res/container-registry/registry:0.9.3' = if (enablePrivateNetworking) {
-  name: take('avm.res.container-registry.registry.${acrResourceName}', 64)
-  params: {
-    name: acrResourceName
-    location: solutionLocation
-    tags: tags
-    enableTelemetry: enableTelemetry
-    acrSku: 'Basic'
-    acrAdminUserEnabled: false
-    publicNetworkAccess: 'Enabled' // Enabled for initial image push, can be disabled later
-    roleAssignments: [
-      {
-        roleDefinitionIdOrName: '7f951dda-4ed3-4680-a7ca-43fe172d538d' // AcrPull
-        principalId: userAssignedIdentity.outputs.principalId
-        principalType: 'ServicePrincipal'
-      }
-    ]
-  }
-}
+// COMMENTED OUT: ACR is NOT deployed - images are pre-built and pushed to an existing ACR before deployment
+// The acrName parameter should be set to point to your existing ACR
+// Required images:
+//   - content-gen-webapp:latest (Frontend - App Service)
+//   - content-gen-api:latest (Backend - ACI, for private networking mode)
+// 
+// module containerRegistry 'br/public:avm/res/container-registry/registry:0.9.3' = {
+//   name: take('avm.res.container-registry.registry.${acrResourceName}', 64)
+//   params: {
+//     name: acrResourceName
+//     location: solutionLocation
+//     tags: tags
+//     enableTelemetry: enableTelemetry
+//     acrSku: 'Basic'
+//     acrAdminUserEnabled: false
+//     publicNetworkAccess: 'Enabled'
+//     roleAssignments: [
+//       {
+//         roleDefinitionIdOrName: '7f951dda-4ed3-4680-a7ca-43fe172d538d' // AcrPull
+//         principalId: userAssignedIdentity.outputs.principalId
+//         principalType: 'ServicePrincipal'
+//       }
+//     ]
+//   }
+// }
 
 // ========== Cosmos DB ========== //
 var cosmosDBResourceName = 'cosmos-${solutionSuffix}'
@@ -812,89 +816,37 @@ module webServerFarm 'br/public:avm/res/web/serverfarm:0.5.0' = {
 
 // ========== Web App ========== //
 var webSiteResourceName = 'app-${solutionSuffix}'
-// ACI private IP is in the 10.0.4.x subnet range (aci subnet)
-// Use the deployed ACI private IP when available; otherwise keep a safe fallback for initial provisioning.
+// Backend URL: Use ACI IP (private or public) or FQDN depending on networking mode
 var aciPrivateIpFallback = '10.0.4.4'
-var aciPrivateIpAddress = (enablePrivateNetworking && !skipContainerDeployment)
-  ? containerInstance!.outputs.privateIpAddress
-  : aciPrivateIpFallback
-var aciBackendUrl = 'http://${aciPrivateIpAddress}:8000'
+var aciPublicFqdnFallback = '${containerInstanceName}.${solutionLocation}.azurecontainer.io'
+// For private networking use IP, for public use FQDN
+var aciBackendUrl = enablePrivateNetworking 
+  ? 'http://${aciPrivateIpFallback}:8000'
+  : 'http://${aciPublicFqdnFallback}:8000'
 module webSite 'modules/web-sites.bicep' = {
   name: take('module.web-sites.${webSiteResourceName}', 64)
   params: {
     name: webSiteResourceName
     tags: tags
     location: solutionLocation
-    kind: enablePrivateNetworking ? 'app,linux' : 'app,linux,container'
+    kind: 'app,linux,container'
     serverFarmResourceId: webServerFarm.outputs.resourceId
     managedIdentities: { userAssignedResourceIds: [userAssignedIdentity!.outputs.resourceId] }
-    siteConfig: enablePrivateNetworking ? {
-      // For private networking: Node.js frontend server proxies to ACI backend
-      linuxFxVersion: 'NODE|20-lts'
-      minTlsVersion: '1.2'
-      alwaysOn: true
-      ftpsState: 'FtpsOnly'
-      appCommandLine: 'node server.js'
-    } : {
-      // For non-private: Docker container runs full app
+    siteConfig: {
+      // Frontend container - same for both modes
       linuxFxVersion: 'DOCKER|${acrResourceName}.azurecr.io/content-gen-app:${imageTag}'
       minTlsVersion: '1.2'
       alwaysOn: true
       ftpsState: 'FtpsOnly'
     }
     virtualNetworkSubnetId: enablePrivateNetworking ? virtualNetwork!.outputs.webSubnetResourceId : null
-    configs: enablePrivateNetworking ? concat([
+    configs: concat([
       {
-        // Private networking mode: Frontend proxy to ACI backend
+        // Frontend container proxies to ACI backend (both modes)
         name: 'appsettings'
         properties: {
-          SCM_DO_BUILD_DURING_DEPLOYMENT: 'true'
-          // Backend URL points to ACI private IP
-          BACKEND_URL: aciBackendUrl
-          AZURE_CLIENT_ID: userAssignedIdentity.outputs.clientId
-        }
-        applicationInsightResourceId: enableMonitoring ? applicationInsights!.outputs.resourceId : null
-      }
-    ], enableMonitoring ? [
-      {
-        name: 'logs'
-        properties: {}
-      }
-    ] : []) : concat([
-      {
-        // Non-private networking mode: Docker container runs full app
-        name: 'appsettings'
-        properties: {
-          SCM_DO_BUILD_DURING_DEPLOYMENT: 'true'
           DOCKER_REGISTRY_SERVER_URL: 'https://${acrResourceName}.azurecr.io'
-          
-          // Azure OpenAI Settings (matches .env)
-          AZURE_OPENAI_ENDPOINT: 'https://${aiFoundryAiServicesResourceName}.openai.azure.com/'
-          AZURE_OPENAI_GPT_MODEL: gptModelName
-          AZURE_OPENAI_IMAGE_MODEL: imageModelConfig[imageModelChoice].name
-          AZURE_OPENAI_GPT_IMAGE_ENDPOINT: imageModelChoice != 'none' ? 'https://${aiFoundryAiServicesResourceName}.openai.azure.com/' : ''
-          AZURE_OPENAI_API_VERSION: azureOpenaiAPIVersion
-          
-          // Azure Cosmos DB Settings (matches .env)
-          AZURE_COSMOS_ENDPOINT: 'https://cosmos-${solutionSuffix}.documents.azure.com:443/'
-          AZURE_COSMOS_DATABASE_NAME: cosmosDBDatabaseName
-          AZURE_COSMOS_PRODUCTS_CONTAINER: cosmosDBProductsContainer
-          AZURE_COSMOS_CONVERSATIONS_CONTAINER: cosmosDBConversationsContainer
-          
-          // Azure Blob Storage Settings (matches .env)
-          AZURE_BLOB_ACCOUNT_NAME: storageAccountName
-          AZURE_BLOB_PRODUCT_IMAGES_CONTAINER: productImagesContainer
-          AZURE_BLOB_GENERATED_IMAGES_CONTAINER: generatedImagesContainer
-          
-          // Azure AI Search Settings (matches .env)
-          AZURE_AI_SEARCH_ENDPOINT: 'https://${aiSearchName}.search.windows.net'
-          AZURE_AI_SEARCH_PRODUCTS_INDEX: azureSearchIndex
-          AZURE_AI_SEARCH_IMAGE_INDEX: 'product-images'
-          
-          // App Settings
-          PORT: '8000'
-          WORKERS: '4'
-          AUTH_ENABLED: 'false'
+          BACKEND_URL: aciBackendUrl
           AZURE_CLIENT_ID: userAssignedIdentity.outputs.clientId
         }
         applicationInsightResourceId: enableMonitoring ? applicationInsights!.outputs.resourceId : null
@@ -910,24 +862,23 @@ module webSite 'modules/web-sites.bicep' = {
     vnetRouteAllEnabled: enablePrivateNetworking
     vnetImagePullEnabled: enablePrivateNetworking
     publicNetworkAccess: 'Enabled'
-    // App Service remains publicly accessible - it connects to private backend via VNet integration
-    // No private endpoint needed for App Service itself
   }
 }
 
 // ========== Container Instance (Backend API) ========== //
 var containerInstanceName = 'aci-${solutionSuffix}'
-module containerInstance 'modules/container-instance.bicep' = if (enablePrivateNetworking && !skipContainerDeployment) {
+module containerInstance 'modules/container-instance.bicep' = {
   name: take('module.container-instance.${containerInstanceName}', 64)
   params: {
     name: containerInstanceName
     location: solutionLocation
     tags: tags
-    containerImage: '${acrResourceName}.azurecr.io/content-gen-app:${imageTag}'
+    containerImage: '${acrResourceName}.azurecr.io/content-gen-api:${imageTag}'
     cpu: 2
     memoryInGB: 4
     port: 8000
-    subnetResourceId: virtualNetwork!.outputs.aciSubnetResourceId
+    // Only pass subnetResourceId when private networking is enabled
+    subnetResourceId: enablePrivateNetworking ? virtualNetwork!.outputs.aciSubnetResourceId : ''
     registryServer: '${acrResourceName}.azurecr.io'
     userAssignedIdentityResourceId: userAssignedIdentity.outputs.resourceId
     enableTelemetry: enableTelemetry
@@ -1027,11 +978,14 @@ output AZURE_APPLICATION_INSIGHTS_CONNECTION_STRING string = (enableMonitoring &
 @description('Contains the location used for AI Services deployment')
 output AI_SERVICE_LOCATION string = aiServiceLocation
 
-@description('Contains Container Instance Name (when private networking enabled and deployed)')
-output CONTAINER_INSTANCE_NAME string = (enablePrivateNetworking && !skipContainerDeployment) ? containerInstance!.outputs.name : ''
+@description('Contains Container Instance Name')
+output CONTAINER_INSTANCE_NAME string = containerInstance.outputs.name
 
-@description('Contains Container Instance Private IP (when private networking enabled and deployed)')
-output CONTAINER_INSTANCE_PRIVATE_IP string = (enablePrivateNetworking && !skipContainerDeployment) ? containerInstance!.outputs.privateIpAddress : ''
+@description('Contains Container Instance IP Address')
+output CONTAINER_INSTANCE_IP string = containerInstance.outputs.ipAddress
 
-@description('Contains ACR Name (when private networking enabled)')
-output ACR_NAME string = enablePrivateNetworking ? acrResourceName : ''
+@description('Contains Container Instance FQDN (only for non-private networking)')
+output CONTAINER_INSTANCE_FQDN string = enablePrivateNetworking ? '' : containerInstance.outputs.fqdn
+
+@description('Contains ACR Name')
+output ACR_NAME string = acrResourceName

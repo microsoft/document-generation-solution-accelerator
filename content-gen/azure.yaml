@@ -2,9 +2,9 @@ environment:
   name: content-generation
   location: eastus
 
-name: content-generation
-metadata:
-  template: content-generation@1.22
+# name: content-generation
+# metadata:
+#   template: content-generation@1.22
 
 requiredVersions:
   azd: '>= 1.18.0'
@@ -65,6 +65,10 @@ hooks:
         
         # For private networking on first run, skip ACI (image not yet in ACR)
         $currentSkip = azd env get-value skipContainerDeployment 2>$null
+        if (-not $?) {
+          $currentSkip = ""
+          $global:LASTEXITCODE = 0
+        }
         if ($env:enablePrivateNetworking -eq 'true' -and -not $env:ACR_NAME -and $currentSkip -ne 'false') {
           Write-Host "Private networking enabled - skipping container deployment until image is built" -ForegroundColor Yellow
           azd env set skipContainerDeployment true
@@ -116,81 +120,97 @@ hooks:
           Write-Host "  Cosmos DB role may already be assigned" -ForegroundColor Yellow
         }
         
-        # Build container image and deploy ACI if ACR exists and ACI was skipped
-        $skipContainer = azd env get-value skipContainerDeployment 2>$null
-        if ($env:ACR_NAME -and $skipContainer -eq 'true') {
-          Write-Host ""
-          Write-Host "===== Building Container Image =====" -ForegroundColor Yellow
-          Write-Host "Building and pushing image to ACR: $env:ACR_NAME" -ForegroundColor Cyan
-          
-          az acr build --registry $env:ACR_NAME --image content-gen-app:latest --file ./src/WebApp.Dockerfile ./src
-          
-          if ($LASTEXITCODE -eq 0) {
-            Write-Host "Container image built and pushed successfully!" -ForegroundColor Green
-            
-            # Enable container deployment and re-provision
-            Write-Host ""
-            Write-Host "===== Deploying Container Instance =====" -ForegroundColor Yellow
-            azd env set skipContainerDeployment false
-            
-            Write-Host "Re-running provision to deploy ACI..." -ForegroundColor Cyan
-            azd provision --no-prompt
-            
-            if ($LASTEXITCODE -eq 0) {
-              Write-Host "Container Instance deployed successfully!" -ForegroundColor Green
-            } else {
-              Write-Host "Container Instance deployment failed" -ForegroundColor Red
-            }
-          } else {
-            Write-Host "Failed to build container image" -ForegroundColor Red
-          }
-        } elseif ($env:CONTAINER_INSTANCE_NAME) {
+        # ============================================================
+        # ACR Image Build - COMMENTED OUT
+        # Images should be pre-built and pushed to ACR before deployment:
+        #   Frontend (App Service): content-gen-webapp:latest
+        #   Backend (ACI):          content-gen-api:latest
+        # 
+        # To build and push manually:
+        #   az acr build --registry $ACR_NAME --image content-gen-webapp:latest --file ./src/Frontend.Dockerfile ./src
+        #   az acr build --registry $ACR_NAME --image content-gen-api:latest --file ./src/backend/ApiApp.Dockerfile ./src
+        # ============================================================
+        
+        # # Build container image and deploy ACI if ACR exists and ACI was skipped
+        # $skipContainer = azd env get-value skipContainerDeployment 2>$null
+        # if ($env:ACR_NAME -and $skipContainer -eq 'true') {
+        #   Write-Host ""
+        #   Write-Host "===== Building Container Image =====" -ForegroundColor Yellow
+        #   Write-Host "Building and pushing image to ACR: $env:ACR_NAME" -ForegroundColor Cyan
+        #   
+        #   az acr build --registry $env:ACR_NAME --image content-gen-api:latest --file ./src/backend/ApiApp.Dockerfile ./src
+        #   
+        #   if ($LASTEXITCODE -eq 0) {
+        #     Write-Host "Container image built and pushed successfully!" -ForegroundColor Green
+        #     
+        #     # Enable container deployment and re-provision
+        #     Write-Host ""
+        #     Write-Host "===== Deploying Container Instance =====" -ForegroundColor Yellow
+        #     azd env set skipContainerDeployment false
+        #     
+        #     Write-Host "Re-running provision to deploy ACI..." -ForegroundColor Cyan
+        #     azd provision --no-prompt
+        #     
+        #     if ($LASTEXITCODE -eq 0) {
+        #       Write-Host "Container Instance deployed successfully!" -ForegroundColor Green
+        #     } else {
+        #       Write-Host "Container Instance deployment failed" -ForegroundColor Red
+        #     }
+        #   } else {
+        #     Write-Host "Failed to build container image" -ForegroundColor Red
+        #   }
+        # }
+        
+        if ($env:CONTAINER_INSTANCE_NAME) {
           Write-Host ""
           Write-Host "Container Instance: " -NoNewline
           Write-Host "$env:CONTAINER_INSTANCE_NAME" -ForegroundColor Cyan
           Write-Host "Container Private IP: " -NoNewline
           Write-Host "$env:CONTAINER_INSTANCE_PRIVATE_IP" -ForegroundColor Cyan
-        } elseif ($env:ACR_NAME) {
-          Write-Host ""
-          Write-Host "Container Registry: " -NoNewline
-          Write-Host "$env:ACR_NAME" -ForegroundColor Cyan
         }
         
-        # Build and deploy frontend to App Service
         Write-Host ""
-        Write-Host "===== Building Frontend =====" -ForegroundColor Yellow
-        Push-Location ./src/frontend
-        npm install
-        npm run build
+        Write-Host "Container Registry: " -NoNewline
+        Write-Host "$env:ACR_NAME" -ForegroundColor Cyan
         
-        if ($LASTEXITCODE -eq 0) {
-          Write-Host "Frontend build completed!" -ForegroundColor Green
-          
-          # Copy build to frontend-server
-          Copy-Item -Path ../static/* -Destination ../frontend-server/static/ -Recurse -Force -ErrorAction SilentlyContinue
-          
-          Push-Location ../frontend-server
-          
-          # Create deployment package
-          Write-Host "Creating deployment package..."
-          Remove-Item -Path frontend-deploy.zip -Force -ErrorAction SilentlyContinue
-          Compress-Archive -Path static, server.js, package.json, package-lock.json -DestinationPath frontend-deploy.zip -Force
-          
-          Write-Host ""
-          Write-Host "===== Deploying Frontend to App Service =====" -ForegroundColor Yellow
-          az webapp deploy --resource-group $env:RESOURCE_GROUP_NAME --name $env:APP_SERVICE_NAME --src-path frontend-deploy.zip --type zip
-          
-          if ($LASTEXITCODE -eq 0) {
-            Write-Host "Frontend deployed successfully!" -ForegroundColor Green
-          } else {
-            Write-Host "Frontend deployment failed" -ForegroundColor Red
-          }
-          
-          Pop-Location
-        } else {
-          Write-Host "Frontend build failed" -ForegroundColor Red
-        }
-        Pop-Location
+        # ============================================================
+        # Frontend Build/Deploy - COMMENTED OUT (using pre-built ACR image)
+        # ============================================================
+        # # Build and deploy frontend to App Service
+        # Write-Host ""
+        # Write-Host "===== Building Frontend =====" -ForegroundColor Yellow
+        # Push-Location ./src/frontend
+        # npm install
+        # npm run build
+        # 
+        # if ($LASTEXITCODE -eq 0) {
+        #   Write-Host "Frontend build completed!" -ForegroundColor Green
+        #   
+        #   # Copy build to frontend-server
+        #   Copy-Item -Path ../static/* -Destination ../frontend-server/static/ -Recurse -Force -ErrorAction SilentlyContinue
+        #   
+        #   Push-Location ../frontend-server
+        #   
+        #   # Create deployment package
+        #   Write-Host "Creating deployment package..."
+        #   Remove-Item -Path frontend-deploy.zip -Force -ErrorAction SilentlyContinue
+        #   Compress-Archive -Path static, server.js, package.json, package-lock.json -DestinationPath frontend-deploy.zip -Force
+        #   
+        #   Write-Host ""
+        #   Write-Host "===== Deploying Frontend to App Service =====" -ForegroundColor Yellow
+        #   az webapp deploy --resource-group $env:RESOURCE_GROUP_NAME --name $env:APP_SERVICE_NAME --src-path frontend-deploy.zip --type zip
+        #   
+        #   if ($LASTEXITCODE -eq 0) {
+        #     Write-Host "Frontend deployed successfully!" -ForegroundColor Green
+        #   } else {
+        #     Write-Host "Frontend deployment failed" -ForegroundColor Red
+        #   }
+        #   
+        #   Pop-Location
+        # } else {
+        #   Write-Host "Frontend build failed" -ForegroundColor Red
+        # }
+        # Pop-Location
         
         # Run post-deploy script to upload sample data and create search index
         Write-Host ""
@@ -252,73 +272,89 @@ hooks:
           --principal-id "$signed_user_id" \
           --scope "/" 2>/dev/null && echo "  Cosmos DB role assigned successfully" || echo "  Cosmos DB role may already be assigned"
         
-        # Build container image and deploy ACI if ACR exists and ACI was skipped
-        skip_container=$(azd env get-value skipContainerDeployment 2>/dev/null || echo "")
-        if [ -n "$ACR_NAME" ] && [ "$skip_container" = "true" ]; then
-          echo ""
-          echo "===== Building Container Image ====="
-          echo "Building and pushing image to ACR: $ACR_NAME"
-          
-          if az acr build --registry "$ACR_NAME" --image content-gen-app:latest --file ./src/WebApp.Dockerfile ./src; then
-            echo "Container image built and pushed successfully!"
-            
-            # Enable container deployment and re-provision
-            echo ""
-            echo "===== Deploying Container Instance ====="
-            azd env set skipContainerDeployment false
-            
-            echo "Re-running provision to deploy ACI..."
-            if azd provision --no-prompt; then
-              echo "Container Instance deployed successfully!"
-            else
-              echo "Container Instance deployment failed"
-            fi
-          else
-            echo "Failed to build container image"
-          fi
-        elif [ -n "$CONTAINER_INSTANCE_NAME" ]; then
+        # ============================================================
+        # ACR Image Build - COMMENTED OUT
+        # Images should be pre-built and pushed to ACR before deployment:
+        #   Frontend (App Service): content-gen-webapp:latest
+        #   Backend (ACI):          content-gen-api:latest
+        # 
+        # To build and push manually:
+        #   az acr build --registry $ACR_NAME --image content-gen-webapp:latest --file ./src/Frontend.Dockerfile ./src
+        #   az acr build --registry $ACR_NAME --image content-gen-api:latest --file ./src/backend/ApiApp.Dockerfile ./src
+        # ============================================================
+        
+        # # Build container image and deploy ACI if ACR exists and ACI was skipped
+        # skip_container=$(azd env get-value skipContainerDeployment 2>/dev/null || echo "")
+        # if [ -n "$ACR_NAME" ] && [ "$skip_container" = "true" ]; then
+        #   echo ""
+        #   echo "===== Building Container Image ====="
+        #   echo "Building and pushing image to ACR: $ACR_NAME"
+        #   
+        #   if az acr build --registry "$ACR_NAME" --image content-gen-api:latest --file ./src/backend/ApiApp.Dockerfile ./src; then
+        #     echo "Container image built and pushed successfully!"
+        #     
+        #     # Enable container deployment and re-provision
+        #     echo ""
+        #     echo "===== Deploying Container Instance ====="
+        #     azd env set skipContainerDeployment false
+        #     
+        #     echo "Re-running provision to deploy ACI..."
+        #     if azd provision --no-prompt; then
+        #       echo "Container Instance deployed successfully!"
+        #     else
+        #       echo "Container Instance deployment failed"
+        #     fi
+        #   else
+        #     echo "Failed to build container image"
+        #   fi
+        # fi
+        
+        if [ -n "$CONTAINER_INSTANCE_NAME" ]; then
           echo ""
           echo "Container Instance: $CONTAINER_INSTANCE_NAME"
           echo "Container Private IP: $CONTAINER_INSTANCE_PRIVATE_IP"
-        elif [ -n "$ACR_NAME" ]; then
-          echo ""
-          echo "Container Registry: $ACR_NAME"
         fi
         
-        # Build and deploy frontend to App Service
         echo ""
-        echo "===== Building Frontend ====="
-        cd ./src/frontend
-        if npm install && npm run build; then
-          echo "Frontend build completed!"
-          
-          # Copy build to frontend-server
-          cp -r ../static/* ../frontend-server/static/ 2>/dev/null || true
-          
-          cd ../frontend-server
-          
-          # Create deployment package
-          echo "Creating deployment package..."
-          rm -f frontend-deploy.zip
-          zip -r frontend-deploy.zip static/ server.js package.json package-lock.json
-          
-          echo ""
-          echo "===== Deploying Frontend to App Service ====="
-          if az webapp deploy \
-            --resource-group "$RESOURCE_GROUP_NAME" \
-            --name "$APP_SERVICE_NAME" \
-            --src-path frontend-deploy.zip \
-            --type zip; then
-            echo "Frontend deployed successfully!"
-          else
-            echo "Frontend deployment failed"
-          fi
-          
-          cd ../..
-        else
-          echo "Frontend build failed"
-          cd ../..
-        fi
+        echo "Container Registry: $ACR_NAME"
+        
+        # ============================================================
+        # Frontend Build/Deploy - COMMENTED OUT (using pre-built ACR image)
+        # ============================================================
+        # # Build and deploy frontend to App Service
+        # echo ""
+        # echo "===== Building Frontend ====="
+        # cd ./src/frontend
+        # if npm install && npm run build; then
+        #   echo "Frontend build completed!"
+        #   
+        #   # Copy build to frontend-server
+        #   cp -r ../static/* ../frontend-server/static/ 2>/dev/null || true
+        #   
+        #   cd ../frontend-server
+        #   
+        #   # Create deployment package
+        #   echo "Creating deployment package..."
+        #   rm -f frontend-deploy.zip
+        #   zip -r frontend-deploy.zip static/ server.js package.json package-lock.json
+        #   
+        #   echo ""
+        #   echo "===== Deploying Frontend to App Service ====="
+        #   if az webapp deploy \
+        #     --resource-group "$RESOURCE_GROUP_NAME" \
+        #     --name "$APP_SERVICE_NAME" \
+        #     --src-path frontend-deploy.zip \
+        #     --type zip; then
+        #     echo "Frontend deployed successfully!"
+        #   else
+        #     echo "Frontend deployment failed"
+        #   fi
+        #   
+        #   cd ../..
+        # else
+        #   echo "Frontend build failed"
+        #   cd ../..
+        # fi
         
         # Run post-deploy script to upload sample data and create search index
         echo ""
