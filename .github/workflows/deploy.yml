@@ -158,7 +158,7 @@ jobs:
                 azureAiServiceLocation=${{ env.AZURE_AI_LOCATION }} \
                 imageTag="${IMAGE_TAG}"\
                 createdBy="Pipeline" \
-                tags="{'SecurityControl':'Ignore','Purpose':'Deploying and Cleaning Up Resources for Validation','CreatedDate':'$current_date'}"
+                tags="{'Purpose':'Deploying and Cleaning Up Resources for Validation','CreatedDate':'$current_date'}"
 
       - name: Get Deployment Output and extract Values
         id: get_output
