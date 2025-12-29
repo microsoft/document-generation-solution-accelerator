@@ -19,6 +19,7 @@ class GeneratePage(BasePage):
     CHAT_HISTORY_CLOSE = "//i[@data-icon-name='Cancel']"
 
     def __init__(self, page):
+        super().__init__(page)
         self.page = page
 
     def enter_a_question(self, text):

@@ -1,5 +1,4 @@
 import { chatHistorySampleData } from './chatHistory';
-import { Conversation } from '../api/models';
 
 describe('chatHistorySampleData', () => {
   it('should be an array of Conversation objects', () => {

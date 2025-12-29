@@ -81,10 +81,6 @@ export const ChatHistoryListItemCell: React.FC<ChatHistoryListItemCellProps> = (
     styles: { main: { maxWidth: 450 } }
   }
   
-  const tooltipStyles: Partial<ITooltipHostStyles> = {
-    root: { display: 'inline-block', maxWidth: '80%' }
-  };
-
   if (!item) {
     return null
   }

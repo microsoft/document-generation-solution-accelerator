@@ -35,7 +35,7 @@ describe('FeatureCard', () => {
   };
  
   test('renders correctly with the provided props', () => {
-    const { getByText, getByRole } = renderFeatureCard(props);
+    const { getByText } = renderFeatureCard(props);
  
     // Check if title and description are rendered correctly
     expect(getByText(props.title)).toBeInTheDocument();
@@ -108,7 +108,7 @@ describe('FeatureCard', () => {
     // Mock the useNavigate hook to return our mock function
     require('react-router-dom').useNavigate.mockReturnValue(mockNavigate);
  
-    const { getByText, queryByText } = renderFeatureCard({
+    const { getByText } = renderFeatureCard({
       icon: props.icon,
       urlSuffix: props.urlSuffix,
       title: "Feature Card",

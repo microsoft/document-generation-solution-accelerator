@@ -13,6 +13,7 @@ class DraftPage(BasePage):
     invalid_response1 = "There was an issue fetching your data. Please try again."
 
     def __init__(self, page):
+        super().__init__(page)
         self.page = page
 
     def validate_draft_sections_loaded(self):

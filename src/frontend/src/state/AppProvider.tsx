@@ -10,8 +10,7 @@ import {
   Feedback,
   FrontendSettings,
   frontendSettings,
-  historyEnsure,
-  historyList
+  historyEnsure
 } from '../api'
 
 import { appStateReducer } from './AppReducer'
