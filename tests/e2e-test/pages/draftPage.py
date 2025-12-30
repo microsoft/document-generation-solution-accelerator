@@ -14,7 +14,6 @@ class DraftPage(BasePage):
 
     def __init__(self, page):
         super().__init__(page)
-        self.page = page
 
     def validate_draft_sections_loaded(self):
         max_wait_time = 180  # seconds

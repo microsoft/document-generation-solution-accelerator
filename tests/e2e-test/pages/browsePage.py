@@ -11,7 +11,6 @@ class BrowsePage(BasePage):
 
     def __init__(self, page):
         super().__init__(page)
-        self.page = page
 
     def enter_a_question(self, text):
         # Type a question in the text area
