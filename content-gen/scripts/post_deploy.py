@@ -228,7 +228,7 @@ async def upload_images(config: ResourceConfig, dry_run: bool = False) -> int:
             print(f"  - {img.name}")
         return len(image_files)
     
-    # Upload images one at a time to avoid App Service gateway timeout (230s)
+    # Upload images one at a time
     uploaded_count = 0
     
     async with httpx.AsyncClient(timeout=120.0) as client:  # 2 minute timeout per image
@@ -243,7 +243,6 @@ async def upload_images(config: ResourceConfig, dry_run: bool = False) -> int:
                 "content_type": content_type,
                 "data": base64.b64encode(image_bytes).decode("utf-8")
             }
-            print_step(f"Uploading: {image_path.name} ({len(image_bytes):,} bytes)...")
             
             try:
                 response = await client.post(
@@ -257,7 +256,6 @@ async def upload_images(config: ResourceConfig, dry_run: bool = False) -> int:
                     return uploaded_count
                 
                 if response.status_code == 200:
-                    print_success(f"{image_path.name}")
                     uploaded_count += 1
                 else:
                     print_error(f"{image_path.name}: API returned {response.status_code}")

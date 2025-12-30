@@ -1,6 +1,5 @@
 // ========== container-instance.bicep ========== //
 // Azure Container Instance module for backend API deployment
-// Supports both private (VNet) and public IP modes
 
 @description('Required. Name of the container group.')
 param name string
@@ -37,10 +36,6 @@ param registryServer string
 
 @description('Optional. User-assigned managed identity resource ID for ACR pull.')
 param userAssignedIdentityResourceId string = ''
-
-// ============== //
-// Variables      //
-// ============== //
 
 var isPrivateNetworking = !empty(subnetResourceId)
 

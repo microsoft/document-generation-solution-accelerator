@@ -678,33 +678,6 @@ module storageAccount 'br/public:avm/res/storage/storage-account:0.30.0' = {
   }
 }
 
-// ========== Azure Container Registry ========== //
-// COMMENTED OUT: ACR is NOT deployed - images are pre-built and pushed to an existing ACR before deployment
-// The acrName parameter should be set to point to your existing ACR
-// Required images:
-//   - content-gen-webapp:latest (Frontend - App Service)
-//   - content-gen-api:latest (Backend - ACI, for private networking mode)
-// 
-// module containerRegistry 'br/public:avm/res/container-registry/registry:0.9.3' = {
-//   name: take('avm.res.container-registry.registry.${acrResourceName}', 64)
-//   params: {
-//     name: acrResourceName
-//     location: solutionLocation
-//     tags: tags
-//     enableTelemetry: enableTelemetry
-//     acrSku: 'Basic'
-//     acrAdminUserEnabled: false
-//     publicNetworkAccess: 'Enabled'
-//     roleAssignments: [
-//       {
-//         roleDefinitionIdOrName: '7f951dda-4ed3-4680-a7ca-43fe172d538d' // AcrPull
-//         principalId: userAssignedIdentity.outputs.principalId
-//         principalType: 'ServicePrincipal'
-//       }
-//     ]
-//   }
-// }
-
 // ========== Cosmos DB ========== //
 var cosmosDBResourceName = 'cosmos-${solutionSuffix}'
 var cosmosDBDatabaseName = 'content_generation_db'
