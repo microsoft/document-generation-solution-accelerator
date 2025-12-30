@@ -155,7 +155,7 @@ export const Answer = ({ answer, onCitationClicked }: Props) => {
   const onLikeResponseClicked = async () => {
     if (answer.message_id == undefined) return
 
-    let newFeedbackState: Feedback.Neutral | Feedback.Positive | Feedback.Negative
+    let newFeedbackState: Feedback.Neutral | Feedback.Positive
     // Set or unset the thumbs up state
     if (feedbackState == Feedback.Positive) {
       newFeedbackState = Feedback.Neutral
