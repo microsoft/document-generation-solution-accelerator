@@ -122,17 +122,8 @@ class DraftPage(BasePage):
 
                 if not content_loaded:
                     logger.error(f"❌ Section '{title_text}' still empty after retrying.")
-
-                    # Optional: take screenshot
-                    screenshot_dir = "screenshots"
-                    os.makedirs(screenshot_dir, exist_ok=True)
-                    screenshot_path = os.path.join(screenshot_dir, f"section_{index + 1}_{title_text.replace(' ', '_')}.png")
-                    try:
-                        section.screenshot(path=screenshot_path)
-                        logger.error(f"📸 Screenshot saved: {screenshot_path}")
-                    except Exception as e:
-                        logger.error(f"❌ Generate click failed in section '{title_text}': {e}")
-                        continue
+                    # Note: Screenshots are only captured on test failures, not during normal page operations
+                    continue
 
             try:
                 content = content_locator.text_content(timeout=2000).strip()
@@ -586,14 +577,7 @@ class DraftPage(BasePage):
             
         except Exception as e:
             logger.error(f"❌ Failed to enter document title: {e}")
-            # Take screenshot for debugging
-            try:
-                screenshot_path = "screenshots/title_input_error.png"
-                os.makedirs("screenshots", exist_ok=True)
-                self.page.screenshot(path=screenshot_path)
-                logger.error(f"📸 Screenshot saved: {screenshot_path}")
-            except:
-                pass
+            # Note: Screenshots are only captured on test failures, not during normal page operations
             raise
 
     def click_export_document_button(self):

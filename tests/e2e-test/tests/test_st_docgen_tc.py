@@ -20,29 +20,39 @@ MAX_RETRIES = 3
 RETRY_DELAY = 3  # seconds
 
 
-# Helper function to capture screenshots at key steps - reusable across all tests
-def capture_screenshot(page, step_name, test_prefix="test"):
+# Helper function to capture screenshots only on test failures
+def capture_failure_screenshot(page, test_name, error_info=""):
     """
-    Capture a screenshot and save it to the screenshots directory.
+    Capture a screenshot when a test fails and save it to the screenshots directory.
     
     Args:
         page: Playwright page object
-        step_name: Name/description of the step being captured
-        test_prefix: Prefix for the screenshot filename (default: "test")
+        test_name: Name of the test that failed
+        error_info: Additional error information to include in filename
     """
     try:
         from datetime import datetime
-        screenshots_dir = os.path.join(os.path.dirname(__file__), "..", "screenshots")
+        screenshots_dir = os.path.join(os.path.dirname(__file__), "..", "screenshots", "failures")
         os.makedirs(screenshots_dir, exist_ok=True)
         
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        screenshot_name = f"{test_prefix}_{step_name}_{timestamp}.png"
+        error_suffix = f"_{error_info}" if error_info else ""
+        screenshot_name = f"FAILED_{test_name}{error_suffix}_{timestamp}.png"
         screenshot_path = os.path.join(screenshots_dir, screenshot_name)
         
         page.screenshot(path=screenshot_path)
-        logger.info("📸 Screenshot saved: %s", screenshot_name)
+        logger.error("📸 Failure screenshot saved: %s", screenshot_name)
     except Exception as e:
-        logger.warning("⚠️ Failed to capture screenshot for %s: %s", step_name, str(e))
+        logger.warning("⚠️ Failed to capture failure screenshot for %s: %s", test_name, str(e))
+
+
+# Legacy function - kept for compatibility but updated to do nothing
+def capture_screenshot(page, step_name, test_prefix="test"):
+    """
+    Legacy function - now does nothing as screenshots are only captured on failures.
+    Use capture_failure_screenshot() for test failures.
+    """
+    pass
 
 
 @pytest.mark.goldenpath
@@ -76,7 +86,6 @@ def test_docgen_golden_path_refactored(login_logout, request):
         logger.info("Step 1: Validate home page is loaded and navigating to Browse Page")
         start = time.time()
         home_page.validate_home_page()
-        capture_screenshot(page, "step1_home_page", "golden_path")
         home_page.click_browse_button()
         duration = time.time() - start
         logger.info("Execution Time for 'Validate home page and navigate to Browse': %.2fs", duration)
@@ -91,7 +100,6 @@ def test_docgen_golden_path_refactored(login_logout, request):
             browse_page.enter_a_question(question)
             browse_page.click_send_button()
             browse_page.validate_response_status(question_api=question)
-            capture_screenshot(page, f"step2_{idx}_browse_response", "golden_path")
             browse_page.click_expand_reference_in_response()
             browse_page.click_reference_link_in_response()
             browse_page.close_citation()
@@ -103,9 +111,7 @@ def test_docgen_golden_path_refactored(login_logout, request):
         logger.info("Step 4: Navigate to Generate page and delete chat history")
         start = time.time()
         browse_page.click_generate_button()
-        capture_screenshot(page, "step4_before_delete_history", "golden_path")
         generate_page.delete_chat_history()
-        capture_screenshot(page, "step4_after_delete_history", "golden_path")
         duration = time.time() - start
         logger.info("Execution Time for 'Navigate to Generate and delete chat history': %.2fs", duration)
 
@@ -126,7 +132,6 @@ def test_docgen_golden_path_refactored(login_logout, request):
 
                 if latest_response not in [invalid_response, invalid_response1]:
                     logger.info("[%s] Valid response received on attempt %d", generate_question1, attempt)
-                    capture_screenshot(page, f"step5_generate_response_attempt{attempt}", "golden_path")
                     question_passed = True
                     break
                 else:
@@ -158,7 +163,6 @@ def test_docgen_golden_path_refactored(login_logout, request):
         start = time.time()
         generate_page.enter_a_question(add_section)
         generate_page.click_send_button()
-        capture_screenshot(page, "step6_add_section_response", "golden_path")
         duration = time.time() - start
         logger.info("Execution Time for 'Add Section Prompt': %.2fs", duration)
 
@@ -167,7 +171,6 @@ def test_docgen_golden_path_refactored(login_logout, request):
         start = time.time()
         generate_page.click_generate_draft_button()
         draft_page.validate_draft_sections_loaded()
-        capture_screenshot(page, "step7_draft_sections_loaded", "golden_path")
         duration = time.time() - start
         logger.info("Execution Time for 'Generate Draft and Validate Sections': %.2fs", duration)
 
@@ -176,7 +179,6 @@ def test_docgen_golden_path_refactored(login_logout, request):
         start = time.time()
         browse_page.click_generate_button()
         generate_page.show_chat_history()
-        capture_screenshot(page, "step8_chat_history_shown", "golden_path")
         duration = time.time() - start
         logger.info("Execution Time for 'Validate chat history is saved': %.2fs", duration)
 
@@ -238,7 +240,6 @@ def test_browse_generate_tabs_accessibility(login_logout, request):
         home_page.open_home_page()
         
         home_page.validate_home_page()
-        capture_screenshot(page, "step1_home_page", "tc9366")
         duration = time.time() - start
         logger.info("Execution Time for 'Validate home page is loaded': %.2fs", duration)
 
@@ -250,7 +251,6 @@ def test_browse_generate_tabs_accessibility(login_logout, request):
         
         # Verify chat conversation elements are present on Browse page
         browse_page.validate_browse_page()
-        capture_screenshot(page, "step2_browse_tab_accessible", "tc9366")
 
         logger.info("Browse tab is visible and enabled")
         duration = time.time() - start
@@ -264,7 +264,6 @@ def test_browse_generate_tabs_accessibility(login_logout, request):
         
         # Verify chat conversation elements are present on Generate page
         generate_page.validate_generate_page()
-        capture_screenshot(page, "step3_generate_tab_accessible", "tc9366")
 
         logger.info("Generate tab is visible and enabled")
         duration = time.time() - start
@@ -282,7 +281,6 @@ def test_browse_generate_tabs_accessibility(login_logout, request):
                 "FAILED: 'Generate Draft' button should be disabled on launch before creating a template"
         
         logger.info("✅ Draft button is properly disabled on launch")
-        capture_screenshot(page, "step4_draft_button_disabled", "tc9366")
         duration = time.time() - start
         logger.info("Execution Time for 'Verify Draft tab is disabled': %.2fs", duration)
 
@@ -297,6 +295,11 @@ def test_browse_generate_tabs_accessibility(login_logout, request):
 
         logger.info("Test TC 9366 - Browse and Generate tabs accessibility test completed successfully")
 
+    except Exception as e:
+        # Capture screenshot only on failure
+        capture_failure_screenshot(page, "test_browse_generate_tabs_accessibility", "exception")
+        logger.error(f"Test failed with exception: {str(e)}")
+        raise
     finally:
         logger.removeHandler(handler)
 
@@ -347,7 +350,6 @@ def test_draft_tab_accessibility_after_template_creation(login_logout, request):
         start = time.time()
         home_page.open_home_page()
         home_page.validate_home_page()
-        capture_screenshot(page, "step1_home_page", "tc9369")
         logger.info("✅ Login successful and 'Document Generation' page is displayed")
         duration = time.time() - start
         logger.info("Execution Time for Step 1: %.2fs", duration)
@@ -357,7 +359,6 @@ def test_draft_tab_accessibility_after_template_creation(login_logout, request):
         start = time.time()
         home_page.click_browse_button()
         browse_page.validate_browse_page()
-        capture_screenshot(page, "step2_browse_page", "tc9369")
         logger.info("✅ Chat conversation page is displayed")
         duration = time.time() - start
         logger.info("Execution Time for Step 2: %.2fs", duration)
@@ -371,7 +372,6 @@ def test_draft_tab_accessibility_after_template_creation(login_logout, request):
         logger.info("Send button clicked")
         page.wait_for_timeout(3000)
         browse_page.validate_response_status(question_api=browse_question1)
-        capture_screenshot(page, "step3_browse_response", "tc9369")
         logger.info("✅ Response is generated with typical sections from promissory notes")
         duration = time.time() - start
         logger.info("Execution Time for Step 3: %.2fs", duration)
@@ -386,7 +386,6 @@ def test_draft_tab_accessibility_after_template_creation(login_logout, request):
                 "FAILED: Draft tab should be disabled before template creation"
         
         logger.info("✅ Draft tab should be disabled")
-        capture_screenshot(page, "step4_draft_tab_disabled", "tc9369")
         duration = time.time() - start
         logger.info("Execution Time for Step 4: %.2fs", duration)
 
@@ -397,7 +396,6 @@ def test_draft_tab_accessibility_after_template_creation(login_logout, request):
         browse_page.click_generate_button()
         page.wait_for_timeout(3000)
         generate_page.validate_generate_page()
-        capture_screenshot(page, "step5_generate_page", "tc9369")
         logger.info("✅ Chat conversation page is displayed")
         duration = time.time() - start
         logger.info("Execution Time for Step 5: %.2fs", duration)
@@ -413,7 +411,6 @@ def test_draft_tab_accessibility_after_template_creation(login_logout, request):
                 "FAILED: Generate Draft icon should be disabled before template creation"
         
         logger.info("✅ Generate Draft icon is disabled")
-        capture_screenshot(page, "step6_draft_button_disabled", "tc9369")
         duration = time.time() - start
         logger.info("Execution Time for Step 6: %.2fs", duration)
 
@@ -450,7 +447,6 @@ def test_draft_tab_accessibility_after_template_creation(login_logout, request):
 
                 if latest_response not in [invalid_response, invalid_response1]:
                     logger.info("✅ Promissory note is generated on attempt %d", attempt)
-                    capture_screenshot(page, f"step7_promissory_note_attempt{attempt}", "tc9369")
                     question_passed = True
                     break
                 else:
@@ -499,7 +495,6 @@ def test_draft_tab_accessibility_after_template_creation(login_logout, request):
         
         # Verify Draft sections are loaded
         draft_page.validate_draft_sections_loaded()
-        capture_screenshot(page, "step8_draft_section_displayed", "tc9369")
         
         logger.info("✅ 'Generate draft' icon is enabled and Draft section is displayed")
         duration = time.time() - start
@@ -518,6 +513,11 @@ def test_draft_tab_accessibility_after_template_creation(login_logout, request):
         logger.info("Step 8: Draft section displayed after template creation ✓")
         logger.info("="*80)
 
+    except Exception as e:
+        # Capture screenshot only on failure
+        capture_failure_screenshot(page, "test_draft_tab_accessibility_after_template_creation", "exception")
+        logger.error(f"Test failed with exception: {str(e)}")
+        raise
     finally:
         logger.removeHandler(handler)
 
