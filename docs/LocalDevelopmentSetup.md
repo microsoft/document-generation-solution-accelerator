@@ -310,6 +310,8 @@ chmod +x start.sh
 
 ## Step 6: Running Backend and Frontend Separately
 
+> **📋 Terminal Reminder**: This section requires **two separate terminal windows** - one for the Backend API and one for the Frontend. Keep both terminals open while running. All commands assume you start from the **repository root directory**.
+
 #### Step 1: Create Virtual Environment (Recommended)
 
 Open your terminal and navigate to the root folder of the project, then create the virtual environment:
@@ -373,6 +375,52 @@ python -m uvicorn app:app --port 50505 --reload
 > **Note**: Make sure your virtual environment is activated before running these commands. You should see `(.venv)` in your terminal prompt when the virtual environment is active.
 
 The App will run on `http://127.0.0.1:50505/#/` by default.
+
+## Step 7: Verify All Services Are Running
+
+Before using the application, confirm all services are running correctly:
+
+### Terminal Status Checklist
+
+| Terminal | Service | Command | Expected Output | URL |
+|----------|---------|---------|-----------------|-----|
+| **Terminal 1** | Backend API | `python -m uvicorn app:app --port 50505 --reload` | `INFO: Application startup complete` | http://127.0.0.1:50505 |
+| **Terminal 2** | Frontend (Dev) | `npm run dev` | `Local: http://localhost:5173/` | http://localhost:5173 |
+
+### Quick Verification
+
+**1. Check Backend API:**
+```bash
+# In a new terminal
+curl http://127.0.0.1:50505/health
+# Expected: {"status":"healthy"} or similar JSON response
+```
+
+**2. Check Frontend:**
+- Open browser to http://127.0.0.1:50505 (production build) or http://localhost:5173 (dev server)
+- Should see the Document Generation UI
+- If authentication is configured, you'll be redirected to Azure AD login
+
+### Common Issues
+
+**Service not starting?**
+- Ensure you're in the correct directory (`src/` for backend)
+- Verify virtual environment is activated (you should see `(.venv)` in prompt)
+- Check that port is not already in use (50505 for API, 5173 for frontend dev)
+- Review error messages in the terminal
+
+**Can't access services?**
+- Verify firewall isn't blocking ports 50505 or 5173
+- Try `http://localhost:port` instead of `http://127.0.0.1:port`
+- Ensure services show "startup complete" messages
+
+## Step 8: Next Steps
+
+Once all services are running (as confirmed in Step 7), you can:
+
+1. **Access the Application**: Open `http://127.0.0.1:50505` in your browser to explore the Document Generation UI
+2. **Explore Sample Questions**: Follow [SampleQuestions.md](SampleQuestions.md) for example prompts and use cases
+3. **Understand the Architecture**: Review the codebase starting with `src/backend/` directory
 
 ## Troubleshooting
 
