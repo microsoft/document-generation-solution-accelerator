@@ -231,10 +231,10 @@ Follow these steps to set up and run the application locally:
 
 You can refer the local deployment guide here: [Local Deployment Guide](https://github.com/microsoft/document-generation-solution-accelerator/blob/main/docs/DeploymentGuide.md)
 
-### 1. Open the App Folder
+### 5.1. Open the App Folder
 Navigate to the `src` directory of the repository using Visual Studio Code.
 
-### 2. Configure Environment Variables
+### 5.2. Configure Environment Variables
 - Copy the `.env.sample` file to a new file named `.env`.
 - Update the `.env` file with the required values from your Azure resource group in Azure Portal App Service environment variables.
 - You can get all env value in your deployed resource group under App Service:
@@ -255,11 +255,11 @@ APP_ENV="Dev"
 This change is required for running the application in local development mode.
 
 
-### Required Azure RBAC Permissions
+### 5.3. Required Azure RBAC Permissions
 
 To run the application locally, your Azure account needs the following role assignments on the deployed resources:
 
-#### App Configuration Access
+#### 5.3.1. App Configuration Access
 ```bash
 # Get your principal ID
 PRINCIPAL_ID=$(az ad signed-in-user show --query id -o tsv)
@@ -271,7 +271,7 @@ az role assignment create \
   --scope "/subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.AppConfiguration/configurationStores/<appconfig-name>"
 ```
 
-#### Cosmos DB Access
+#### 5.3.2. Cosmos DB Access
 ```bash
 # Assign Cosmos DB Built-in Data Contributor role
 az cosmosdb sql role assignment create \
@@ -283,7 +283,7 @@ az cosmosdb sql role assignment create \
 ```
 > **Note**: After local deployment is complete, you need to execute the post-deployment script so that all the required roles will be assigned automatically.
 
-## Running with Automated Script
+### 5.4. Running with Automated Script
 
 For convenience, you can use the provided startup scripts that handle environment setup and start both services:
 
@@ -299,7 +299,7 @@ cd src
 chmod +x start.sh
 ./start.sh
 ```
-### Start the Application
+### 5.5. Start the Application
 - Run `start.cmd` (Windows) or `start.sh` (Linux/Mac) to:
   - Install backend dependencies.
   - Install frontend dependencies.
@@ -312,7 +312,7 @@ chmod +x start.sh
 
 > **📋 Terminal Reminder**: This section requires **two separate terminal windows** - one for the Backend API and one for the Frontend. Keep both terminals open while running. All commands assume you start from the **repository root directory**.
 
-#### Step 1: Create Virtual Environment (Recommended)
+### 6.1. Create Virtual Environment (Recommended)
 
 Open your terminal and navigate to the root folder of the project, then create the virtual environment:
 
@@ -332,7 +332,7 @@ source .venv/bin/activate
 
 > **Note**: After activation, you should see `(.venv)` in your terminal prompt indicating the virtual environment is active.
 
-#### Step 2: Install Dependencies and Run
+### 6.2. Install Dependencies and Run
 
 To develop and run the backend API locally:
 
@@ -380,14 +380,14 @@ The App will run on `http://127.0.0.1:50505/#/` by default.
 
 Before using the application, confirm all services are running correctly:
 
-### Terminal Status Checklist
+### 7.1. Terminal Status Checklist
 
 | Terminal | Service | Command | Expected Output | URL |
 |----------|---------|---------|-----------------|-----|
 | **Terminal 1** | Backend API | `python -m uvicorn app:app --port 50505 --reload` | `INFO: Application startup complete` | http://127.0.0.1:50505 |
 | **Terminal 2** | Frontend (Dev) | `npm run dev` | `Local: http://localhost:5173/` | http://localhost:5173 |
 
-### Quick Verification
+### 7.2. Quick Verification
 
 **1. Check Backend API:**
 ```bash
@@ -401,7 +401,7 @@ curl http://127.0.0.1:50505/health
 - Should see the Document Generation UI
 - If authentication is configured, you'll be redirected to Azure AD login
 
-### Common Issues
+### 7.3. Common Issues
 
 **Service not starting?**
 - Ensure you're in the correct directory (`src/` for backend)
