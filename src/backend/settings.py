@@ -275,11 +275,6 @@ class _AzureSearchSettings(BaseSettings, DatasourcePayloadConstructor):
     endpoint_suffix: str = Field(default="search.windows.net", exclude=True)
     connection_name: Optional[str] = None
     index: str = Field(serialization_alias="index_name")
-
-    def __init__(self, settings: "_AppSettings", **data):
-        # Ensure both BaseSettings and DatasourcePayloadConstructor are initialized
-        super().__init__(settings=settings, **data)
-
     key: Optional[str] = Field(default=None, exclude=True)
     use_semantic_search: bool = Field(default=False, exclude=True)
     semantic_search_config: str = Field(
@@ -307,6 +302,10 @@ class _AzureSearchSettings(BaseSettings, DatasourcePayloadConstructor):
     embedding_dependency: Optional[dict] = None
     fields_mapping: Optional[dict] = None
     filter: Optional[str] = Field(default=None, exclude=True)
+
+    def __init__(self, settings: "_AppSettings", **data):
+        # Ensure both BaseSettings and DatasourcePayloadConstructor are initialized
+        super().__init__(settings=settings, **data)
 
     @field_validator("content_columns", "vector_columns", mode="before")
     @classmethod
