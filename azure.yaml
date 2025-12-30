@@ -32,20 +32,64 @@ hooks:
   postprovision:
     windows:
       run: |
-        Write-Host "Web app URL: "
-        Write-Host "$env:WEB_APP_URL" -ForegroundColor Cyan
-        Write-Host "`nIf you want to use the Sample Data, run the following command in the Bash terminal to process it:"
-        Write-Host "bash ./infra/scripts/process_sample_data.sh" -ForegroundColor Cyan
+        Write-Host ""
+        Write-Host "==========================================" -ForegroundColor Cyan
+        Write-Host "  Post-Deployment Configuration          " -ForegroundColor Cyan
+        Write-Host "==========================================" -ForegroundColor Cyan
+        Write-Host ""
+        Write-Host "Web app URL: $env:WEB_APP_URL" -ForegroundColor Green
+        Write-Host ""
+        
+        # Automated agent creation
+        Write-Host "Creating AI agents automatically..." -ForegroundColor Cyan
+        try {
+          & .\infra\scripts\agent_scripts\create_agents.ps1 -SkipExisting
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "✓ Agents created successfully" -ForegroundColor Green
+          } else {
+            Write-Host "⚠ Agent creation encountered issues (exit code: $LASTEXITCODE)" -ForegroundColor Yellow
+            Write-Host "  You can manually run: .\infra\scripts\agent_scripts\create_agents.ps1" -ForegroundColor Yellow
+          }
+        } catch {
+          Write-Host "⚠ Could not create agents automatically" -ForegroundColor Yellow
+          Write-Host "  Error: $($_.Exception.Message)" -ForegroundColor Yellow
+          Write-Host "  You can manually run: .\infra\scripts\agent_scripts\create_agents.ps1" -ForegroundColor Yellow
+        }
+        
+        Write-Host ""
+        Write-Host "Next Steps:" -ForegroundColor Cyan
+        Write-Host "  1. To process sample data, run:" -ForegroundColor White
+        Write-Host "     bash ./infra/scripts/process_sample_data.sh" -ForegroundColor Gray
+        Write-Host "  2. Access your application at the URL above" -ForegroundColor White
+        Write-Host ""
       shell: pwsh
-      continueOnError: false
+      continueOnError: true
       interactive: true
     posix:
       run: |
-        echo "Web app URL: "
-        echo $WEB_APP_URL
         echo ""
-        echo "If you want to use the Sample Data, run the following command in the bash terminal to process it:"
-        echo "bash ./infra/scripts/process_sample_data.sh"
+        echo "=========================================="
+        echo "  Post-Deployment Configuration          "
+        echo "=========================================="
+        echo ""
+        echo "Web app URL: $WEB_APP_URL"
+        echo ""
+        
+        # Automated agent creation
+        echo "Creating AI agents automatically..."
+        if bash ./infra/scripts/agent_scripts/run_create_agents_scripts.sh; then
+          echo "✓ Agents created successfully"
+        else
+          echo "⚠ Agent creation encountered issues (exit code: $?)"
+          echo "  You can manually run: bash ./infra/scripts/agent_scripts/run_create_agents_scripts.sh"
+        fi
+        
+        echo ""
+        echo "Next Steps:"
+        echo "  1. To process sample data, run:"
+        echo "     bash ./infra/scripts/process_sample_data.sh"
+        echo "  2. Access your application at the URL above"
+        echo ""
       shell: sh
-      continueOnError: false
+      continueOnError: true
       interactive: true
