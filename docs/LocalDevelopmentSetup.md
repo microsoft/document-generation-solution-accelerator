@@ -25,7 +25,6 @@ This application consists of **two separate services** that run independently:
 ```bash
 document-generation-solution-accelerator/   ← Repository root (start here)
 ├── src/
-│   ├── .venv/                              ← Python virtual environment
 │   ├── backend/                            
 │   │   ├── api/                            ← API endpoints and routes
 │   │   ├── auth/                           ← Authentication modules
@@ -34,7 +33,6 @@ document-generation-solution-accelerator/   ← Repository root (start here)
 │   │   ├── security/                       ← Security-related modules
 │   │   └── settings.py                     ← Backend configuration
 │   ├── frontend/                           
-│   │   ├── node_modules/                   
 │   │   ├── src/                            ← React/TypeScript source
 │   │   └── package.json                    ← Frontend dependencies
 │   ├── static/                             ← Static web assets
@@ -49,7 +47,6 @@ document-generation-solution-accelerator/   ← Repository root (start here)
 │   └── config.json                         ← Scripts configuration
 ├── infra/                                  
 │   ├── main.bicep                          ← Main infrastructure template
-│   ├── modules/                            ← Bicep modules
 │   ├── scripts/                            ← Infrastructure scripts
 │   └── main.parameters.json                ← Deployment parameters
 ├── docs/                                   ← Documentation (you are here)
@@ -473,7 +470,7 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name "LongPathsEnabled" -Value 1 -PropertyType DWORD -Force
 
 # SSL certificate issues
-pip install --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org uv
+python -m pip install uv
 ```
 
 ### Azure Authentication Issues
