@@ -102,7 +102,8 @@ def print_warning(text: str):
 
 def run_az_command(args: List[str], capture_output: bool = True) -> subprocess.CompletedProcess:
     """Run an Azure CLI command."""
-    cmd = ["az"] + args
+    # Add --only-show-errors to suppress the welcome banner and info messages
+    cmd = ["az", "--only-show-errors"] + args
     # shell=True required on Windows to find az.cmd
     return subprocess.run(cmd, capture_output=capture_output, text=True, shell=True)
 
