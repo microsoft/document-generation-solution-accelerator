@@ -103,7 +103,13 @@ def print_warning(text: str):
 def run_az_command(args: List[str], capture_output: bool = True) -> subprocess.CompletedProcess:
     """Run an Azure CLI command."""
     cmd = ["az"] + args
-    return subprocess.run(cmd, capture_output=capture_output, text=True)
+    
+    if sys.platform == "win32":
+        # Windows: shell=True required to find az.cmd
+        return subprocess.run(cmd, capture_output=capture_output, text=True, shell=True)
+    else:
+        # Linux/Mac: Don't use shell=True to avoid /bin/sh triggering welcome banner
+        return subprocess.run(cmd, capture_output=capture_output, text=True)
 
 
 def discover_resources(resource_group: str, app_name: Optional[str] = None, api_key: str = "") -> ResourceConfig:
