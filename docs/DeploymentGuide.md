@@ -59,8 +59,9 @@ Ensure you have access to an [Azure subscription](https://azure.microsoft.com/fr
 📖 **Follow:** [Quota Check Instructions](./QuotaCheck.md) to ensure sufficient capacity.
 
 **Recommended Configuration:**
-- **Default:** 150k tokens (minimum)
-- **Optimal:** More than 150k tokens (for best performance)
+
+- **Minimum:** 150k tokens for Global Standard GPT-4.1
+- **Optimal:** More 150k tokens (for best performance)
 
 > **Note:** When you run `azd up`, the deployment will automatically show you regions with available quota, so this pre-check is optional but helpful for planning purposes. You can customize these settings later in [Step 3.3: Advanced Configuration](#33-advanced-configuration-optional).
 
@@ -115,7 +116,7 @@ Select one of the following options to deploy the Document Generation Solution A
 <details>
 <summary><b>Option C: Visual Studio Code Web</b></summary>
 
- [![Open in Visual Studio Code Web](https://img.shields.io/static/v1?style=for-the-badge&label=Visual%20Studio%20Code%20(Web)&message=Open&color=blue&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/azure/?vscode-azure-exp=foundry&agentPayload=eyJiYXNlVXJsIjogImh0dHBzOi8vcmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbS9taWNyb3NvZnQvQ29udGFpbmVyLU1pZ3JhdGlvbi1Tb2x1dGlvbi1BY2NlbGVyYXRvci9yZWZzL2hlYWRzL21haW4vaW5mcmEvdnNjb2RlX3dlYiIsICJpbmRleFVybCI6ICIvaW5kZXguanNvbiIsICJ2YXJpYWJsZXMiOiB7ImFnZW50SWQiOiAiIiwgImNvbm5lY3Rpb25TdHJpbmciOiAiIiwgInRocmVhZElkIjogIiIsICJ1c2VyTWVzc2FnZSI6ICIiLCAicGxheWdyb3VuZE5hbWUiOiAiIiwgImxvY2F0aW9uIjogIiIsICJzdWJzY3JpcHRpb25JZCI6ICIiLCAicmVzb3VyY2VJZCI6ICIiLCAicHJvamVjdFJlc291cmNlSWQiOiAiIiwgImVuZHBvaW50IjogIiJ9LCAiY29kZVJvdXRlIjogWyJhaS1wcm9qZWN0cy1zZGsiLCAicHl0aG9uIiwgImRlZmF1bHQtYXp1cmUtYXV0aCIsICJlbmRwb2ludCJdfQ==)
+ [![Open in Visual Studio Code Web](https://img.shields.io/static/v1?style=for-the-badge&label=Visual%20Studio%20Code%20(Web)&message=Open&color=blue&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/azure/?vscode-azure-exp=foundry&agentPayload=eyJiYXNlVXJsIjogImh0dHBzOi8vcmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbS9taWNyb3NvZnQvZG9jdW1lbnQtZ2VuZXJhdGlvbi1zb2x1dGlvbi1hY2NlbGVyYXRvci9yZWZzL2hlYWRzL21haW4vaW5mcmEvdnNjb2RlX3dlYiIsICJpbmRleFVybCI6ICIvaW5kZXguanNvbiIsICJ2YXJpYWJsZXMiOiB7ImFnZW50SWQiOiAiIiwgImNvbm5lY3Rpb25TdHJpbmciOiAiIiwgInRocmVhZElkIjogIiIsICJ1c2VyTWVzc2FnZSI6ICIiLCAicGxheWdyb3VuZE5hbWUiOiAiIiwgImxvY2F0aW9uIjogIiIsICJzdWJzY3JpcHRpb25JZCI6ICIiLCAicmVzb3VyY2VJZCI6ICIiLCAicHJvamVjdFJlc291cmNlSWQiOiAiIiwgImVuZHBvaW50IjogIiJ9LCAiY29kZVJvdXRlIjogWyJhaS1wcm9qZWN0cy1zZGsiLCAicHl0aG9uIiwgImRlZmF1bHQtYXp1cmUtYXV0aCIsICJlbmRwb2ludCJdfQ==)
 
 1. Click the badge above (may take a few minutes to load)
 2. Sign in with your Azure account when prompted
@@ -207,7 +208,7 @@ azd env set AZURE_ENV_VM_ADMIN_PASSWORD <your-password>
 
 You can customize various deployment settings before running `azd up`, including Azure regions, AI model configurations (deployment type, version, capacity), container registry settings, and resource names.
 
-📖 **Complete Guide:** See [Parameter Customization Guide](../docs/CustomizingAzdParameters.md) for the full list of available parameters and their usage.
+📖 **Complete Guide:** See [Parameter Customization Guide](./CustomizingAzdParameters.md) for the full list of available parameters and their usage.
 
 </details>
 
@@ -275,6 +276,7 @@ azd up
 ### 4.3 Get Application URL
 
 After successful deployment:
+
 1. Open [Azure Portal](https://portal.azure.com/)
 2. Navigate to your resource group
 3. Find the App Service with "app" in the name
@@ -309,14 +311,23 @@ After successful deployment:
 ## Step 6: Clean Up (Optional)
 
 ### Remove All Resources
+
 ```shell
 azd down
 ```
-> **Note:** If you deployed with `enableRedundancy=true` and Log Analytics workspace replication is enabled, you must first disable replication before running `azd down` else resource group delete will fail. Follow the steps in [Handling Log Analytics Workspace Deletion with Replication Enabled](./LogAnalyticsReplicationDisable.md), wait until replication returns `false`, then run `azd down`.
+
+> **Note:** To purge resources and clean up after deployment, use the `azd down` command or follow the [Delete Resource Group Guide](./DeleteResourceGroup.md) for manual cleanup through Azure Portal. If you deployed with `enableRedundancy=true` and Log Analytics workspace replication is enabled, you must first disable replication before running `azd down` else resource group delete will fail. Follow the steps in [Handling Log Analytics Workspace Deletion with Replication Enabled](./LogAnalyticsReplicationDisable.md), wait until replication returns `false`, then run `azd down`.
 
 ### Manual Cleanup (if needed)
+
 If deployment fails or you need to clean up manually:
+
 - Follow [Delete Resource Group Guide](./DeleteResourceGroup.md)
+- See section below for "Deleting Resources After a Failed Deployment"
+
+## 🛠️ Troubleshooting
+
+If you encounter issues during deployment, see our comprehensive [Troubleshooting Guide](./TroubleShootingSteps.md) for solutions to common problems.
 
 ## Managing Multiple Environments
 
@@ -409,7 +420,7 @@ azd env get-values
 
 ### Best Practices for Multiple Environments
 
-- **Use descriptive names:** `conmigdev`, `conmigprod`, `conmigtest` (remember: 3-16 chars, alphanumeric only)
+- **Use descriptive names:** `docgendev`, `docgenprod`, `docgentest` (remember: 3-16 chars, alphanumeric only)
 - **Different regions:** Deploy to multiple regions for testing quota availability
 - **Separate configurations:** Each environment can have different parameter settings
 - **Clean up unused environments:** Use `azd down` to remove environments you no longer need
@@ -418,14 +429,45 @@ azd env get-values
 
 Now that your deployment is complete and tested, explore these resources to enhance your experience:
 
-📚 **Learn More:**
+� **Get Started:**
+
+- [Sample Questions](./SampleQuestions.md) - Try these sample questions to explore the solution's capabilities
+
+🔧 **Development & Customization:**
+
 - [Local Development Setup](./LocalDevelopmentSetup.md) - Set up your local development environment
+- Review [Test Case Flows](../src/TEST_CASE_FLOWS.md) for detailed testing scenarios
+
+📚 **Learn More:**
+
+- Explore the architecture and design principles
+- Understand the solution's components and workflows
 
 ## Need Help?
 
 - 🐛 **Issues:** Check [Troubleshooting Guide](./TroubleShootingSteps.md)
 - 💬 **Support:** Review [Support Guidelines](../SUPPORT.md)
 - 🔧 **Development:** See [Contributing Guide](../CONTRIBUTING.md)
+
+---
+
+## Environment configuration for local development & debugging
+
+To run and debug the application locally, you need to configure environment variables in a `.env` file:
+
+1. Create a `.env` file in the `src` directory of your project
+2. Set the `APP_ENV` variable to match your deployed environment name:
+   ```
+   APP_ENV=<your-environment-name>
+   ```
+3. Authenticate with Azure CLI to access deployed resources:
+   ```shell
+   az login
+   ```
+
+The application will use the Azure CLI credentials to connect to the deployed Azure resources (Azure AI Search, Cosmos DB, etc.) using the environment name specified in `APP_ENV`.
+
+For complete local development setup instructions, see the [Local Development Setup Guide](./LocalDevelopmentSetup.md).
 
 ---
 
