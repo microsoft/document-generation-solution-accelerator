@@ -47,6 +47,7 @@ Ensure you have access to an [Azure subscription](https://azure.microsoft.com/fr
 - [Azure OpenAI Service](https://learn.microsoft.com/en-us/azure/ai-services/openai/)
 - [Azure Cosmos DB](https://learn.microsoft.com/en-us/azure/cosmos-db/)
 - [Azure AI Search](https://learn.microsoft.com/en-us/azure/search/)
+- [Azure Semantic Search](./AzureSemanticSearchRegion.md)
 
 **Recommended Regions:** East US, East US2, Australia East, UK South, France Central.
 
