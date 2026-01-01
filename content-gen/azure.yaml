@@ -52,40 +52,6 @@ workflows:
       - azd: provision
 
 hooks:
-  preprovision:
-    windows:
-      run: |
-        Write-Host "Preparing Content Generation Solution Accelerator deployment..." -ForegroundColor Cyan
-        Write-Host "Checking Azure CLI authentication..."
-        az account show --query "{name:name, id:id}" -o table
-        
-        # For private networking on first run, skip ACI (image not yet in ACR)
-        $currentSkip = azd env get-value skipContainerDeployment 2>$null
-        if (-not $?) {
-          $currentSkip = ""
-          $global:LASTEXITCODE = 0
-        }
-        if ($env:enablePrivateNetworking -eq 'true' -and -not $env:ACR_NAME -and $currentSkip -ne 'false') {
-          Write-Host "Private networking enabled - skipping container deployment until image is built" -ForegroundColor Yellow
-          azd env set skipContainerDeployment true
-        }
-      shell: pwsh
-      continueOnError: false
-    posix:
-      run: |
-        echo "Preparing Content Generation Solution Accelerator deployment..."
-        echo "Checking Azure CLI authentication..."
-        az account show --query "{name:name, id:id}" -o table
-        
-        # For private networking on first run, skip ACI (image not yet in ACR)
-        current_skip=$(azd env get-value skipContainerDeployment 2>/dev/null || echo "")
-        if [ "$enablePrivateNetworking" = "true" ] && [ -z "$ACR_NAME" ] && [ "$current_skip" != "false" ]; then
-          echo "Private networking enabled - skipping container deployment until image is built"
-          azd env set skipContainerDeployment true
-        fi
-      shell: sh
-      continueOnError: false
-
   postprovision:
     windows:
       run: |

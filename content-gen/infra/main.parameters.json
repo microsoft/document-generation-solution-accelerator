@@ -50,9 +50,6 @@
     "imageTag": {
       "value": "${imageTag=latest}"
     },
-    "skipContainerDeployment": {
-      "value": "${skipContainerDeployment}"
-    },
     "enablePrivateNetworking": {
       "value": "${enablePrivateNetworking}"
     },
