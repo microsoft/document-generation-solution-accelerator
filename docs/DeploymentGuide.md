@@ -116,7 +116,7 @@ Select one of the following options to deploy the Document Generation Solution A
 <details>
 <summary><b>Option C: Visual Studio Code Web</b></summary>
 
- [![Open in Visual Studio Code Web](https://img.shields.io/static/v1?style=for-the-badge&label=Visual%20Studio%20Code%20(Web)&message=Open&color=blue&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/azure/?vscode-azure-exp=foundry&agentPayload=eyJiYXNlVXJsIjogImh0dHBzOi8vcmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbS9taWNyb3NvZnQvZG9jdW1lbnQtZ2VuZXJhdGlvbi1zb2x1dGlvbi1hY2NlbGVyYXRvci9yZWZzL2hlYWRzL21haW4vaW5mcmEvdnNjb2RlX3dlYiIsICJpbmRleFVybCI6ICIvaW5kZXguanNvbiIsICJ2YXJpYWJsZXMiOiB7ImFnZW50SWQiOiAiIiwgImNvbm5lY3Rpb25TdHJpbmciOiAiIiwgInRocmVhZElkIjogIiIsICJ1c2VyTWVzc2FnZSI6ICIiLCAicGxheWdyb3VuZE5hbWUiOiAiIiwgImxvY2F0aW9uIjogIiIsICJzdWJzY3JpcHRpb25JZCI6ICIiLCAicmVzb3VyY2VJZCI6ICIiLCAicHJvamVjdFJlc291cmNlSWQiOiAiIiwgImVuZHBvaW50IjogIiJ9LCAiY29kZVJvdXRlIjogWyJhaS1wcm9qZWN0cy1zZGsiLCAicHl0aG9uIiwgImRlZmF1bHQtYXp1cmUtYXV0aCIsICJlbmRwb2ludCJdfQ==)
+ [![Open in Visual Studio Code Web](https://img.shields.io/static/v1?style=for-the-badge&label=Visual%20Studio%20Code%20(Web)&message=Open&color=blue&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/azure/?vscode-azure-exp=foundry&agentPayload=eyJiYXNlVXJsIjogImh0dHBzOi8vcmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbS9taWNyb3NvZnQvZG9jdW1lbnQtZ2VuZXJhdGlvbi1zb2x1dGlvbi1hY2NlbGVyYXRvci9tYWluL2luZnJhL3ZzY29kZV93ZWIiLCAiaW5kZXhVcmwiOiAiL2luZGV4Lmpzb24iLCAidmFyaWFibGVzIjogeyJhZ2VudElkIjogIiIsICJjb25uZWN0aW9uU3RyaW5nIjogIiIsICJ0aHJlYWRJZCI6ICIiLCAidXNlck1lc3NhZ2UiOiAiIiwgInBsYXlncm91bmROYW1lIjogIiIsICJsb2NhdGlvbiI6ICIiLCAic3Vic2NyaXB0aW9uSWQiOiAiIiwgInJlc291cmNlSWQiOiAiIiwgInByb2plY3RSZXNvdXJjZUlkIjogIiIsICJlbmRwb2ludCI6ICIifSwgImNvZGVSb3V0ZSI6IFsiYWktcHJvamVjdHMtc2RrIiwgInB5dGhvbiIsICJkZWZhdWx0LWF6dXJlLWF1dGgiLCAiZW5kcG9pbnQiXX0=)
 
 1. Click the badge above (may take a few minutes to load)
 2. Sign in with your Azure account when prompted
@@ -240,6 +240,8 @@ To optimize costs and integrate with your existing Azure infrastructure, you can
 
 💡 **Before You Start:** If you encounter any issues during deployment, check our [Troubleshooting Guide](./TroubleShootingSteps.md) for common solutions.
 
+⚠️ **Critical: Redeployment Warning:** If you have previously run `azd up` in this folder (i.e., a `.azure` folder exists), you must [create a fresh environment](#creating-a-new-environment) to avoid conflicts and deployment failures.
+
 ### 4.1 Authenticate with Azure
 
 ```shell
@@ -324,6 +326,26 @@ If deployment fails or you need to clean up manually:
 
 - Follow [Delete Resource Group Guide](./DeleteResourceGroup.md)
 - See section below for "Deleting Resources After a Failed Deployment"
+
+## Local Development & Debugging
+
+After deploying the solution to Azure, you can run and debug the application locally by connecting to your deployed Azure resources.
+
+### Configure Environment Variables
+
+1. Create a `.env` file in the `src` directory of your project
+2. Set the `APP_ENV` variable to match your deployed environment name:
+   ```
+   APP_ENV=<your-environment-name>
+   ```
+3. Authenticate with Azure CLI to access deployed resources:
+   ```shell
+   az login
+   ```
+
+The application will use the Azure CLI credentials to connect to the deployed Azure resources (Azure AI Search, Cosmos DB, etc.) using the environment name specified in `APP_ENV`.
+
+For complete local development setup instructions, see the [Local Development Setup Guide](./LocalDevelopmentSetup.md).
 
 ## 🛠️ Troubleshooting
 
@@ -429,9 +451,10 @@ azd env get-values
 
 Now that your deployment is complete and tested, explore these resources to enhance your experience:
 
-� **Get Started:**
+🚀 **Get Started:**
 
 - [Sample Questions](./SampleQuestions.md) - Try these sample questions to explore the solution's capabilities
+- Test the application with your own documents and queries
 
 🔧 **Development & Customization:**
 
@@ -448,28 +471,6 @@ Now that your deployment is complete and tested, explore these resources to enha
 - 🐛 **Issues:** Check [Troubleshooting Guide](./TroubleShootingSteps.md)
 - 💬 **Support:** Review [Support Guidelines](../SUPPORT.md)
 - 🔧 **Development:** See [Contributing Guide](../CONTRIBUTING.md)
-
----
-
-## Environment configuration for local development & debugging
-
-To run and debug the application locally, you need to configure environment variables in a `.env` file:
-
-1. Create a `.env` file in the `src` directory of your project
-2. Set the `APP_ENV` variable to match your deployed environment name:
-   ```
-   APP_ENV=<your-environment-name>
-   ```
-3. Authenticate with Azure CLI to access deployed resources:
-   ```shell
-   az login
-   ```
-
-The application will use the Azure CLI credentials to connect to the deployed Azure resources (Azure AI Search, Cosmos DB, etc.) using the environment name specified in `APP_ENV`.
-
-For complete local development setup instructions, see the [Local Development Setup Guide](./LocalDevelopmentSetup.md).
-
----
 
 ## Advanced: Deploy Local Changes
 
