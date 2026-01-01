@@ -1236,6 +1236,9 @@ module webSite 'modules/web-sites.bicep' = {
 @description('Contains WebApp URL')
 output WEB_APP_URL string = 'https://${webSite.outputs.name}.azurewebsites.net'
 
+@description('Contains WebApp Name')
+output WEB_APP_NAME string = webSite.outputs.name
+
 @description('Contains Storage Account Name')
 output STORAGE_ACCOUNT_NAME string = storageAccount.outputs.name
 
