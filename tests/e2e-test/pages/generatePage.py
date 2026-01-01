@@ -7,7 +7,7 @@ class GeneratePage(BasePage):
     GENERATE_DRAFT = "//button[@title='Generate Draft']"
     TYPE_QUESTION = "//textarea[@placeholder='Type a new question...']"
     SEND_BUTTON = "//div[@aria-label='Ask question button']"
-    SHOW_CHAT_HISTORY_BUTTON = "//span[text()='Show template history']"
+    SHOW_CHAT_HISTORY_BUTTON = "//span[text()='Show template historyyy']"
     HIDE_CHAT_HISTORY_BUTTON = "//span[text()='Hide Chat History']"
     CHAT_HISTORY_ITEM = "//body//div[@id='root']//div[@role='presentation']//div[@role='presentation']//div[1]//div[1]//div[1]//div[1]//div[1]//div[1]"
     SHOW_CHAT_HISTORY = "//span//i"
