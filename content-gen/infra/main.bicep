@@ -101,7 +101,7 @@ param enableRedundancy bool = false
 param enablePrivateNetworking bool = false
 
 @description('Required. The existing Container Registry name (without .azurecr.io). Must contain pre-built images: content-gen-app and content-gen-api.')
-param acrName string = 'contentgenacrmaint'
+param acrName string = 'contentgencontainerreg'
 
 @description('Optional. Image Tag.')
 param imageTag string = 'latest'
