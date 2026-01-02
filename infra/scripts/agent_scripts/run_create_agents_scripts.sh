@@ -303,6 +303,11 @@ if [ -n "$sectionAgentName" ]; then
     echo "Set AGENT_NAME_SECTION=$sectionAgentName"
 fi
 
+if [ -n "$titleAgentName" ]; then
+    azd env set AGENT_NAME_TITLE "$titleAgentName"
+    echo "Set AGENT_NAME_TITLE=$titleAgentName"
+fi
+
 echo "Environment variables updated successfully!"
 
 # Update webapp app settings with agent names
@@ -312,7 +317,7 @@ if [ -n "$webAppName" ] && [ -n "$resourceGroupName" ]; then
     az webapp config appsettings set \
       --resource-group "$resourceGroupName" \
       --name "$webAppName" \
-      --settings AGENT_NAME_BROWSE="$browseAgentName" AGENT_NAME_TEMPLATE="$templateAgentName" AGENT_NAME_SECTION="$sectionAgentName" \
+      --settings AGENT_NAME_BROWSE="$browseAgentName" AGENT_NAME_TEMPLATE="$templateAgentName" AGENT_NAME_SECTION="$sectionAgentName" AGENT_NAME_TITLE="$titleAgentName" \
       -o none
     
     if [ $? -eq 0 ]; then
