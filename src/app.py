@@ -154,32 +154,6 @@ def convert_citation_markers(text, doc_mapping):
     return re.sub(r'【(\d+:\d+)†source】', replace_marker, text)
 
 
-# Extract citations from run steps
-async def extract_citations_from_run_steps(project_client, thread_id, run_id, answer, streamed_titles=None):
-    streamed_titles = streamed_titles or set()
-
-    async for run_step in project_client.agents.run_steps.list(thread_id=thread_id, run_id=run_id):
-        if isinstance(run_step.step_details, RunStepToolCallDetails):
-            for tool_call in run_step.step_details.tool_calls:
-                if "azure_ai_search" in tool_call:
-                    output_data = tool_call["azure_ai_search"].get("output")
-                    if output_data:
-                        tool_output = ast.literal_eval(output_data) if isinstance(output_data, str) else output_data
-                        metadata = tool_output.get("metadata", {})
-                        urls = metadata.get("get_urls", [])
-                        titles = metadata.get("titles", [])
-
-                        for i, title in enumerate(titles):
-                            url = urls[i] if i < len(urls) else ""
-
-                            if not streamed_titles or title in streamed_titles:
-                                existing = next((c for c in answer["citations"] if c["title"] == title), None)
-                                if existing:
-                                    existing["url"] = url
-                                else:
-                                    answer["citations"].append({"title": title, "url": url})
-
-
 async def send_chat_request(request_body, request_headers) -> AsyncGenerator[Dict[str, Any], None]:
     filtered_messages = []
     messages = request_body.get("messages", [])
@@ -224,28 +198,40 @@ async def send_chat_request(request_body, request_headers) -> AsyncGenerator[Dic
                 async with ChatAgent(
                     chat_client=chat_client,
                     tool_choice="auto",  # Let agent decide when to use Azure AI Search
-                    ) as chat_agent:
+                ) as chat_agent:
                     thread = chat_agent.get_new_thread()
                     
                     if app_settings.azure_openai.stream:
                         # Stream response
                         async for chunk in chat_agent.run_stream(messages=conversation_prompt, thread=thread):
-                            chunk_text = str(chunk) if chunk is not None else ""
-                            
-                            if chunk_text:
-                                answer["answer"] += chunk_text
+                            # Extract text from chunk
+                            if hasattr(chunk, 'text') and chunk.text:
+                                delta_text = chunk.text
+                                answer["answer"] += delta_text
                                 
                                 # Check if citation markers are present
-                                has_citation_markers = bool(re.search(r'【(\d+:\d+)†source】', chunk_text))
+                                has_citation_markers = bool(re.search(r'【(\d+:\d+)†source】', delta_text))
                                 if has_citation_markers:
                                     yield {
-                                        "answer": convert_citation_markers(chunk_text, doc_mapping),
+                                        "answer": convert_citation_markers(delta_text, doc_mapping),
                                         "citations": json.dumps(answer["citations"])
                                     }
                                 else:
                                     yield {
-                                        "answer": chunk_text
+                                        "answer": delta_text
                                     }
+                            
+                            # # Collect citations from annotations
+                            # if hasattr(chunk, 'contents') and chunk.contents:
+                            #     for content in chunk.contents:
+                            #         if hasattr(content, 'annotations') and content.annotations:
+                            #             for annotation in content.annotations:
+                            #                 if hasattr(annotation, 'url') and hasattr(annotation, 'title'):
+                            #                     if annotation.url not in [c["url"] for c in answer["citations"]]:
+                            #                         answer["citations"].append({
+                            #                             "title": annotation.title,
+                            #                             "url": annotation.url
+                            #                         })
                         
                         # Final citation update if needed
                         has_final_citation_markers = bool(re.search(r'【(\d+:\d+)†source】', answer["answer"]))
@@ -256,9 +242,28 @@ async def send_chat_request(request_body, request_headers) -> AsyncGenerator[Dic
                     else:
                         # Non-streaming response
                         result = await chat_agent.run(messages=conversation_prompt, thread=thread)
-                        response_text = str(result) if result is not None else ""
+                        
+                        # Extract text from result
+                        if hasattr(result, 'text'):
+                            response_text = result.text
+                        else:
+                            response_text = str(result) if result is not None else ""
+                        
                         answer["answer"] = response_text
                         
+                        # # Collect citations from annotations
+                        # if hasattr(result, 'contents') and result.contents:
+                        #     for content in result.contents:
+                        #         if hasattr(content, 'annotations') and content.annotations:
+                        #             for annotation in content.annotations:
+                        #                 if hasattr(annotation, 'url') and hasattr(annotation, 'title'):
+                        #                     if annotation.url not in [c["url"] for c in answer["citations"]]:
+                        #                         answer["citations"].append({
+                        #                             "title": annotation.title,
+                        #                             "url": annotation.url
+                        #                         })
+                        
+                        # Check if citation markers are present
                         has_citation_markers = bool(re.search(r'【(\d+:\d+)†source】', response_text))
                         if has_citation_markers:
                             yield {
@@ -267,7 +272,8 @@ async def send_chat_request(request_body, request_headers) -> AsyncGenerator[Dic
                             }
                         else:
                             yield {
-                                "answer": response_text
+                                "answer": response_text,
+                                "citations": json.dumps(answer["citations"])
                             }
 
         # Generate Template
@@ -294,11 +300,28 @@ async def send_chat_request(request_body, request_headers) -> AsyncGenerator[Dic
                 ) as chat_agent:
                     thread = chat_agent.get_new_thread()
                     result = await chat_agent.run(messages=conversation_prompt, thread=thread)
-                    response_text = str(result) if result is not None else ""
+                    
+                    # Extract text from result
+                    if hasattr(result, 'text'):
+                        response_text = result.text
+                    else:
+                        response_text = str(result) if result is not None else ""
                     
                     # Remove citation markers from template
                     response_text = re.sub(r'【(\d+:\d+)†source】', '', response_text)
                     answer["answer"] = convert_citation_markers(response_text, doc_mapping)
+                    
+                    # # Collect citations from annotations (if any)
+                    # if hasattr(result, 'contents') and result.contents:
+                    #     for content in result.contents:
+                    #         if hasattr(content, 'annotations') and content.annotations:
+                    #             for annotation in content.annotations:
+                    #                 if hasattr(annotation, 'url') and hasattr(annotation, 'title'):
+                    #                     if annotation.url not in [c["url"] for c in answer["citations"]]:
+                    #                         answer["citations"].append({
+                    #                             "title": annotation.title,
+                    #                             "url": annotation.url
+                    #                         })
                     
                     yield {
                         "answer": answer["answer"],
