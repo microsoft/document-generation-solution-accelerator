@@ -1,42 +1,31 @@
+# Standard library imports
+import asyncio
 import json
 import logging
 import os
-import uuid
 import re
-import ast
-import requests
-import asyncio
+import uuid
 from typing import Dict, Any, AsyncGenerator
 
-
-from backend.helpers.azure_credential_utils import get_azure_credential
-from backend.helpers.azure_credential_utils import get_azure_credential_async
+# Third-party imports
 from quart import (Blueprint, Quart, jsonify, make_response, render_template,
                    request, send_from_directory)
-
-from backend.auth.auth_utils import get_authenticated_user_details
-from backend.history.cosmosdbservice import CosmosConversationClient
-from backend.settings import (
-    MINIMUM_SUPPORTED_AZURE_OPENAI_PREVIEW_API_VERSION, app_settings)
-from backend.utils import (ChatType, format_as_ndjson,
-                           format_non_streaming_response,
-                           format_stream_response, configure_logging)
-from event_utils import track_event_if_configured
 from azure.monitor.opentelemetry import configure_azure_monitor
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
 from azure.ai.projects.aio import AIProjectClient
-from azure.ai.agents.models import (
-    MessageRole,
-    RunStepToolCallDetails,
-    MessageDeltaChunk,
-    ThreadRun,
-    MessageDeltaTextContent,
-    MessageDeltaTextUrlCitationAnnotation
-)
-from backend.api.agent.section_agent_factory import SectionAgentFactory
-from backend.api.agent.browse_agent_factory import BrowseAgentFactory
-from backend.api.agent.template_agent_factory import TemplateAgentFactory
+from agent_framework_azure_ai import AzureAIClient
+from agent_framework import ChatAgent
+
+# First-party/Local imports
+from backend.helpers.azure_credential_utils import get_azure_credential, get_azure_credential_async
+from backend.auth.auth_utils import get_authenticated_user_details
+from backend.history.cosmosdbservice import CosmosConversationClient
+from backend.settings import app_settings
+from backend.utils import (ChatType, format_as_ndjson,
+                           format_non_streaming_response,
+                           format_stream_response, configure_logging)
+from event_utils import track_event_if_configured
 
 bp = Blueprint("routes", __name__, static_folder="static", template_folder="static")
 
@@ -67,17 +56,6 @@ def create_app():
         """
         print("Shutting down the application...", flush=True)
         try:
-            # Clean up agent instances
-            await BrowseAgentFactory.delete_agent()
-            await TemplateAgentFactory.delete_agent()
-            await SectionAgentFactory.delete_agent()
-
-            # clear app state
-            if hasattr(app, 'browse_agent') or hasattr(app, 'template_agent') or hasattr(app, 'section_agent'):
-                app.browse_agent = None
-                app.template_agent = None
-                app.section_agent = None
-
             track_event_if_configured("ApplicationShutdown", {"status": "success"})
         except Exception as e:
             logging.exception("Error during application shutdown")
@@ -129,46 +107,6 @@ frontend_settings = {
 
 # Enable Microsoft Defender for Cloud Integration
 MS_DEFENDER_ENABLED = os.environ.get("MS_DEFENDER_ENABLED", "true").lower() == "true"
-
-
-# Initialize Azure Foundry SDK client
-async def init_ai_foundry_client():
-    ai_foundry_client = None
-    try:
-        track_event_if_configured("AIFoundryClientInitializationStart", {"status": "success"})
-        # API version check
-        if (
-            app_settings.azure_openai.preview_api_version
-            < MINIMUM_SUPPORTED_AZURE_OPENAI_PREVIEW_API_VERSION
-        ):
-            raise ValueError(
-                f"The minimum supported Azure OpenAI preview API version is"
-                f"'{MINIMUM_SUPPORTED_AZURE_OPENAI_PREVIEW_API_VERSION}'"
-            )
-
-        # Project Endpoint check
-        if (
-            not app_settings.azure_ai.agent_endpoint
-        ):
-            raise ValueError(
-                "AZURE_AI_AGENT_ENDPOINT is required"
-            )
-
-        ai_project_client = AIProjectClient(
-            endpoint=app_settings.azure_ai.agent_endpoint,
-            credential=await get_azure_credential_async(client_id=app_settings.base_settings.azure_client_id)
-        )
-        track_event_if_configured("AIFoundryAgentEndpointUsed", {
-            "endpoint": app_settings.azure_ai.agent_endpoint
-        })
-        ai_foundry_client = await ai_project_client.inference.get_azure_openai_client(
-            api_version=app_settings.azure_openai.preview_api_version,
-        )
-        return ai_foundry_client
-    except Exception as e:
-        logging.exception("Exception in AI Foundry initialization", e)
-        ai_foundry_client = None
-        raise e
 
 
 def init_cosmosdb_client():
@@ -252,177 +190,120 @@ async def send_chat_request(request_body, request_headers) -> AsyncGenerator[Dic
         "original_count": len(messages),
         "filtered_count": len(filtered_messages)
     })
-    request_body["messages"] = filtered_messages
+    
+    # Convert messages to simple prompt format for ChatAgent
+    conversation_prompt = "\n\n".join([
+        f"{msg['role']}: {msg['content']}" 
+        for msg in filtered_messages 
+        if msg.get('content')
+    ])
+    
     try:
-        # Use AI Foundry SDK for response
         track_event_if_configured("Foundry_sdk_for_response", {"status": "success"})
         answer: Dict[str, Any] = {"answer": "", "citations": []}
-        run_id = None
-        streamed_titles = set()
         doc_mapping = {}
-        thread = None
+        
         # Browse
         if request_body["chat_type"] == "browse":
-            try:
-                # Create browse agent if it doesn't exist
-                if getattr(app, "browse_agent", None) is None:
-                    app.browse_agent = await BrowseAgentFactory.get_agent()
+            # Get browse agent name and create AzureAIClient
+            browse_agent_name = app_settings.azure_ai.agent_name_browse
+            if not browse_agent_name:
+                raise ValueError("Browse agent name not configured in settings")
+            
+            async with (
+                await get_azure_credential_async(client_id=app_settings.base_settings.azure_client_id) as credential,
+                AIProjectClient(endpoint=app_settings.azure_ai.agent_endpoint, credential=credential) as project_client,
+            ):
+                chat_client = AzureAIClient(
+                    project_client=project_client,
+                    agent_name=browse_agent_name,
+                    use_latest_version=True,
+                )
 
-                browse_agent_data = app.browse_agent
-                browse_project_client = browse_agent_data["client"]
-                browse_agent = browse_agent_data["agent"]
-
-                thread = await browse_project_client.agents.threads.create()
-
-                for msg in request_body["messages"]:
-                    if not msg or "role" not in msg or "content" not in msg:
-                        continue
-                    if msg["role"] != "tool":
-                        await browse_project_client.agents.messages.create(
-                            thread_id=thread.id,
-                            role=msg["role"],
-                            content=msg["content"],
-                        )
-
-                if app_settings.azure_openai.stream:
-                    async with await browse_project_client.agents.runs.stream(
-                        thread_id=thread.id,
-                        agent_id=browse_agent.id,
-                        tool_choice={"type": "azure_ai_search"}
-                    ) as stream:
-                        async for event_type, event_data, _ in stream:
-                            if isinstance(event_data, ThreadRun):
-                                run_id = event_data.id  # Save for post-processing
-
-                            elif isinstance(event_data, MessageDeltaChunk):
-                                if event_data.delta.content and isinstance(event_data.delta.content[0], MessageDeltaTextContent):
-                                    delta_text = event_data.delta.content[0].text
-
-                                    if delta_text and delta_text.value:
-                                        answer["answer"] += delta_text.value
-
-                                        # check if citation markers are present
-                                        has_citation_markers = bool(re.search(r'【(\d+:\d+)†source】', delta_text.value))
-                                        if has_citation_markers:
-                                            yield {
-                                                "answer": convert_citation_markers(delta_text.value, doc_mapping),
-                                                "citations": json.dumps(answer["citations"])
-                                            }
-                                        else:
-                                            yield {
-                                                "answer": delta_text.value
-                                            }
-
-                                    if delta_text and delta_text.annotations:
-                                        for annotation in delta_text.annotations:
-                                            if isinstance(annotation, MessageDeltaTextUrlCitationAnnotation):
-                                                citation = annotation.url_citation
-                                                if citation.url not in [c["url"] for c in answer["citations"]]:
-                                                    answer["citations"].append({
-                                                        "title": citation.title,
-                                                        "url": citation.url
-                                                    })
-                                                    streamed_titles.add(citation.title)  # Track titles seen in streaming
-
-                    print(f"Streaming completed for thread: {thread.id}", flush=True)
-
-                    # Post-processing citations from run_steps
-                    if run_id:
-                        await extract_citations_from_run_steps(browse_project_client, thread.id, run_id, answer, streamed_titles)
-
-                    has_final_citation_markers = bool(re.search(r'【(\d+:\d+)†source】', answer["answer"]))
-                    if has_final_citation_markers:
-                        yield {
-                            "citations": json.dumps(answer["citations"])
-                        }
-
-                else:
-                    run = await browse_project_client.agents.runs.create_and_process(
-                        thread_id=thread.id,
-                        agent_id=browse_agent.id,
-                        tool_choice={"type": "azure_ai_search"}
-                    )
-                    if run.status == "failed":
-                        raise Exception(f"Run failed: {run.last_error}")
+                # Use ChatAgent with streaming or non-streaming
+                async with ChatAgent(
+                    chat_client=chat_client,
+                    tool_choice="auto",  # Let agent decide when to use Azure AI Search
+                    ) as chat_agent:
+                    thread = chat_agent.get_new_thread()
+                    
+                    if app_settings.azure_openai.stream:
+                        # Stream response
+                        async for chunk in chat_agent.run_stream(messages=conversation_prompt, thread=thread):
+                            chunk_text = str(chunk) if chunk is not None else ""
+                            
+                            if chunk_text:
+                                answer["answer"] += chunk_text
+                                
+                                # Check if citation markers are present
+                                has_citation_markers = bool(re.search(r'【(\d+:\d+)†source】', chunk_text))
+                                if has_citation_markers:
+                                    yield {
+                                        "answer": convert_citation_markers(chunk_text, doc_mapping),
+                                        "citations": json.dumps(answer["citations"])
+                                    }
+                                else:
+                                    yield {
+                                        "answer": chunk_text
+                                    }
+                        
+                        # Final citation update if needed
+                        has_final_citation_markers = bool(re.search(r'【(\d+:\d+)†source】', answer["answer"]))
+                        if has_final_citation_markers:
+                            yield {
+                                "citations": json.dumps(answer["citations"])
+                            }
                     else:
-                        await extract_citations_from_run_steps(browse_project_client, thread.id, run.id, answer, streamed_titles)
-                        messages = browse_project_client.agents.messages.list(thread_id=thread.id)
-                        async for msg in messages:
-                            if msg.role == MessageRole.AGENT and msg.text_messages:
-                                answer["answer"] = msg.text_messages[-1].text.value
-                                break
-
-                        has_citation_markers = bool(re.search(r'【(\d+:\d+)†source】', answer["answer"]))
-
-                    if has_citation_markers:
-                        yield {
-                            "answer": convert_citation_markers(answer["answer"], doc_mapping),
-                            "citations": json.dumps(answer["citations"])
-                        }
-                    else:
-                        yield {
-                            "answer": answer["answer"]
-                        }
-            finally:
-                if thread:
-                    print(f"Deleting browse thread: {thread.id}", flush=True)
-                    await browse_project_client.agents.threads.delete(thread_id=thread.id)
+                        # Non-streaming response
+                        result = await chat_agent.run(messages=conversation_prompt, thread=thread)
+                        response_text = str(result) if result is not None else ""
+                        answer["answer"] = response_text
+                        
+                        has_citation_markers = bool(re.search(r'【(\d+:\d+)†source】', response_text))
+                        if has_citation_markers:
+                            yield {
+                                "answer": convert_citation_markers(response_text, doc_mapping),
+                                "citations": json.dumps(answer["citations"])
+                            }
+                        else:
+                            yield {
+                                "answer": response_text
+                            }
 
         # Generate Template
         else:
-            try:
-                # Create template agent if it doesn't exist
-                if getattr(app, "template_agent", None) is None:
-                    app.template_agent = await TemplateAgentFactory.get_agent()
-
-                # Create section_agent if missing; log errors without stopping flow
-                try:
-                    if getattr(app, "section_agent", None) is None:
-                        app.section_agent = await SectionAgentFactory.get_agent()
-                except Exception as e:
-                    logging.exception("Error initializing Section Agent", e)
-                    raise e
-
-                template_agent_data = app.template_agent
-                template_project_client = template_agent_data["client"]
-                template_agent = template_agent_data["agent"]
-
-                thread = await template_project_client.agents.threads.create()
-
-                for msg in request_body["messages"]:
-                    if not msg or "role" not in msg or "content" not in msg:
-                        continue
-                    if msg["role"] != "tool":
-                        await template_project_client.agents.messages.create(
-                            thread_id=thread.id,
-                            role=msg["role"],
-                            content=msg["content"],
-                        )
-
-                run = await template_project_client.agents.runs.create_and_process(
-                    thread_id=thread.id,
-                    agent_id=template_agent.id,
-                    tool_choice={"type": "azure_ai_search"}
+            # Get template agent name and create AzureAIClient
+            template_agent_name = app_settings.azure_ai.agent_name_template
+            if not template_agent_name:
+                raise ValueError("Template agent name not configured in settings")
+            
+            async with (
+                await get_azure_credential_async(client_id=app_settings.base_settings.azure_client_id) as credential,
+                AIProjectClient(endpoint=app_settings.azure_ai.agent_endpoint, credential=credential) as project_client,
+            ):
+                chat_client = AzureAIClient(
+                    project_client=project_client,
+                    agent_name=template_agent_name,
+                    use_latest_version=True,
                 )
-                if run.status == "failed":
-                    raise Exception(f"Run failed: {run.last_error}")
-                else:
-                    await extract_citations_from_run_steps(template_project_client, thread.id, run.id, answer)
-                    messages = template_project_client.agents.messages.list(thread_id=thread.id)
-                    async for msg in messages:
-                        if msg.role == MessageRole.AGENT and msg.text_messages:
-                            answer["answer"] = msg.text_messages[-1].text.value
-                            answer["answer"] = convert_citation_markers(answer["answer"], doc_mapping)
-                            break
-                yield {
-                    "answer": answer["answer"],
-                    "citations": json.dumps(answer["citations"])
-                }
-            finally:
-                # Clean up the thread after processing
-                if thread:
-                    print(f"Deleting template thread: {thread.id}", flush=True)
-                    await template_project_client.agents.threads.delete(thread_id=thread.id)
+
+                # Use ChatAgent for template generation (non-streaming only for template)
+                async with ChatAgent(
+                    chat_client=chat_client,
+                    tool_choice="auto",  # Let agent decide when to use Azure AI Search
+                ) as chat_agent:
+                    thread = chat_agent.get_new_thread()
+                    result = await chat_agent.run(messages=conversation_prompt, thread=thread)
+                    response_text = str(result) if result is not None else ""
+                    
+                    # Remove citation markers from template
+                    response_text = re.sub(r'【(\d+:\d+)†source】', '', response_text)
+                    answer["answer"] = convert_citation_markers(response_text, doc_mapping)
+                    
+                    yield {
+                        "answer": answer["answer"],
+                        "citations": json.dumps(answer["citations"])
+                    }
 
     except Exception as e:
         logging.exception("Exception in send_chat_request")
@@ -1191,117 +1072,119 @@ async def fetch_azure_search_content():
 
 
 async def generate_title(conversation_messages):
-    # make sure the messages are sorted by _ts descending
-    title_prompt = app_settings.azure_openai.title_prompt
+    """
+    Generate a conversation title using the Title Agent.
+    
+    Args:
+        conversation_messages: List of conversation messages
+        
+    Returns:
+        str: Generated title or fallback content
+    """
+    # Filter user messages and prepare content
+    user_messages = [{"role": msg["role"], "content": msg["content"]}
+                     for msg in conversation_messages if msg["role"] == "user"]
 
-    messages = [
-        {"role": msg["role"], "content": msg["content"]}
-        for msg in conversation_messages
-    ]
-    messages.append({"role": "user", "content": title_prompt})
+    # Combine all user messages with the title prompt
+    combined_content = "\n".join([msg["content"] for msg in user_messages])
+    final_prompt = f"Generate a title for:\n{combined_content}"
 
     try:
-        response = None
-        # Use Foundry SDK for title generation
-        track_event_if_configured("Foundry_sdk_for_title", {"status": "success"})
-        ai_foundry_client = await init_ai_foundry_client()
-        response = await ai_foundry_client.chat.completions.create(
-            model=app_settings.azure_openai.model,
-            messages=messages,
-            temperature=app_settings.azure_openai.temperature,
-            max_tokens=app_settings.azure_openai.max_tokens,
-        )
-        raw_content = response.choices[0].message.content
-        raw_content = raw_content.strip()
-        if raw_content.startswith("{{") and raw_content.endswith("}}"):
-            raw_content = raw_content[1:-1]  # Remove one set of braces
+        # Get title agent name from settings
+        title_agent_name = app_settings.azure_ai.agent_name_title
+        if not title_agent_name:
+            logging.warning("Title agent name not configured, using fallback")
+            return user_messages[-1]["content"][:50] if user_messages else "New Conversation"
 
-        # Extract JSON object
-        json_match = re.search(r"\{.*?\}", raw_content, re.DOTALL)
-        if not json_match:
-            raise ValueError("No JSON object found in response")
+        async with (
+            await get_azure_credential_async(client_id=app_settings.base_settings.azure_client_id) as credential,
+            AIProjectClient(endpoint=app_settings.azure_ai.agent_endpoint, credential=credential) as project_client,
+        ):
+            # Create chat client with title agent
+            chat_client = AzureAIClient(
+                project_client=project_client,
+                agent_name=title_agent_name,
+                use_latest_version=True,
+            )
 
-        json_str = json_match.group()
-        title = json.loads(json_str)["title"]
-        track_event_if_configured("TitleGenerated", {"title": title})
-        return title
+            # Use ChatAgent to generate title
+            async with ChatAgent(
+                chat_client=chat_client,
+                tool_choice="none",
+            ) as chat_agent:
+                thread = chat_agent.get_new_thread()
+                result = await chat_agent.run(messages=final_prompt, thread=thread)
+                title = str(result).strip() if result is not None else "New Conversation"
+                track_event_if_configured("TitleGenerated", {"title": title})
+                return title
+
     except Exception as e:
-        logging.exception("Exception in generate_title" + str(e))
-        return messages[-2]["content"]
+        logging.exception(f"Exception in generate_title: {e}")
+        # Fallback to user message or default
+        if user_messages:
+            return user_messages[-1]["content"][:50]
+        return "New Conversation"
 
 
 async def get_section_content(request_body, request_headers):
+    """
+    Generate section content using the Section Agent.
+    
+    Args:
+        request_body: Request body containing sectionTitle and sectionDescription
+        request_headers: Request headers
+        
+    Returns:
+        str: Generated section content
+    """
     user_prompt = f"""sectionTitle: {request_body['sectionTitle']}
     sectionDescription: {request_body['sectionDescription']}
     """
-    messages = []
-    messages.append({"role": "user", "content": user_prompt})
-
-    request_body["messages"] = messages
-    thread = None
-    response_text = ""
 
     try:
-        # Use Foundry SDK for section content generation
-        track_event_if_configured("Foundry_sdk_for_section", {"status": "success"})
-        # Create section agent if not already created
-        if getattr(app, "section_agent", None) is None:
-            app.section_agent = await SectionAgentFactory.get_agent()
+        # Get section agent name from settings
+        section_agent_name = app_settings.azure_ai.agent_name_section
+        if not section_agent_name:
+            logging.error("Section agent name not configured")
+            raise ValueError("Section agent name not configured")
 
-        section_agent_data = app.section_agent
-        section_project_client = section_agent_data["client"]
-        section_agent = section_agent_data["agent"]
-
-        thread = await section_project_client.agents.threads.create()
-
-        for msg in request_body["messages"]:
-            if not msg or "role" not in msg or "content" not in msg:
-                continue  # skip malformed messages
-
-            if msg["role"] != "tool":
-                await section_project_client.agents.messages.create(
-                    thread_id=thread.id,
-                    role=msg["role"],
-                    content=msg["content"],
-                )
-
-        run = await section_project_client.agents.runs.create_and_process(
-            thread_id=thread.id,
-            agent_id=section_agent.id,
-            tool_choice={"type": "azure_ai_search"}
-        )
-        if run.status == "failed":
-            print(f"Run failed: {run.last_error}", flush=True)
-            raise Exception
-        else:
-            message = (
-                await section_project_client.agents.messages.get_last_message_text_by_role(
-                    thread_id=thread.id, role=MessageRole.AGENT
-                )
+        async with (
+            await get_azure_credential_async(client_id=app_settings.base_settings.azure_client_id) as credential,
+            AIProjectClient(endpoint=app_settings.azure_ai.agent_endpoint, credential=credential) as project_client,
+        ):
+            # Create chat client with section agent
+            chat_client = AzureAIClient(
+                project_client=project_client,
+                agent_name=section_agent_name,
+                use_latest_version=True,
             )
-            if message:
-                response_text = message.text.value
-                # Remove markers from section content
+
+            # Use ChatAgent to generate section content
+            async with ChatAgent(
+                chat_client=chat_client,
+                tool_choice="auto",
+                store=True,
+            ) as chat_agent:
+                thread = chat_agent.get_new_thread()
+                result = await chat_agent.run(messages=user_prompt, thread=thread)
+                response_text = str(result) if result is not None else ""
+                
+                # Remove citation markers from section content
                 response_text = re.sub(r'【(\d+:\d+)†source】', '', response_text)
-        track_event_if_configured("SectionContentGenerated", {
-            "sectionTitle": request_body["sectionTitle"]
-        })
+                
+                track_event_if_configured("SectionContentGenerated", {
+                    "sectionTitle": request_body["sectionTitle"]
+                })
+                
+                return response_text
 
     except Exception as e:
-        logging.exception("Exception in get_section_content")
-        print(f"Exception in get_section_content: {e}", flush=True)
+        logging.exception(f"Exception in get_section_content: {e}")
         span = trace.get_current_span()
         if span is not None:
             span.record_exception(e)
             span.set_status(Status(StatusCode.ERROR, str(e)))
         raise e
-
-    finally:
-        if thread:
-            print("Deleting section thread", flush=True)
-            await section_project_client.agents.threads.delete(thread_id=thread.id)
-
-    return response_text
 
 
 app = create_app()

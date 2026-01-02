@@ -221,6 +221,10 @@ class _AzureAISettings(BaseSettings):
     agent_endpoint: Optional[str] = None
     agent_model_deployment_name: Optional[str] = None
     agent_api_version: Optional[str] = None
+    agent_name_browse: Optional[str] = None
+    agent_name_template: Optional[str] = None
+    agent_name_section: Optional[str] = None
+    agent_name_title: Optional[str] = None
 
 
 class _SearchCommonSettings(BaseSettings):
