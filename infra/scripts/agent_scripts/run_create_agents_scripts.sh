@@ -11,9 +11,7 @@ gptModelName="$4"
 aiFoundryResourceId="$5"
 webAppName="$6"
 azureAiSearchConnectionName="$7"
-browseIndexName="$8"
-templatesIndexName="$9"
-sectionsIndexName="${10}"
+azureSearchIndexName="$8"
 
 # Global variables to track original network access states for AI Foundry
 original_foundry_public_access=""
@@ -34,17 +32,16 @@ get_values_from_azd_env() {
 	echo "Getting values from azd environment..."
 	# Use grep with a regex to ensure we're only capturing sanitized values to avoid command injection
 	projectEndpoint=$(azd env get-value AZURE_AI_AGENT_ENDPOINT 2>&1 | grep -E '^https?://[a-zA-Z0-9._/:/-]+$')
-	solutionName=$(azd env get-value AZURE_ENV_NAME 2>&1 | grep -E '^[a-zA-Z0-9._-]+$')
-	gptModelName=$(azd env get-value AZURE_OPENAI_DEPLOYMENT_MODEL 2>&1 | grep -E '^[a-zA-Z0-9._-]+$')
+	solutionName=$(azd env get-value SOLUTION_NAME 2>&1 | grep -E '^[a-zA-Z0-9._-]+$')
+	gptModelName=$(azd env get-value AZURE_OPENAI_MODEL 2>&1 | grep -E '^[a-zA-Z0-9._-]+$')
 	aiFoundryResourceId=$(azd env get-value AI_FOUNDRY_RESOURCE_ID 2>&1 | grep -E '^[a-zA-Z0-9._/-]+$')
 	webAppName=$(azd env get-value WEB_APP_NAME 2>&1 | grep -E '^[a-zA-Z0-9._-]+$')
 	azureAiSearchConnectionName=$(azd env get-value AZURE_SEARCH_CONNECTION_NAME 2>&1 | grep -E '^[a-zA-Z0-9._-]+$')
-	browseIndexName=$(azd env get-value BROWSE_INDEX_NAME 2>&1 | grep -E '^[a-zA-Z0-9._-]+$')
-	templatesIndexName=$(azd env get-value TEMPLATES_INDEX_NAME 2>&1 | grep -E '^[a-zA-Z0-9._-]+$')
-	sectionsIndexName=$(azd env get-value SECTIONS_INDEX_NAME 2>&1 | grep -E '^[a-zA-Z0-9._-]+$')
+	azureSearchIndexName=$(azd env get-value AZURE_SEARCH_INDEX 2>&1 | grep -E '^[a-zA-Z0-9._-]+$')
+	resourceGroupName=$(azd env get-value AZURE_RESOURCE_GROUP 2>&1 | grep -E '^[a-zA-Z0-9._-]+$')
 	
 	# Validate that we extracted all required values
-	if [ -z "$projectEndpoint" ] || [ -z "$solutionName" ] || [ -z "$gptModelName" ] || [ -z "$aiFoundryResourceId" ] || [ -z "$webAppName" ] || [ -z "$azureAiSearchConnectionName" ] || [ -z "$browseIndexName" ] || [ -z "$templatesIndexName" ] || [ -z "$sectionsIndexName" ]; then
+	if [ -z "$projectEndpoint" ] || [ -z "$solutionName" ] || [ -z "$gptModelName" ] || [ -z "$aiFoundryResourceId" ] || [ -z "$webAppName" ] || [ -z "$azureAiSearchConnectionName" ] || [ -z "$azureSearchIndexName" ]; then
 		echo "Error: One or more required values could not be retrieved from azd environment."
 		return 1
 	fi
@@ -82,25 +79,21 @@ get_values_from_az_deployment() {
 	# Extract each value using the helper function
 	projectEndpoint=$(extract_value "azureAiAgentEndpoint" "azurE_AI_AGENT_ENDPOINT")
 	solutionName=$(extract_value "solutionName" "solutioN_NAME")
-	gptModelName=$(extract_value "azureOpenAIDeploymentModel" "azurE_OPENAI_DEPLOYMENT_MODEL")
+	gptModelName=$(extract_value "azureOpenAIDeploymentModel" "AZURE_OPENAI_MODEL")
 	aiFoundryResourceId=$(extract_value "aiFoundryResourceId" "aI_FOUNDRY_RESOURCE_ID")
 	webAppName=$(extract_value "webAppName" "weB_APP_NAME")
 	azureAiSearchConnectionName=$(extract_value "azureAiSearchConnectionName" "azurE_AI_SEARCH_CONNECTION_NAME")
-	browseIndexName=$(extract_value "browseIndexName" "browsE_INDEX_NAME")
-	templatesIndexName=$(extract_value "templatesIndexName" "templateS_INDEX_NAME")
-	sectionsIndexName=$(extract_value "sectionsIndexName" "sectionS_INDEX_NAME")
+	azureSearchIndexName=$(extract_value "azureSearchIndexName" "azurE_SEARCH_INDEX")
 	
 	# Define required values with their display names for error reporting
 	declare -A required_values=(
 		["projectEndpoint"]="AZURE_AI_AGENT_ENDPOINT"
 		["solutionName"]="SOLUTION_NAME"
-		["gptModelName"]="AZURE_OPENAI_DEPLOYMENT_MODEL"
+		["gptModelName"]="AZURE_OPENAI_MODEL"
 		["aiFoundryResourceId"]="AI_FOUNDRY_RESOURCE_ID"
 		["webAppName"]="WEB_APP_NAME"
 		["azureAiSearchConnectionName"]="AZURE_AI_SEARCH_CONNECTION_NAME"
-		["browseIndexName"]="BROWSE_INDEX_NAME"
-		["templatesIndexName"]="TEMPLATES_INDEX_NAME"
-		["sectionsIndexName"]="SECTIONS_INDEX_NAME"
+		["azureSearchIndexName"]="AZURE_SEARCH_INDEX"
 	)
 	
 	# Validate and collect missing values
@@ -192,7 +185,7 @@ if [ -z "$resourceGroupName" ]; then
 			echo "Failed to get values from azd environment."
 			echo ""
 			echo "If you want to use deployment outputs instead, please provide the resource group name as the first argument."
-			echo "Usage: $0 [resourceGroupName] or $0 <resourceGroupName> <projectEndpoint> <solutionName> <gptModelName> <aiFoundryResourceId> <azureAiSearchConnectionName> <browseIndexName> <templatesIndexName> <sectionsIndexName>"
+			echo "Usage: $0 [resourceGroupName] or $0 <resourceGroupName> <projectEndpoint> <solutionName> <gptModelName> <aiFoundryResourceId> <azureAiSearchConnectionName> <azureSearchIndexName>"
 			exit 1
 		fi
 	else
@@ -209,14 +202,14 @@ else
 			echo "Failed to get values from deployment outputs."
 			echo ""
 			echo "Please provide all parameters explicitly."
-			echo "Usage: $0 <resourceGroupName> <projectEndpoint> <solutionName> <gptModelName> <aiFoundryResourceId> <azureAiSearchConnectionName> <browseIndexName> <templatesIndexName> <sectionsIndexName>"
+			echo "Usage: $0 <resourceGroupName> <projectEndpoint> <solutionName> <gptModelName> <aiFoundryResourceId> <azureAiSearchConnectionName> <azureSearchIndexName>"
 			exit 1
 		fi
 	fi
 fi
 
 # Final validation
-if [ -z "$projectEndpoint" ] || [ -z "$solutionName" ] || [ -z "$gptModelName" ] || [ -z "$aiFoundryResourceId" ] || [ -z "$azureAiSearchConnectionName" ] || [ -z "$browseIndexName" ] || [ -z "$templatesIndexName" ] || [ -z "$sectionsIndexName" ]; then
+if [ -z "$projectEndpoint" ] || [ -z "$solutionName" ] || [ -z "$gptModelName" ] || [ -z "$aiFoundryResourceId" ] || [ -z "$azureAiSearchConnectionName" ] || [ -z "$azureSearchIndexName" ]; then
 	echo "Error: Missing required parameters after attempting to retrieve them."
 	echo "Usage: $0 [resourceGroupName] or provide all parameters"
 	exit 1
@@ -231,9 +224,7 @@ echo "Solution Name: $solutionName"
 echo "GPT Model Name: $gptModelName"
 echo "AI Foundry Resource ID: $aiFoundryResourceId"
 echo "Azure AI Search Connection Name: $azureAiSearchConnectionName"
-echo "Browse Index Name: $browseIndexName"
-echo "Templates Index Name: $templatesIndexName"
-echo "Sections Index Name: $sectionsIndexName"
+echo "Azure Search Index Name: $azureSearchIndexName"
 echo "==============================================="
 echo ""
 
@@ -292,9 +283,7 @@ eval $(python "${SCRIPT_DIR}/01_create_agents.py" \
   --solution_name="$solutionName" \
   --gpt_model_name="$gptModelName" \
   --azure_ai_search_connection_name="$azureAiSearchConnectionName" \
-  --browse_index_name="$browseIndexName" \
-  --templates_index_name="$templatesIndexName" \
-  --sections_index_name="$sectionsIndexName")
+  --azure_search_index_name="$azureSearchIndexName")
 
 echo "Agents creation completed."
 
@@ -317,7 +306,7 @@ fi
 echo "Environment variables updated successfully!"
 
 # Update webapp app settings with agent names
-if [ -n "$webAppName" ]; then
+if [ -n "$webAppName" ] && [ -n "$resourceGroupName" ]; then
     echo "Updating webapp app settings for: $webAppName"
     
     az webapp config appsettings set \
@@ -332,5 +321,5 @@ if [ -n "$webAppName" ]; then
         echo "⚠ Warning: Failed to update webapp app settings"
     fi
 else
-    echo "⚠ Warning: webAppName not provided. Skipping webapp app settings update."
+    echo "⚠ Warning: webAppName or resourceGroupName not provided. Skipping webapp app settings update."
 fi

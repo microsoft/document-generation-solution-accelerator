@@ -1198,7 +1198,7 @@ module webSite 'modules/web-sites.bicep' = {
           AZURE_AI_AGENT_ENDPOINT: aiFoundryAiProjectEndpoint
           AZURE_AI_AGENT_MODEL_DEPLOYMENT_NAME: gptModelName
           AZURE_AI_AGENT_API_VERSION: azureAiAgentApiVersion
-          SOLUTION_NAME: solutionName
+          SOLUTION_NAME: solutionSuffix
           USE_CHAT_HISTORY_ENABLED: 'True'
           AZURE_COSMOSDB_ACCOUNT: cosmosDB.outputs.name
           AZURE_COSMOSDB_ACCOUNT_KEY: ''
@@ -1233,6 +1233,9 @@ module webSite 'modules/web-sites.bicep' = {
 }
 
 // ========== Outputs ========== //
+@description('Contains Solution Name')
+output SOLUTION_NAME string = solutionSuffix
+
 @description('Contains WebApp URL')
 output WEB_APP_URL string = 'https://${webSite.outputs.name}.azurewebsites.net'
 

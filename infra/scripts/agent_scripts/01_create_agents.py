@@ -15,18 +15,14 @@ p.add_argument("--ai_project_endpoint", required=True)
 p.add_argument("--solution_name", required=True)
 p.add_argument("--gpt_model_name", required=True)
 p.add_argument("--azure_ai_search_connection_name", required=True)
-p.add_argument("--browse_index_name", required=True)
-p.add_argument("--templates_index_name", required=True)
-p.add_argument("--sections_index_name", required=True)
+p.add_argument("--azure_search_index_name", required=True)
 args = p.parse_args()
 
 ai_project_endpoint = args.ai_project_endpoint
 solutionName = args.solution_name
 gptModelName = args.gpt_model_name
 azure_ai_search_connection_name = args.azure_ai_search_connection_name
-browse_index_name = args.browse_index_name
-templates_index_name = args.templates_index_name
-sections_index_name = args.sections_index_name
+azure_search_index_name = args.azure_search_index_name
 
 project_client = AIProjectClient(
     endpoint=ai_project_endpoint,
@@ -54,7 +50,7 @@ with project_client:
                         "indexes": [
                             {
                                 "project_connection_id": azure_ai_search_connection_name,
-                                "index_name": browse_index_name,
+                                "index_name": azure_search_index_name,
                                 "query_type": "vector_simple",
                                 "top_k": 5
                             }
@@ -79,7 +75,7 @@ with project_client:
                         "indexes": [
                             {
                                 "project_connection_id": azure_ai_search_connection_name,
-                                "index_name": templates_index_name,
+                                "index_name": azure_search_index_name,
                                 "query_type": "vector_simple",
                                 "top_k": 5
                             }
@@ -104,7 +100,7 @@ with project_client:
                         "indexes": [
                             {
                                 "project_connection_id": azure_ai_search_connection_name,
-                                "index_name": sections_index_name,
+                                "index_name": azure_search_index_name,
                                 "query_type": "vector_simple",
                                 "top_k": 5
                             }
