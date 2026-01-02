@@ -1,6 +1,6 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ChatMessageContainer } from './ChatMessageContainer';
-import { ChatMessage, Citation,ChatType } from '../../../api/models';
+import { ChatMessage, ChatType } from '../../../api/models';
 import { Answer } from '../../../components/Answer';
 
 jest.mock('../../../components/Answer', () => ({
@@ -74,7 +74,7 @@ describe('ChatMessageContainer', () => {
             "date": "2024-11-07T09:37:30.581Z"
         },
 
-    ]
+    ];
 
     it('renders user and assistant messages correctly', () => {
         render(
@@ -199,6 +199,6 @@ describe('ChatMessageContainer', () => {
             />
         );
         expect(screen.getByText(/Generating template...this may take up to 30 seconds./)).toBeInTheDocument();
-        expect(screen.getByText(/Generate promissory note with a proposed $100,000 for Washington State/)).toBeInTheDocument();
+        expect(screen.getByText(/Generate promissory note with a proposed \$100,000 for Washington State/)).toBeInTheDocument();
     });
 });

@@ -1,6 +1,6 @@
 import { useContext, useEffect, useMemo, useState } from 'react'
 import styles from './Draft.module.css'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import TitleCard from '../../components/DraftCards/TitleCard'
 import SectionCard from '../../components/DraftCards/SectionCard'
 import { Document, Packer, Paragraph, TextRun } from 'docx'
@@ -11,7 +11,6 @@ import { Section } from '../../api/models'
 
 const Draft = (): JSX.Element => {
   const appStateContext = useContext(AppStateContext)
-  const location = useLocation()
   const navigate = useNavigate()
 
   // get draftedDocument from context

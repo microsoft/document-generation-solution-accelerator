@@ -167,7 +167,6 @@ async def init_ai_foundry_client():
         return ai_foundry_client
     except Exception as e:
         logging.exception("Exception in AI Foundry initialization", e)
-        ai_foundry_client = None
         raise e
 
 
@@ -197,7 +196,6 @@ def init_cosmosdb_client():
             if span is not None:
                 span.record_exception(e)
                 span.set_status(Status(StatusCode.ERROR, str(e)))
-            cosmos_conversation_client = None
             raise e
     else:
         logging.debug("CosmosDB not configured")

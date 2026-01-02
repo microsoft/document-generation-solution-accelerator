@@ -15,7 +15,7 @@ class HomePage(BasePage):
     )
 
     def __init__(self, page):
-        self.page = page
+        super().__init__(page)
 
     def click_browse_button(self):
         # click on BROWSE

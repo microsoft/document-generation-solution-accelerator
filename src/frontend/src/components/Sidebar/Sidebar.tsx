@@ -2,12 +2,8 @@ import React, { useEffect, useState, useContext } from 'react'
 import { Stack, Text } from '@fluentui/react'
 import {
   Book28Regular,
-  Book32Regular,
-  BookRegular,
   News28Regular,
-  NewsRegular,
   Notepad28Regular,
-  Notepad32Regular
 } from '@fluentui/react-icons'
 import { Button, Avatar } from '@fluentui/react-components'
 import styles from './Sidebar.module.css'
@@ -85,15 +81,7 @@ const Sidebar = (): JSX.Element => {
   const navigate = useNavigate()
   const location = useLocation()
   const [name, setName] = useState<string>('')
-  useEffect(() => {
-  if(appStateContext?.state.isRequestInitiated == true){
-    NavigationButtonStates.Disabled
-  }
-  else{
-    NavigationButtonStates.Active
-  }
-})
-
+  
   useEffect(() => {
     if (!appStateContext) {
       throw new Error('useAppState must be used within a AppStateProvider')

@@ -6,15 +6,13 @@ import {
   Dialog,
   DialogType,
   Stack,
-  Modal,
   IStackTokens,
   mergeStyleSets,
   IModalStyles,
-  PrimaryButton,
   Spinner,
   SpinnerSize
 } from '@fluentui/react'
-import { SquareRegular, ShieldLockRegular, ErrorCircleRegular } from '@fluentui/react-icons'
+import { SquareRegular } from '@fluentui/react-icons'
 
 import uuid from 'react-uuid'
 import { isEmpty } from 'lodash'
@@ -26,7 +24,6 @@ import {
   ConversationRequest,
   conversationApi,
   Citation,
-  ToolMessageContent,
   ChatResponse,
   getUserInfo,
   Conversation,
@@ -55,49 +52,9 @@ const enum messageStatus {
   Done = 'Done'
 }
 
-// Define stack tokens for spacing
-const stackTokens: IStackTokens = { childrenGap: 20 }
-
-// Define custom styles for the modal
-const modalStyles: IModalStyles = {
-  main: {
-    maxWidth: '80%',
-    minHeight: '40%',
-    padding: '20px',
-    backgroundColor: '#f3f2f1',
-    borderRadius: '8px',
-    overflowY: 'hidden'
-  },
-  root: undefined,
-  scrollableContent: {
-    minWidth: '800px'
-  },
-  layer: undefined,
-  keyboardMoveIconContainer: undefined,
-  keyboardMoveIcon: undefined
-}
-
-// Define custom styles for the content inside the modal
-const contentStyles = mergeStyleSets({
-  iframe: {
-    width: '100%',
-    height: '55vh',
-    border: 'none'
-  },
-  closeButton: {
-    marginTop: '20px',
-    alignSelf: 'flex-end'
-  }
-})
-
 interface Props {
   type?: ChatType
 }
-
-
-const renderLink = (props: any) => {
-  return <a {...props} target="_blank" rel="noopener noreferrer" />;
-};
 
 const Chat = ({ type = ChatType.Browse }: Props) => {
   const location = useLocation()
@@ -114,21 +71,18 @@ const Chat = ({ type = ChatType.Browse }: Props) => {
   const abortFuncs = useRef([] as AbortController[])
   const [showAuthMessage, setShowAuthMessage] = useState<boolean | undefined>()
   const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [jsonDraftDocument, setJSONDraftDocument] = useState<string>('')
+  const [, setJSONDraftDocument] = useState<string>('')
   const [draftDocument, setDraftDocument] = useState<DraftedDocument>()
   const [processMessages, setProcessMessages] = useState<messageStatus>(messageStatus.NotRunning)
   const [clearingChat, setClearingChat] = useState<boolean>(false)
   const [hideErrorDialog, { toggle: toggleErrorDialog }] = useBoolean(true)
   const [errorMsg, setErrorMsg] = useState<ErrorMessage | null>()
-  const [isModalOpen, setIsModalOpen] = useState(false)
-  const [modalUrl, setModalUrl] = useState('');
-  const [finalMessages, setFinalMessages] = useState<ChatMessage[]>([])
+  const [, setModalUrl] = useState('');
   if (!appStateContext || !appStateContext.state) {
     console.error("AppStateContext is undefined. Ensure AppProvider wraps this component.");
     return null; // Prevents execution if context is missing
   }
   const [loadingState, setLoadingState] = useState(appStateContext.state.isLoading);
-  const { currentChat } = appStateContext?.state;
 
   const errorDialogContentProps = {
     type: DialogType.close,
@@ -575,13 +529,7 @@ const Chat = ({ type = ChatType.Browse }: Props) => {
             ? resultConversation.messages.push(assistantMessage)
             : resultConversation.messages.push(toolMessage, assistantMessage)
         }
-        if (!resultConversation) {
-          setIsLoading(false)
-          appStateContext?.dispatch({ type: 'GENERATE_ISLODING', payload: false })
-          setShowLoadingMessage(false)
-          abortFuncs.current = abortFuncs.current.filter(a => a !== abortController)
-          return
-        }
+        
         appStateContext?.dispatch({ type: 'UPDATE_CURRENT_CHAT', payload: resultConversation })
         isEmpty(toolMessage)
           ? setMessages([...messages, assistantMessage])
@@ -644,13 +592,7 @@ const Chat = ({ type = ChatType.Browse }: Props) => {
           }
           resultConversation.messages.push(errorChatMsg)
         }
-        if (!resultConversation) {
-          setIsLoading(false)
-          appStateContext?.dispatch({ type: 'GENERATE_ISLODING', payload: false })
-          setShowLoadingMessage(false)
-          abortFuncs.current = abortFuncs.current.filter(a => a !== abortController)
-          return
-        }
+        
         appStateContext?.dispatch({ type: 'UPDATE_CURRENT_CHAT', payload: resultConversation })
         setMessages([...messages, errorChatMsg])
       } else {
@@ -810,12 +752,6 @@ const Chat = ({ type = ChatType.Browse }: Props) => {
   const onShowCitation = (citation: Citation) => {
     const url = citation.url
     setModalUrl(url ?? '')
-    setIsModalOpen(true)
-  }
-
-  const onCloseModal = () => {
-    setIsModalOpen(false)
-    setModalUrl('')
   }
 
   const onViewSource = (citation: Citation) => {
