@@ -16,13 +16,17 @@ export async function conversationApi(
   abortSignal: AbortSignal,
   chatType: ChatType = ChatType.Browse
 ): Promise<Response> {
+  // Extract only the latest user query from messages
+  const lastMessage = options.messages[options.messages.length - 1]
+  const query = lastMessage?.role === 'user' ? lastMessage.content : ''
+  
   const response = await fetch('/conversation', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
-      messages: options.messages,
+      query: query,
       chat_type: chatType
     }),
     signal: abortSignal
@@ -128,16 +132,20 @@ export const historyGenerate = async (
   convId?: string,
   chatType: ChatType = ChatType.Browse
 ): Promise<Response> => {
+  // Extract only the latest user query from messages
+  const lastMessage = options.messages[options.messages.length - 1]
+  const query = lastMessage?.role === 'user' ? lastMessage.content : ''
+  
   let body
   if (convId) {
     body = JSON.stringify({
       conversation_id: convId,
-      messages: options.messages,
+      query: query,
       chat_type: chatType
     })
   } else {
     body = JSON.stringify({
-      messages: options.messages,
+      query: query,
       chat_type: chatType
     })
   }

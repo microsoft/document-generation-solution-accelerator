@@ -3,6 +3,7 @@ import asyncio
 import json
 import logging
 import os
+import random
 import re
 import requests
 import uuid
@@ -17,6 +18,7 @@ from opentelemetry.trace import Status, StatusCode
 from azure.ai.projects.aio import AIProjectClient
 from agent_framework_azure_ai import AzureAIClient
 from agent_framework import ChatAgent
+from cachetools import TTLCache
 
 # First-party/Local imports
 from backend.helpers.azure_credential_utils import get_azure_credential, get_azure_credential_async
@@ -137,6 +139,69 @@ frontend_settings = {
 MS_DEFENDER_ENABLED = os.environ.get("MS_DEFENDER_ENABLED", "true").lower() == "true"
 
 
+class ExpCache(TTLCache):
+    """Extended TTLCache that deletes Azure AI agent threads when items expire."""
+
+    def __init__(self, *args, **kwargs):
+        """Initialize cache without creating persistent client connections."""
+        super().__init__(*args, **kwargs)
+
+    def expire(self, time=None):
+        """Remove expired items and delete associated Azure AI threads."""
+        items = super().expire(time)
+        for key, thread_conversation_id in items:
+            try:
+                # Create task for async deletion with proper session management
+                asyncio.create_task(self._delete_thread_async(thread_conversation_id))
+                logging.info("Scheduled thread deletion: %s", thread_conversation_id)
+            except Exception as e:
+                logging.error("Failed to schedule thread deletion for key %s: %s", key, e)
+        return items
+
+    def popitem(self):
+        """Remove item using LRU eviction and delete associated Azure AI thread."""
+        key, thread_conversation_id = super().popitem()
+        try:
+            # Create task for async deletion with proper session management
+            asyncio.create_task(self._delete_thread_async(thread_conversation_id))
+            logging.info("Scheduled thread deletion (LRU evict): %s", thread_conversation_id)
+        except Exception as e:
+            logging.error("Failed to schedule thread deletion for key %s (LRU evict): %s", key, e)
+        return key, thread_conversation_id
+
+    async def _delete_thread_async(self, thread_conversation_id: str):
+        """Asynchronously delete a thread using a properly managed Azure AI Project Client."""
+        credential = None
+        try:
+            if thread_conversation_id:
+                # Get credential and use async context managers to ensure proper cleanup
+                credential = await get_azure_credential_async(client_id=app_settings.base_settings.azure_client_id)
+                async with AIProjectClient(
+                    endpoint=app_settings.azure_ai.agent_endpoint,
+                    credential=credential
+                ) as project_client:
+                    openai_client = project_client.get_openai_client()
+                    await openai_client.conversations.delete(conversation_id=thread_conversation_id)
+                    logging.info("Thread deleted successfully: %s", thread_conversation_id)
+        except Exception as e:
+            logging.error("Failed to delete thread %s: %s", thread_conversation_id, e)
+        finally:
+            # Close credential to prevent unclosed client session warnings
+            if credential is not None:
+                await credential.close()
+
+
+thread_cache = None
+
+
+def get_thread_cache():
+    """Get or create the global thread cache."""
+    global thread_cache
+    if thread_cache is None:
+        thread_cache = ExpCache(maxsize=1000, ttl=3600.0)
+    return thread_cache
+
+
 def init_cosmosdb_client():
     """
     Initialize and configure the CosmosDB conversation client.
@@ -206,7 +271,7 @@ async def send_chat_request(request_body, request_headers) -> AsyncGenerator[Dic
     Send a chat request to the appropriate agent based on chat type.
     
     Args:
-        request_body: Request body containing messages and chat type
+        request_body: Request body containing query and chat type
         request_headers: HTTP request headers
         
     Yields:
@@ -216,22 +281,23 @@ async def send_chat_request(request_body, request_headers) -> AsyncGenerator[Dic
         ValueError: If agent name is not configured
         Exception: If there's an error during chat request processing
     """
-    filtered_messages = []
-    messages = request_body.get("messages", [])
-    for message in messages:
-        if message.get("role") != "tool":
-            filtered_messages.append(message)
-    track_event_if_configured("MessagesFiltered", {
-        "original_count": len(messages),
-        "filtered_count": len(filtered_messages)
+    # Get the user query directly from request body
+    query = request_body.get("query", "")
+    
+    if not query:
+        query = "Please provide a query."
+    
+    # Get conversation_id for thread management
+    conversation_id = request_body.get("history_metadata", {}).get("conversation_id", None)
+    if not conversation_id:
+        # Fallback: generate a unique conversation ID if not provided
+        conversation_id = str(uuid.uuid4())
+        logging.warning("No conversation_id provided, generated new one: %s", conversation_id)
+    
+    track_event_if_configured("ChatRequestReceived", {
+        "conversation_id": conversation_id,
+        "query_length": len(query)
     })
-
-    # Convert messages to simple prompt format for ChatAgent
-    conversation_prompt = "\n\n".join([
-        f"{msg['role']}: {msg['content']}"
-        for msg in filtered_messages
-        if msg.get('content')
-    ])
 
     try:
         track_event_if_configured("Foundry_sdk_for_response", {"status": "success"})
@@ -259,12 +325,25 @@ async def send_chat_request(request_body, request_headers) -> AsyncGenerator[Dic
                 async with ChatAgent(
                     chat_client=chat_client,
                     tool_choice="auto",  # Let agent decide when to use Azure AI Search
+                    store=True,
                 ) as chat_agent:
-                    thread = chat_agent.get_new_thread()
+                    # Thread management with TTL cache
+                    thread_conversation_id = None
+                    cache = get_thread_cache()
+                    thread_conversation_id = cache.get(conversation_id, None)
+                    
+                    if thread_conversation_id:
+                        thread = chat_agent.get_new_thread(service_thread_id=thread_conversation_id)
+                    else:
+                        # Create a new conversation thread
+                        openai_client = project_client.get_openai_client()
+                        conversation = await openai_client.conversations.create()
+                        thread_conversation_id = conversation.id
+                        thread = chat_agent.get_new_thread(service_thread_id=thread_conversation_id)
 
                     if app_settings.azure_openai.stream:
                         # Stream response
-                        async for chunk in chat_agent.run_stream(messages=conversation_prompt, thread=thread):
+                        async for chunk in chat_agent.run_stream(messages=query, thread=thread):
                             # Extract text from chunk
                             if hasattr(chunk, 'text') and chunk.text:
                                 delta_text = chunk.text
@@ -300,9 +379,12 @@ async def send_chat_request(request_body, request_headers) -> AsyncGenerator[Dic
                             yield {
                                 "citations": json.dumps(answer["citations"])
                             }
+                        
+                        # Cache the thread_conversation_id for future use
+                        cache[conversation_id] = thread_conversation_id
                     else:
                         # Non-streaming response
-                        result = await chat_agent.run(messages=conversation_prompt, thread=thread)
+                        result = await chat_agent.run(messages=query, thread=thread)
 
                         # Extract text from result
                         if hasattr(result, 'text'):
@@ -336,6 +418,9 @@ async def send_chat_request(request_body, request_headers) -> AsyncGenerator[Dic
                                 "answer": response_text,
                                 "citations": json.dumps(answer["citations"])
                             }
+                        
+                        # Cache the thread_conversation_id for future use
+                        cache[conversation_id] = thread_conversation_id
 
         # Generate Template
         else:
@@ -358,9 +443,23 @@ async def send_chat_request(request_body, request_headers) -> AsyncGenerator[Dic
                 async with ChatAgent(
                     chat_client=chat_client,
                     tool_choice="auto",  # Let agent decide when to use Azure AI Search
+                    store=True,
                 ) as chat_agent:
-                    thread = chat_agent.get_new_thread()
-                    result = await chat_agent.run(messages=conversation_prompt, thread=thread)
+                    # Thread management with TTL cache
+                    thread_conversation_id = None
+                    cache = get_thread_cache()
+                    thread_conversation_id = cache.get(conversation_id, None)
+                    
+                    if thread_conversation_id:
+                        thread = chat_agent.get_new_thread(service_thread_id=thread_conversation_id)
+                    else:
+                        # Create a new conversation thread
+                        openai_client = project_client.get_openai_client()
+                        conversation = await openai_client.conversations.create()
+                        thread_conversation_id = conversation.id
+                        thread = chat_agent.get_new_thread(service_thread_id=thread_conversation_id)
+                    
+                    result = await chat_agent.run(messages=query, thread=thread)
 
                     # Extract text from result
                     if hasattr(result, 'text'):
@@ -388,6 +487,9 @@ async def send_chat_request(request_body, request_headers) -> AsyncGenerator[Dic
                         "answer": answer["answer"],
                         "citations": json.dumps(answer["citations"])
                     }
+                    
+                    # Cache the thread_conversation_id for future use
+                    cache[conversation_id] = thread_conversation_id
 
     except Exception as e:
         logging.exception("Exception in send_chat_request")
@@ -396,6 +498,19 @@ async def send_chat_request(request_body, request_headers) -> AsyncGenerator[Dic
         if span is not None:
             span.record_exception(e)
             span.set_status(Status(StatusCode.ERROR, str(e)))
+        
+        # Clean up corrupted thread from cache on error
+        try:
+            cache = get_thread_cache()
+            thread_conversation_id = cache.pop(conversation_id, None)
+            if thread_conversation_id is not None:
+                # Store corrupted thread with a unique key for later cleanup
+                corrupt_key = f"{conversation_id}_corrupt_{random.randint(1000, 9999)}"
+                cache[corrupt_key] = thread_conversation_id
+                logging.warning("Moved corrupted thread to key: %s", corrupt_key)
+        except Exception as cleanup_error:
+            logging.error("Failed to cleanup thread on error: %s", cleanup_error)
+        
         raise e
 
 
@@ -560,10 +675,17 @@ async def add_conversation():
             track_event_if_configured("CosmosNotConfigured", {"error": "CosmosDB is not configured"})
             raise Exception("CosmosDB is not configured or not working")
 
+        # Get user query from request
+        query = request_json.get("query", "")
+        if not query:
+            track_event_if_configured("NoUserQuery", {"status_code": 400, "detail": "No user query provided"})
+            raise Exception("No user query provided")
+
         # check for the conversation_id, if the conversation is not set, we will create a new one
         history_metadata = {}
         if not conversation_id:
-            title = await generate_title(request_json["messages"])
+            # Create title from the query
+            title = await generate_title([{"role": "user", "content": query}])
             conversation_dict = await cosmos_conversation_client.create_conversation(
                 user_id=user_id, title=title
             )
@@ -571,32 +693,28 @@ async def add_conversation():
             history_metadata["title"] = title
             history_metadata["date"] = conversation_dict["createdAt"]
 
-        # Format the incoming message object in the "chat/completions" messages format
+        # Format the user query as a message object in the "chat/completions" format
         # then write it to the conversation history in cosmos
-        messages = request_json["messages"]
-        if len(messages) > 0 and messages[-1]["role"] == "user":
-            createdMessageValue = await cosmos_conversation_client.create_message(
-                uuid=str(uuid.uuid4()),
-                conversation_id=conversation_id,
-                user_id=user_id,
-                input_message=messages[-1],
-            )
+        user_message = {"role": "user", "content": query}
+        createdMessageValue = await cosmos_conversation_client.create_message(
+            uuid=str(uuid.uuid4()),
+            conversation_id=conversation_id,
+            user_id=user_id,
+            input_message=user_message,
+        )
 
-            track_event_if_configured("MessageCreated", {
-                "conversation_id": conversation_id,
-                "message_id": json.dumps(messages[-1]),
-                "user_id": user_id
-            })
-            if createdMessageValue == "Conversation not found":
-                track_event_if_configured("ConversationNotFound", {"conversation_id": conversation_id})
-                raise Exception(
-                    "Conversation not found for the given conversation ID: "
-                    + conversation_id
-                    + "."
-                )
-        else:
-            track_event_if_configured("NoUserMessage", {"status_code": 400, "detail": "No user message found"})
-            raise Exception("No user message found")
+        track_event_if_configured("MessageCreated", {
+            "conversation_id": conversation_id,
+            "message_id": json.dumps(user_message),
+            "user_id": user_id
+        })
+        if createdMessageValue == "Conversation not found":
+            track_event_if_configured("ConversationNotFound", {"conversation_id": conversation_id})
+            raise Exception(
+                "Conversation not found for the given conversation ID: "
+                + conversation_id
+                + "."
+            )
 
         await cosmos_conversation_client.cosmosdb_client.close()
 
