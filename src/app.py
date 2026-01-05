@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import re
+import requests
 import uuid
 from typing import Dict, Any, AsyncGenerator
 
@@ -164,26 +165,26 @@ async def send_chat_request(request_body, request_headers) -> AsyncGenerator[Dic
         "original_count": len(messages),
         "filtered_count": len(filtered_messages)
     })
-    
+
     # Convert messages to simple prompt format for ChatAgent
     conversation_prompt = "\n\n".join([
-        f"{msg['role']}: {msg['content']}" 
-        for msg in filtered_messages 
+        f"{msg['role']}: {msg['content']}"
+        for msg in filtered_messages
         if msg.get('content')
     ])
-    
+
     try:
         track_event_if_configured("Foundry_sdk_for_response", {"status": "success"})
         answer: Dict[str, Any] = {"answer": "", "citations": []}
         doc_mapping = {}
-        
+
         # Browse
         if request_body["chat_type"] == "browse":
             # Get browse agent name and create AzureAIClient
             browse_agent_name = app_settings.azure_ai.agent_name_browse
             if not browse_agent_name:
                 raise ValueError("Browse agent name not configured in settings")
-            
+
             async with (
                 await get_azure_credential_async(client_id=app_settings.base_settings.azure_client_id) as credential,
                 AIProjectClient(endpoint=app_settings.azure_ai.agent_endpoint, credential=credential) as project_client,
@@ -200,7 +201,7 @@ async def send_chat_request(request_body, request_headers) -> AsyncGenerator[Dic
                     tool_choice="auto",  # Let agent decide when to use Azure AI Search
                 ) as chat_agent:
                     thread = chat_agent.get_new_thread()
-                    
+
                     if app_settings.azure_openai.stream:
                         # Stream response
                         async for chunk in chat_agent.run_stream(messages=conversation_prompt, thread=thread):
@@ -208,7 +209,7 @@ async def send_chat_request(request_body, request_headers) -> AsyncGenerator[Dic
                             if hasattr(chunk, 'text') and chunk.text:
                                 delta_text = chunk.text
                                 answer["answer"] += delta_text
-                                
+
                                 # Check if citation markers are present
                                 has_citation_markers = bool(re.search(r'【(\d+:\d+)†source】', delta_text))
                                 if has_citation_markers:
@@ -220,7 +221,7 @@ async def send_chat_request(request_body, request_headers) -> AsyncGenerator[Dic
                                     yield {
                                         "answer": delta_text
                                     }
-                            
+
                             # # Collect citations from annotations
                             # if hasattr(chunk, 'contents') and chunk.contents:
                             #     for content in chunk.contents:
@@ -232,7 +233,7 @@ async def send_chat_request(request_body, request_headers) -> AsyncGenerator[Dic
                             #                             "title": annotation.title,
                             #                             "url": annotation.url
                             #                         })
-                        
+
                         # Final citation update if needed
                         has_final_citation_markers = bool(re.search(r'【(\d+:\d+)†source】', answer["answer"]))
                         if has_final_citation_markers:
@@ -242,15 +243,15 @@ async def send_chat_request(request_body, request_headers) -> AsyncGenerator[Dic
                     else:
                         # Non-streaming response
                         result = await chat_agent.run(messages=conversation_prompt, thread=thread)
-                        
+
                         # Extract text from result
                         if hasattr(result, 'text'):
                             response_text = result.text
                         else:
                             response_text = str(result) if result is not None else ""
-                        
+
                         answer["answer"] = response_text
-                        
+
                         # # Collect citations from annotations
                         # if hasattr(result, 'contents') and result.contents:
                         #     for content in result.contents:
@@ -262,7 +263,7 @@ async def send_chat_request(request_body, request_headers) -> AsyncGenerator[Dic
                         #                             "title": annotation.title,
                         #                             "url": annotation.url
                         #                         })
-                        
+
                         # Check if citation markers are present
                         has_citation_markers = bool(re.search(r'【(\d+:\d+)†source】', response_text))
                         if has_citation_markers:
@@ -282,7 +283,7 @@ async def send_chat_request(request_body, request_headers) -> AsyncGenerator[Dic
             template_agent_name = app_settings.azure_ai.agent_name_template
             if not template_agent_name:
                 raise ValueError("Template agent name not configured in settings")
-            
+
             async with (
                 await get_azure_credential_async(client_id=app_settings.base_settings.azure_client_id) as credential,
                 AIProjectClient(endpoint=app_settings.azure_ai.agent_endpoint, credential=credential) as project_client,
@@ -300,17 +301,17 @@ async def send_chat_request(request_body, request_headers) -> AsyncGenerator[Dic
                 ) as chat_agent:
                     thread = chat_agent.get_new_thread()
                     result = await chat_agent.run(messages=conversation_prompt, thread=thread)
-                    
+
                     # Extract text from result
                     if hasattr(result, 'text'):
                         response_text = result.text
                     else:
                         response_text = str(result) if result is not None else ""
-                    
+
                     # Remove citation markers from template
                     response_text = re.sub(r'【(\d+:\d+)†source】', '', response_text)
                     answer["answer"] = convert_citation_markers(response_text, doc_mapping)
-                    
+
                     # # Collect citations from annotations (if any)
                     # if hasattr(result, 'contents') and result.contents:
                     #     for content in result.contents:
@@ -322,7 +323,7 @@ async def send_chat_request(request_body, request_headers) -> AsyncGenerator[Dic
                     #                             "title": annotation.title,
                     #                             "url": annotation.url
                     #                         })
-                    
+
                     yield {
                         "answer": answer["answer"],
                         "citations": json.dumps(answer["citations"])
@@ -1097,10 +1098,10 @@ async def fetch_azure_search_content():
 async def generate_title(conversation_messages):
     """
     Generate a conversation title using the Title Agent.
-    
+
     Args:
         conversation_messages: List of conversation messages
-        
+
     Returns:
         str: Generated title or fallback content
     """
@@ -1152,11 +1153,11 @@ async def generate_title(conversation_messages):
 async def get_section_content(request_body, request_headers):
     """
     Generate section content using the Section Agent.
-    
+
     Args:
         request_body: Request body containing sectionTitle and sectionDescription
         request_headers: Request headers
-        
+
     Returns:
         str: Generated section content
     """
@@ -1191,14 +1192,14 @@ async def get_section_content(request_body, request_headers):
                 thread = chat_agent.get_new_thread()
                 result = await chat_agent.run(messages=user_prompt, thread=thread)
                 response_text = str(result) if result is not None else ""
-                
+
                 # Remove citation markers from section content
                 response_text = re.sub(r'【(\d+:\d+)†source】', '', response_text)
-                
+
                 track_event_if_configured("SectionContentGenerated", {
                     "sectionTitle": request_body["sectionTitle"]
                 })
-                
+
                 return response_text
 
     except Exception as e:
