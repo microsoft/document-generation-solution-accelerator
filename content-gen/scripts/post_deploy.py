@@ -103,7 +103,13 @@ def print_warning(text: str):
 def run_az_command(args: List[str], capture_output: bool = True) -> subprocess.CompletedProcess:
     """Run an Azure CLI command."""
     cmd = ["az"] + args
-    return subprocess.run(cmd, capture_output=capture_output, text=True)
+    
+    if sys.platform == "win32":
+        # Windows: shell=True required to find az.cmd
+        return subprocess.run(cmd, capture_output=capture_output, text=True, shell=True)
+    else:
+        # Linux/Mac: Don't use shell=True to avoid /bin/sh triggering welcome banner
+        return subprocess.run(cmd, capture_output=capture_output, text=True)
 
 
 def discover_resources(resource_group: str, app_name: Optional[str] = None, api_key: str = "") -> ResourceConfig:
@@ -227,56 +233,43 @@ async def upload_images(config: ResourceConfig, dry_run: bool = False) -> int:
             print(f"  - {img.name}")
         return len(image_files)
     
-    # Prepare images for API call
-    images_data = []
-    for image_path in sorted(image_files):
-        content_type = "image/png" if image_path.suffix.lower() == ".png" else "image/jpeg"
-        
-        with open(image_path, "rb") as f:
-            image_bytes = f.read()
-        
-        images_data.append({
-            "filename": image_path.name,
-            "content_type": content_type,
-            "data": base64.b64encode(image_bytes).decode("utf-8")
-        })
-        print_step(f"Prepared: {image_path.name} ({len(image_bytes):,} bytes)")
+    # Upload images one at a time
+    uploaded_count = 0
     
-    # Call admin API
-    print_step("Calling /api/admin/upload-images...")
-    
-    async with httpx.AsyncClient(timeout=300.0) as client:  # 5 minute timeout for large uploads
-        try:
-            response = await client.post(
-                f"{config.app_url}/api/admin/upload-images",
-                headers=get_api_headers(config),
-                json={"images": images_data}
-            )
+    async with httpx.AsyncClient(timeout=120.0) as client:  # 2 minute timeout per image
+        for image_path in sorted(image_files):
+            content_type = "image/png" if image_path.suffix.lower() == ".png" else "image/jpeg"
             
-            if response.status_code == 401:
-                print_error("Unauthorized - check your ADMIN_API_KEY")
-                return 0
+            with open(image_path, "rb") as f:
+                image_bytes = f.read()
             
-            if response.status_code != 200:
-                print_error(f"API returned {response.status_code}: {response.text[:500]}")
-                return 0
+            image_data = {
+                "filename": image_path.name,
+                "content_type": content_type,
+                "data": base64.b64encode(image_bytes).decode("utf-8")
+            }
             
-            result = response.json()
-            uploaded = result.get("uploaded", 0)
-            failed = result.get("failed", 0)
-            
-            for r in result.get("results", []):
-                if r.get("status") == "uploaded":
-                    print_success(f"{r['filename']}")
+            try:
+                response = await client.post(
+                    f"{config.app_url}/api/admin/upload-images",
+                    headers=get_api_headers(config),
+                    json={"images": [image_data]}
+                )
+                
+                if response.status_code == 401:
+                    print_error("Unauthorized - check your ADMIN_API_KEY")
+                    return uploaded_count
+                
+                if response.status_code == 200:
+                    uploaded_count += 1
                 else:
-                    print_error(f"{r['filename']}: {r.get('error', 'Unknown error')}")
-            
-            print(f"\nUploaded {uploaded}/{len(image_files)} images ({failed} failed)")
-            return uploaded
-            
-        except Exception as e:
-            print_error(f"API call failed: {e}")
-            return 0
+                    print_error(f"{image_path.name}: API returned {response.status_code}")
+                    
+            except Exception as e:
+                print_error(f"{image_path.name}: {e}")
+    
+    print(f"\nUploaded {uploaded_count}/{len(image_files)} images")
+    return uploaded_count
 
 
 async def load_sample_data(config: ResourceConfig, dry_run: bool = False) -> int:

@@ -16,12 +16,12 @@ from typing import Dict, Any, Optional
 from quart import Quart, request, jsonify, Response
 from quart_cors import cors
 
-from backend.settings import app_settings
-from backend.models import CreativeBrief, Product
-from backend.orchestrator import get_orchestrator
-from backend.services.cosmos_service import get_cosmos_service
-from backend.services.blob_service import get_blob_service
-from backend.api.admin import admin_bp
+from settings import app_settings
+from models import CreativeBrief, Product
+from orchestrator import get_orchestrator
+from services.cosmos_service import get_cosmos_service
+from services.blob_service import get_blob_service
+from api.admin import admin_bp
 
 # In-memory task storage for generation tasks
 # In production, this should be replaced with Redis or similar

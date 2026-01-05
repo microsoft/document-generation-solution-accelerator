@@ -20,10 +20,10 @@ from typing import Any, Dict, List, Optional
 from quart import Blueprint, request, jsonify
 from azure.storage.blob import ContentSettings
 
-from backend.settings import app_settings
-from backend.services.cosmos_service import get_cosmos_service
-from backend.services.blob_service import get_blob_service
-from backend.models import Product
+from settings import app_settings
+from services.cosmos_service import get_cosmos_service
+from services.blob_service import get_blob_service
+from models import Product
 
 logger = logging.getLogger(__name__)
 

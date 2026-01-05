@@ -11,7 +11,7 @@ from typing import Any
 from openai import AsyncAzureOpenAI
 from azure.identity.aio import DefaultAzureCredential, ManagedIdentityCredential
 
-from backend.settings import app_settings
+from settings import app_settings
 
 logger = logging.getLogger(__name__)
 

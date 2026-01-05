@@ -34,14 +34,14 @@ from agent_framework import (
 from agent_framework.azure import AzureOpenAIChatClient
 from azure.identity import DefaultAzureCredential
 
-from backend.models import (
+from models import (
     CreativeBrief,
     ContentGenerationResponse,
     ComplianceViolation,
     ComplianceSeverity,
     ComplianceResult,
 )
-from backend.settings import app_settings
+from settings import app_settings
 
 logger = logging.getLogger(__name__)
 
@@ -906,7 +906,7 @@ Use the detailed visual descriptions above to ensure accurate color reproduction
                 
                 # Extract clean prompt from the response and generate actual image
                 try:
-                    from backend.agents.image_content_agent import generate_dalle_image
+                    from agents.image_content_agent import generate_dalle_image
                     
                     # Try to extract a clean prompt from the agent response
                     prompt_text = str(image_response)
@@ -947,7 +947,7 @@ Use the detailed visual descriptions above to ensure accurate color reproduction
                         # Save to blob storage immediately to avoid returning huge base64
                         # This prevents timeout issues with large responses
                         try:
-                            from backend.services.blob_service import BlobStorageService
+                            from services.blob_service import BlobStorageService
                             import os
                             from datetime import datetime
                             

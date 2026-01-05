@@ -14,8 +14,8 @@ from datetime import datetime, timezone
 from azure.cosmos.aio import CosmosClient, ContainerProxy
 from azure.identity.aio import DefaultAzureCredential, ManagedIdentityCredential
 
-from backend.settings import app_settings
-from backend.models import Product, CreativeBrief
+from settings import app_settings
+from models import Product, CreativeBrief
 
 logger = logging.getLogger(__name__)
 

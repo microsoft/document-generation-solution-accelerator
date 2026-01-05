@@ -360,9 +360,6 @@ azd up --debug
 
 If deployment gets into a bad state:
 ```bash
-# Clear environment values
-azd env set skipContainerDeployment ""
-
 # Re-run provisioning
 azd provision
 ```
