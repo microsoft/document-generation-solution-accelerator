@@ -45,6 +45,12 @@ else:
 
 
 def create_app():
+    """
+    Create and configure the Quart application instance.
+    
+    Returns:
+        Quart: Configured Quart application instance
+    """
     app = Quart(__name__)
     app.register_blueprint(bp)
     app.config["TEMPLATES_AUTO_RELOAD"] = True
@@ -68,6 +74,12 @@ def create_app():
 
 @bp.route("/")
 async def index():
+    """
+    Render the main index page.
+    
+    Returns:
+        Rendered HTML template for the index page
+    """
     return await render_template(
         "index.html", title=app_settings.ui.title, favicon=app_settings.ui.favicon
     )
@@ -75,11 +87,26 @@ async def index():
 
 @bp.route("/favicon.ico")
 async def favicon():
+    """
+    Serve the favicon.ico file.
+    
+    Returns:
+        Static favicon file
+    """
     return await bp.send_static_file("favicon.ico")
 
 
 @bp.route("/assets/<path:path>")
 async def assets(path):
+    """
+    Serve static assets from the assets directory.
+    
+    Args:
+        path: Path to the asset file
+        
+    Returns:
+        Static asset file
+    """
     return await send_from_directory("static/assets", path)
 
 
@@ -111,6 +138,15 @@ MS_DEFENDER_ENABLED = os.environ.get("MS_DEFENDER_ENABLED", "true").lower() == "
 
 
 def init_cosmosdb_client():
+    """
+    Initialize and configure the CosmosDB conversation client.
+    
+    Returns:
+        CosmosConversationClient: Configured CosmosDB client or None if not configured
+        
+    Raises:
+        Exception: If there's an error during CosmosDB initialization
+    """
     cosmos_conversation_client = None
     if app_settings.chat_history:
         try:
@@ -146,6 +182,16 @@ def init_cosmosdb_client():
 
 # Conversion of citation markers
 def convert_citation_markers(text, doc_mapping):
+    """
+    Convert citation markers in text to numbered citations.
+    
+    Args:
+        text: Text containing citation markers
+        doc_mapping: Dictionary mapping citation keys to citation numbers
+        
+    Returns:
+        str: Text with converted citation markers
+    """
     def replace_marker(match):
         key = match.group(1)
         if key not in doc_mapping:
@@ -156,6 +202,20 @@ def convert_citation_markers(text, doc_mapping):
 
 
 async def send_chat_request(request_body, request_headers) -> AsyncGenerator[Dict[str, Any], None]:
+    """
+    Send a chat request to the appropriate agent based on chat type.
+    
+    Args:
+        request_body: Request body containing messages and chat type
+        request_headers: HTTP request headers
+        
+    Yields:
+        Dict[str, Any]: Response chunks containing answer and citations
+        
+    Raises:
+        ValueError: If agent name is not configured
+        Exception: If there's an error during chat request processing
+    """
     filtered_messages = []
     messages = request_body.get("messages", [])
     for message in messages:
@@ -340,6 +400,16 @@ async def send_chat_request(request_body, request_headers) -> AsyncGenerator[Dic
 
 
 async def complete_chat_request(request_body, request_headers):
+    """
+    Complete a non-streaming chat request.
+    
+    Args:
+        request_body: Request body containing messages and metadata
+        request_headers: HTTP request headers
+        
+    Returns:
+        Formatted non-streaming response
+    """
     # response, apim_request_id = await send_chat_request(request_body, request_headers)
     response = None
     history_metadata = request_body.get("history_metadata", {})
@@ -351,6 +421,16 @@ async def complete_chat_request(request_body, request_headers):
 
 
 async def stream_chat_request(request_body, request_headers):
+    """
+    Stream a chat request with real-time response chunks.
+    
+    Args:
+        request_body: Request body containing messages and metadata
+        request_headers: HTTP request headers
+        
+    Returns:
+        AsyncGenerator: Generator yielding formatted stream response chunks
+    """
     track_event_if_configured("StreamChatRequestStart", {
         "has_history_metadata": "history_metadata" in request_body
     })
@@ -365,6 +445,16 @@ async def stream_chat_request(request_body, request_headers):
 
 
 async def conversation_internal(request_body, request_headers):
+    """
+    Internal handler for conversation requests.
+    
+    Args:
+        request_body: Request body containing messages and chat type
+        request_headers: HTTP request headers
+        
+    Returns:
+        JSON response with conversation result or error
+    """
     try:
         chat_type = (
             ChatType.BROWSE
@@ -408,6 +498,12 @@ async def conversation_internal(request_body, request_headers):
 
 @bp.route("/conversation", methods=["POST"])
 async def conversation():
+    """
+    Handle POST requests to the /conversation endpoint.
+    
+    Returns:
+        JSON response with conversation result or error
+    """
     if not request.is_json:
         track_event_if_configured("InvalidRequestFormat", {
             "status_code": 415,
@@ -421,6 +517,12 @@ async def conversation():
 
 @bp.route("/frontend_settings", methods=["GET"])
 def get_frontend_settings():
+    """
+    Get frontend configuration settings.
+    
+    Returns:
+        JSON response with frontend settings or error
+    """
     try:
         return jsonify(frontend_settings), 200
     except Exception as e:
@@ -435,6 +537,12 @@ def get_frontend_settings():
 # Conversation History API #
 @bp.route("/history/generate", methods=["POST"])
 async def add_conversation():
+    """
+    Generate a new conversation and add user message to history.
+    
+    Returns:
+        JSON response with conversation result or error
+    """
     authenticated_user = get_authenticated_user_details(request_headers=request.headers)
     user_id = authenticated_user["user_principal_id"]
 
@@ -510,6 +618,12 @@ async def add_conversation():
 
 @bp.route("/history/update", methods=["POST"])
 async def update_conversation():
+    """
+    Update conversation history with assistant messages.
+    
+    Returns:
+        JSON response with success status or error
+    """
     authenticated_user = get_authenticated_user_details(request_headers=request.headers)
     user_id = authenticated_user["user_principal_id"]
 
@@ -572,6 +686,12 @@ async def update_conversation():
 
 @bp.route("/history/message_feedback", methods=["POST"])
 async def update_message():
+    """
+    Update feedback for a specific message.
+    
+    Returns:
+        JSON response with success status or error
+    """
     authenticated_user = get_authenticated_user_details(request_headers=request.headers)
     user_id = authenticated_user["user_principal_id"]
     cosmos_conversation_client = init_cosmosdb_client()
@@ -637,6 +757,12 @@ async def update_message():
 
 @bp.route("/history/delete", methods=["DELETE"])
 async def delete_conversation():
+    """
+    Delete a conversation and all its messages.
+    
+    Returns:
+        JSON response with success status or error
+    """
     # get the user id from the request headers
     authenticated_user = get_authenticated_user_details(request_headers=request.headers)
     user_id = authenticated_user["user_principal_id"]
@@ -693,6 +819,12 @@ async def delete_conversation():
 
 @bp.route("/history/list", methods=["GET"])
 async def list_conversations():
+    """
+    List all conversations for the authenticated user.
+    
+    Returns:
+        JSON response with list of conversations or error
+    """
     offset = request.args.get("offset", 0)
     authenticated_user = get_authenticated_user_details(request_headers=request.headers)
     user_id = authenticated_user["user_principal_id"]
@@ -727,6 +859,12 @@ async def list_conversations():
 
 @bp.route("/history/read", methods=["POST"])
 async def get_conversation():
+    """
+    Get a specific conversation and its messages.
+    
+    Returns:
+        JSON response with conversation details and messages or error
+    """
     authenticated_user = get_authenticated_user_details(request_headers=request.headers)
     user_id = authenticated_user["user_principal_id"]
 
@@ -802,6 +940,12 @@ async def get_conversation():
 
 @bp.route("/history/rename", methods=["POST"])
 async def rename_conversation():
+    """
+    Rename a conversation by updating its title.
+    
+    Returns:
+        JSON response with updated conversation or error
+    """
     authenticated_user = get_authenticated_user_details(request_headers=request.headers)
     user_id = authenticated_user["user_principal_id"]
 
@@ -873,6 +1017,12 @@ async def rename_conversation():
 
 @bp.route("/history/delete_all", methods=["DELETE"])
 async def delete_all_conversations():
+    """
+    Delete all conversations and messages for the authenticated user.
+    
+    Returns:
+        JSON response with success status or error
+    """
     # get the user id from the request headers
     authenticated_user = get_authenticated_user_details(request_headers=request.headers)
     user_id = authenticated_user["user_principal_id"]
@@ -934,6 +1084,12 @@ async def delete_all_conversations():
 
 @bp.route("/history/clear", methods=["POST"])
 async def clear_messages():
+    """
+    Clear all messages in a specific conversation.
+    
+    Returns:
+        JSON response with success status or error
+    """
     # get the user id from the request headers
     authenticated_user = get_authenticated_user_details(request_headers=request.headers)
     user_id = authenticated_user["user_principal_id"]
@@ -974,6 +1130,12 @@ async def clear_messages():
 
 @bp.route("/history/ensure", methods=["GET"])
 async def ensure_cosmos():
+    """
+    Ensure CosmosDB is properly configured and working.
+    
+    Returns:
+        JSON response with configuration status or error
+    """
     if not app_settings.chat_history:
         return jsonify({"error": "CosmosDB is not configured"}), 404
 
@@ -1018,6 +1180,12 @@ async def ensure_cosmos():
 
 @bp.route("/section/generate", methods=["POST"])
 async def generate_section_content():
+    """
+    Generate content for a document section.
+    
+    Returns:
+        JSON response with generated section content or error
+    """
     request_json = await request.get_json()
     try:
         # verify that section title and section description are provided
@@ -1046,6 +1214,12 @@ async def generate_section_content():
 # Fetch content from Azure Search API
 @bp.route("/fetch-azure-search-content", methods=["POST"])
 async def fetch_azure_search_content():
+    """
+    Fetch content from Azure Search API using a provided URL.
+    
+    Returns:
+        JSON response with fetched content or error
+    """
     try:
         request_json = await request.get_json()
         url = request_json.get("url")
@@ -1189,8 +1363,7 @@ async def get_section_content(request_body, request_headers):
                 tool_choice="auto",
                 store=True,
             ) as chat_agent:
-                thread = chat_agent.get_new_thread()
-                result = await chat_agent.run(messages=user_prompt, thread=thread)
+                result = await chat_agent.run(messages=user_prompt)
                 response_text = str(result) if result is not None else ""
 
                 # Remove citation markers from section content

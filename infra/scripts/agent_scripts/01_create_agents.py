@@ -37,7 +37,7 @@ TEMPLATE_AGENT_INSTRUCTION = '''Generate a template for a document given a user 
 
 SECTION_AGENT_INSTRUCTION = '''Help the user generate content for a section in a document. The user has provided a section title and a brief description of the section. The user would like you to provide an initial draft for the content in the section. Must be less than 2000 characters. Only include the section content, not the title. Do not use markdown syntax. Whenever possible, use ingested documents to help generate the section content.'''
 
-TITLE_AGENT_INSTRUCTION = '''Summarize the conversation so far into a 4-word or less title. Do not use any quotation marks or punctuation. Respond with a json object in the format {{"title": string}}. Do not include any other commentary or description.'''
+TITLE_AGENT_INSTRUCTION = '''Summarize the conversation so far into a 4-word or less title. No quotation marks, punctuation, or extra text. Output only the title.'''
 
 with project_client:
     # Create Browse Agent
