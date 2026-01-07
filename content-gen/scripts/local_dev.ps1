@@ -30,6 +30,7 @@ $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ProjectRoot = Split-Path -Parent $ScriptDir
 $SrcDir = Join-Path $ProjectRoot "src"
+$BackendDir = Join-Path $SrcDir "backend"
 $FrontendDir = Join-Path $SrcDir "frontend"
 
 # Default ports
@@ -75,6 +76,120 @@ function Test-Command {
 }
 
 # =============================================================================
+# Azure Authentication & Role Functions
+# =============================================================================
+
+function Ensure-AzureLogin {
+    if (-not (Test-Command "az")) {
+        Write-Error "Azure CLI is not installed. Please install it first."
+        exit 1
+    }
+    
+    $accountId = az account show --query id -o tsv 2>$null
+    if ($accountId) {
+        $accountName = az account show --query name -o tsv 2>$null
+        Write-Success "Logged in to Azure: $accountName"
+    } else {
+        Write-Info "Not logged in. Running az login..."
+        az login --use-device-code --output none
+        $accountId = az account show --query id -o tsv 2>$null
+        if (-not $accountId) {
+            Write-Error "Azure login failed."
+            exit 1
+        }
+        Write-Success "Azure login successful."
+    }
+}
+
+function Ensure-AzureAIUserRole {
+    Write-Info "Checking Azure AI User role..."
+    
+    # Get env vars
+    $existingProjectId = $null
+    $foundryResourceId = $null
+    if (Test-Path ".env") {
+        Get-Content ".env" | ForEach-Object {
+            if ($_ -match "^AZURE_EXISTING_AI_PROJECT_RESOURCE_ID=(.*)$") { $existingProjectId = $matches[1].Trim('"').Trim("'") }
+            if ($_ -match "^AI_FOUNDRY_RESOURCE_ID=(.*)$") { $foundryResourceId = $matches[1].Trim('"').Trim("'") }
+        }
+    }
+    
+    # Determine scope
+    $scope = $null
+    if ($existingProjectId) {
+        $scope = $existingProjectId
+    } elseif ($foundryResourceId) {
+        $scope = $foundryResourceId
+    } else {
+        Write-Error "Neither AZURE_EXISTING_AI_PROJECT_RESOURCE_ID nor AI_FOUNDRY_RESOURCE_ID found in .env"
+        exit 1
+    }
+    
+    $signedUserId = az ad signed-in-user show --query id -o tsv 2>$null
+    if (-not $signedUserId) {
+        Write-Error "Could not get signed-in user ID."
+        exit 1
+    }
+    
+    $roleId = "53ca6127-db72-4b80-b1b0-d745d6d5456d"
+    $existing = az role assignment list --assignee $signedUserId --role $roleId --scope $scope --query "[0].id" -o tsv 2>$null
+    
+    if ($existing) {
+        Write-Success "Azure AI User role already assigned."
+    } else {
+        Write-Info "Assigning Azure AI User role..."
+        az role assignment create --assignee $signedUserId --role $roleId --scope $scope --output none 2>$null
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error "Failed to assign Azure AI User role."
+            exit 1
+        }
+        Write-Success "Azure AI User role assigned."
+    }
+}
+
+function Ensure-CosmosDBRole {
+    Write-Info "Checking Cosmos DB Data Contributor role..."
+    
+    # Get env vars
+    $cosmosAccount = $null
+    $resourceGroup = $null
+    if (Test-Path ".env") {
+        Get-Content ".env" | ForEach-Object {
+            if ($_ -match "^COSMOSDB_ACCOUNT_NAME=(.*)$") { $cosmosAccount = $matches[1].Trim('"').Trim("'") }
+            if ($_ -match "^RESOURCE_GROUP_NAME=(.*)$") { $resourceGroup = $matches[1].Trim('"').Trim("'") }
+        }
+    }
+    
+    if (-not $cosmosAccount -or -not $resourceGroup) {
+        Write-Error "COSMOSDB_ACCOUNT_NAME or RESOURCE_GROUP_NAME not found in .env"
+        exit 1
+    }
+    
+    $signedUserId = az ad signed-in-user show --query id -o tsv 2>$null
+    if (-not $signedUserId) {
+        Write-Error "Could not get signed-in user ID."
+        exit 1
+    }
+    
+    $roleDefId = "00000000-0000-0000-0000-000000000002"
+    
+    # Check if role already assigned
+    $existing = az cosmosdb sql role assignment list --resource-group $resourceGroup --account-name $cosmosAccount --query "[?principalId=='$signedUserId'].id" -o tsv 2>$null
+    
+    if ($existing) {
+        Write-Success "Cosmos DB role already assigned."
+    } else {
+        Write-Info "Assigning Cosmos DB role..."
+        az cosmosdb sql role assignment create --resource-group $resourceGroup --account-name $cosmosAccount --role-definition-id $roleDefId --principal-id $signedUserId --scope "/" --output none 2>$null
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error "Failed to assign Cosmos DB role."
+            exit 1
+        }
+        Write-Success "Cosmos DB role assigned."
+    }
+}
+
+# =============================================================================
 # Setup Function
 # =============================================================================
 
@@ -116,8 +231,8 @@ function Invoke-Setup {
     
     # Install Python dependencies
     Write-Info "Installing Python dependencies..."
-    pip install --upgrade pip | Out-Null
-    pip install -r (Join-Path $SrcDir "requirements.txt") | Out-Null
+    python -m pip install --upgrade pip | Out-Null
+    python -m pip install -r (Join-Path $BackendDir "requirements.txt") | Out-Null
     Write-Success "Python dependencies installed"
     
     # Install frontend dependencies
@@ -159,21 +274,7 @@ function Invoke-EnvGeneration {
     
     Set-Location $ProjectRoot
     
-    # Check Azure CLI
-    if (-not (Test-Command "az")) {
-        Write-Error "Azure CLI is required for environment generation"
-        exit 1
-    }
-    
-    # Check if logged in
-    Write-Info "Checking Azure CLI login status..."
-    try {
-        $account = az account show --query name -o tsv 2>$null
-        Write-Success "Logged in as: $account"
-    } catch {
-        Write-Error "Not logged into Azure CLI. Please run: az login"
-        exit 1
-    }
+    Ensure-AzureLogin
     
     # If using azd
     if ((Test-Command "azd") -and (Test-Path "azure.yaml")) {
@@ -234,6 +335,11 @@ function Start-Backend {
         exit 1
     }
     
+    # Ensure Azure roles
+    Ensure-AzureLogin
+    Ensure-AzureAIUserRole
+    Ensure-CosmosDBRole
+    
     # Activate virtual environment
     if (Test-Path ".venv") {
         $activateScript = Join-Path ".venv" "Scripts" "Activate.ps1"
@@ -245,7 +351,7 @@ function Start-Backend {
     }
     
     # Set environment variables
-    $env:PYTHONPATH = $SrcDir
+    $env:PYTHONPATH = $BackendDir
     $env:DOTENV_PATH = Join-Path $ProjectRoot ".env"
     
     # Load .env file
@@ -253,6 +359,10 @@ function Start-Backend {
         if ($_ -match "^([^#][^=]+)=(.*)$") {
             $name = $matches[1].Trim()
             $value = $matches[2].Trim()
+            # Strip surrounding quotes (single or double)
+            if (($value.StartsWith('"') -and $value.EndsWith('"')) -or ($value.StartsWith("'") -and $value.EndsWith("'"))) {
+                $value = $value.Substring(1, $value.Length - 2)
+            }
             Set-Item -Path "env:$name" -Value $value
         }
     }
@@ -262,7 +372,7 @@ function Start-Backend {
     Write-Info "Health check: http://localhost:$BackendPort/api/health"
     Write-Host ""
     
-    Set-Location $SrcDir
+    Set-Location $BackendDir
     
     # Use hypercorn for async support
     if (Test-Command "hypercorn") {
@@ -320,6 +430,11 @@ function Start-All {
         exit 1
     }
     
+    # Ensure Azure roles
+    Ensure-AzureLogin
+    Ensure-AzureAIUserRole
+    Ensure-CosmosDBRole
+    
     Write-Info "Starting backend and frontend in parallel..."
     Write-Info ""
     Write-Info "Services:"
@@ -331,14 +446,14 @@ function Start-All {
     
     # Start backend as a job
     $backendJob = Start-Job -ScriptBlock {
-        param($ProjectRoot, $SrcDir, $BackendPort)
+        param($ProjectRoot, $BackendDir, $BackendPort)
         Set-Location $ProjectRoot
         
         # Activate venv
         $activateScript = Join-Path ".venv" "Scripts" "Activate.ps1"
         & $activateScript
         
-        $env:PYTHONPATH = $SrcDir
+        $env:PYTHONPATH = $BackendDir
         $env:DOTENV_PATH = Join-Path $ProjectRoot ".env"
         
         # Load .env
@@ -346,13 +461,17 @@ function Start-All {
             if ($_ -match "^([^#][^=]+)=(.*)$") {
                 $name = $matches[1].Trim()
                 $value = $matches[2].Trim()
+                # Strip surrounding quotes (single or double)
+                if (($value.StartsWith('"') -and $value.EndsWith('"')) -or ($value.StartsWith("'") -and $value.EndsWith("'"))) {
+                    $value = $value.Substring(1, $value.Length - 2)
+                }
                 Set-Item -Path "env:$name" -Value $value
             }
         }
         
-        Set-Location $SrcDir
+        Set-Location $BackendDir
         python -m quart --app app:app run --host 0.0.0.0 --port $BackendPort --reload
-    } -ArgumentList $ProjectRoot, $SrcDir, $BackendPort
+    } -ArgumentList $ProjectRoot, $BackendDir, $BackendPort
     
     # Give backend time to start
     Start-Sleep -Seconds 2

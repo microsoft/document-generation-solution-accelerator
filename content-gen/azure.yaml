@@ -60,11 +60,11 @@ hooks:
         Write-Host "Web App URL: " -NoNewline
         Write-Host "$env:WEB_APP_URL" -ForegroundColor Cyan
         Write-Host "Storage Account: " -NoNewline
-        Write-Host "$env:STORAGE_ACCOUNT_NAME" -ForegroundColor Cyan
+        Write-Host "$env:AZURE_BLOB_ACCOUNT_NAME" -ForegroundColor Cyan
         Write-Host "AI Search Service: " -NoNewline
         Write-Host "$env:AI_SEARCH_SERVICE_NAME" -ForegroundColor Cyan
         Write-Host "AI Search Index: " -NoNewline
-        Write-Host "$env:AI_SEARCH_INDEX" -ForegroundColor Cyan
+        Write-Host "$env:AZURE_AI_SEARCH_PRODUCTS_INDEX" -ForegroundColor Cyan
         Write-Host "AI Service Location: " -NoNewline
         Write-Host "$env:AI_SERVICE_LOCATION" -ForegroundColor Cyan
         
@@ -132,9 +132,9 @@ hooks:
         echo "===== Provision Complete ====="
         echo ""
         echo "Web App URL: $WEB_APP_URL"
-        echo "Storage Account: $STORAGE_ACCOUNT_NAME"
+        echo "Storage Account: $AZURE_BLOB_ACCOUNT_NAME"
         echo "AI Search Service: $AI_SEARCH_SERVICE_NAME"
-        echo "AI Search Index: $AI_SEARCH_INDEX"
+        echo "AI Search Index: $AZURE_AI_SEARCH_PRODUCTS_INDEX"
         echo "AI Service Location: $AI_SERVICE_LOCATION"
         
         # Run post-deployment role assignments

@@ -33,6 +33,7 @@ NC='\033[0m' # No Color
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 SRC_DIR="$PROJECT_ROOT/src"
+BACKEND_DIR="$SRC_DIR/backend"
 FRONTEND_DIR="$SRC_DIR/frontend"
 
 # Default ports
@@ -71,6 +72,115 @@ check_command() {
         return 1
     fi
     return 0
+}
+
+# =============================================================================
+# Azure Authentication & Role Functions
+# =============================================================================
+
+ensure_azure_login() {
+    if ! command -v az &> /dev/null; then
+        print_error "Azure CLI is not installed. Please install it first."
+        exit 1
+    fi
+    
+    if az account show --query id -o tsv &> /dev/null; then
+        local account_name
+        account_name=$(az account show --query name -o tsv)
+        print_success "Logged in to Azure: $account_name"
+    else
+        print_info "Not logged in. Running az login..."
+        az login --use-device-code --output none
+        if ! az account show --query id -o tsv &> /dev/null; then
+            print_error "Azure login failed."
+            exit 1
+        fi
+        print_success "Azure login successful."
+    fi
+}
+
+ensure_azure_ai_user_role() {
+    print_info "Checking Azure AI User role..."
+    
+    local existing_project_id=""
+    local foundry_resource_id=""
+    if [ -f ".env" ]; then
+        existing_project_id=$(grep "^AZURE_EXISTING_AI_PROJECT_RESOURCE_ID=" .env | cut -d'=' -f2- | tr -d '"' | tr -d "'" || echo "")
+        foundry_resource_id=$(grep "^AI_FOUNDRY_RESOURCE_ID=" .env | cut -d'=' -f2- | tr -d '"' | tr -d "'" || echo "")
+    fi
+    
+    local scope=""
+    if [ -n "$existing_project_id" ]; then
+        scope="$existing_project_id"
+    elif [ -n "$foundry_resource_id" ]; then
+        scope="$foundry_resource_id"
+    else
+        print_error "Neither AZURE_EXISTING_AI_PROJECT_RESOURCE_ID nor AI_FOUNDRY_RESOURCE_ID found in .env"
+        exit 1
+    fi
+    
+    local signed_user_id
+    signed_user_id=$(az ad signed-in-user show --query id -o tsv 2>/dev/null)
+    if [ -z "$signed_user_id" ]; then
+        print_error "Could not get signed-in user ID."
+        exit 1
+    fi
+    
+    local role_id="53ca6127-db72-4b80-b1b0-d745d6d5456d"
+    local existing
+    existing=$(MSYS_NO_PATHCONV=1 az role assignment list --assignee "$signed_user_id" --role "$role_id" --scope "$scope" --query "[0].id" -o tsv 2>/dev/null)
+    
+    if [ -n "$existing" ]; then
+        print_success "Azure AI User role already assigned."
+    else
+        print_info "Assigning Azure AI User role..."
+        if ! MSYS_NO_PATHCONV=1 az role assignment create --assignee "$signed_user_id" --role "$role_id" --scope "$scope" --output none 2>/dev/null; then
+            print_error "Failed to assign Azure AI User role."
+            exit 1
+        fi
+        print_success "Azure AI User role assigned."
+    fi
+}
+
+ensure_cosmosdb_role() {
+    print_info "Checking Cosmos DB Data Contributor role..."
+    
+    local cosmos_account=""
+    local resource_group=""
+    if [ -f ".env" ]; then
+        cosmos_account=$(grep "^COSMOSDB_ACCOUNT_NAME=" .env | cut -d'=' -f2- | tr -d '"' | tr -d "'" || echo "")
+        resource_group=$(grep "^RESOURCE_GROUP_NAME=" .env | cut -d'=' -f2- | tr -d '"' | tr -d "'" || echo "")
+    fi
+    
+    if [ -z "$cosmos_account" ] || [ -z "$resource_group" ]; then
+        print_error "COSMOSDB_ACCOUNT_NAME or RESOURCE_GROUP_NAME not found in .env"
+        exit 1
+    fi
+    
+    local signed_user_id
+    signed_user_id=$(az ad signed-in-user show --query id -o tsv 2>/dev/null)
+    if [ -z "$signed_user_id" ]; then
+        print_error "Could not get signed-in user ID."
+        exit 1
+    fi
+    
+    local role_def_id="00000000-0000-0000-0000-000000000002"
+    
+    # Check if role already assigned
+    local existing
+    existing=$(az cosmosdb sql role assignment list --resource-group "$resource_group" --account-name "$cosmos_account" --query "[?principalId=='$signed_user_id'].id" -o tsv 2>/dev/null)
+    
+    if [ -n "$existing" ]; then
+        print_success "Cosmos DB role already assigned."
+    else
+        print_info "Assigning Cosmos DB role..."
+        MSYS_NO_PATHCONV=1 az cosmosdb sql role assignment create --resource-group "$resource_group" --account-name "$cosmos_account" --role-definition-id "$role_def_id" --principal-id "$signed_user_id" --scope "/" --output none 2>/dev/null
+        if [ $? -ne 0 ]; then
+            print_error "Failed to assign Cosmos DB role."
+            exit 1
+        fi
+        print_success "Cosmos DB role assigned."
+    fi
 }
 
 # =============================================================================
@@ -113,7 +223,7 @@ setup() {
     # Install Python dependencies
     print_info "Installing Python dependencies..."
     pip install --upgrade pip > /dev/null
-    pip install -r "$SRC_DIR/requirements.txt" > /dev/null 2>&1
+    pip install -r "$BACKEND_DIR/requirements.txt" > /dev/null 2>&1
     print_success "Python dependencies installed"
     
     # Install frontend dependencies
@@ -152,21 +262,7 @@ generate_env() {
     
     cd "$PROJECT_ROOT"
     
-    # Check Azure CLI
-    if ! check_command az; then
-        print_error "Azure CLI is required for environment generation"
-        exit 1
-    fi
-    
-    # Check if logged in
-    print_info "Checking Azure CLI login status..."
-    if ! az account show &> /dev/null; then
-        print_error "Not logged into Azure CLI. Please run: az login"
-        exit 1
-    fi
-    
-    account_name=$(az account show --query name -o tsv)
-    print_success "Logged in as: $account_name"
+    ensure_azure_login
     
     # If using azd
     if command -v azd &> /dev/null && [ -f "azure.yaml" ]; then
@@ -223,6 +319,11 @@ start_backend() {
         exit 1
     fi
     
+    # Ensure Azure roles
+    ensure_azure_login
+    ensure_azure_ai_user_role
+    ensure_cosmosdb_role
+    
     # Activate virtual environment
     if [ -d ".venv" ]; then
         source .venv/bin/activate
@@ -233,7 +334,7 @@ start_backend() {
     fi
     
     # Set environment variables
-    export PYTHONPATH="$SRC_DIR"
+    export PYTHONPATH="$BACKEND_DIR"
     export DOTENV_PATH="$PROJECT_ROOT/.env"
     
     # Load .env file
@@ -246,7 +347,7 @@ start_backend() {
     print_info "Health check: http://localhost:$BACKEND_PORT/api/health"
     echo ""
     
-    cd "$SRC_DIR"
+    cd "$BACKEND_DIR"
     
     # Use hypercorn for async support (same as production)
     if command -v hypercorn &> /dev/null; then
@@ -305,6 +406,11 @@ start_all() {
         exit 1
     fi
     
+    # Ensure Azure authentication and role assignments
+    ensure_azure_login
+    ensure_azure_ai_user_role
+    ensure_cosmosdb_role
+    
     print_info "Starting backend and frontend in parallel..."
     print_info ""
     print_info "Services:"
@@ -326,7 +432,7 @@ start_all() {
         set -a
         source "$PROJECT_ROOT/.env"
         set +a
-        cd "$SRC_DIR"
+        cd "$BACKEND_DIR"
         
         if command -v hypercorn &> /dev/null; then
             hypercorn app:app --bind "0.0.0.0:$BACKEND_PORT" --reload 2>&1 | sed 's/^/[Backend] /'

@@ -892,25 +892,28 @@ output APP_SERVICE_NAME string = webSite.outputs.name
 output WEB_APP_URL string = 'https://${webSite.outputs.name}.azurewebsites.net'
 
 @description('Contains Storage Account Name')
-output STORAGE_ACCOUNT_NAME string = storageAccount.outputs.name
+output AZURE_BLOB_ACCOUNT_NAME string = storageAccount.outputs.name
 
 @description('Contains Product Images Container')
-output STORAGE_PRODUCT_IMAGES_CONTAINER string = productImagesContainer
+output AZURE_BLOB_PRODUCT_IMAGES_CONTAINER string = productImagesContainer
 
 @description('Contains Generated Images Container')
-output STORAGE_GENERATED_IMAGES_CONTAINER string = generatedImagesContainer
+output AZURE_BLOB_GENERATED_IMAGES_CONTAINER string = generatedImagesContainer
 
 @description('Contains CosmosDB Account Name')
 output COSMOSDB_ACCOUNT_NAME string = cosmosDB.outputs.name
 
+@description('Contains CosmosDB Endpoint URL')
+output AZURE_COSMOS_ENDPOINT string = 'https://cosmos-${solutionSuffix}.documents.azure.com:443/'
+
 @description('Contains CosmosDB Database Name')
-output COSMOSDB_DATABASE_NAME string = cosmosDBDatabaseName
+output AZURE_COSMOS_DATABASE_NAME string = cosmosDBDatabaseName
 
 @description('Contains CosmosDB Products Container')
-output COSMOSDB_PRODUCTS_CONTAINER string = cosmosDBProductsContainer
+output AZURE_COSMOS_PRODUCTS_CONTAINER string = cosmosDBProductsContainer
 
 @description('Contains CosmosDB Conversations Container')
-output COSMOSDB_CONVERSATIONS_CONTAINER string = cosmosDBConversationsContainer
+output AZURE_COSMOS_CONVERSATIONS_CONTAINER string = cosmosDBConversationsContainer
 
 @description('Contains Resource Group Name')
 output RESOURCE_GROUP_NAME string = resourceGroup().name
@@ -924,17 +927,35 @@ output AI_FOUNDRY_RG_NAME string = aiFoundryAiServicesResourceGroupName
 @description('Contains AI Foundry Resource ID')
 output AI_FOUNDRY_RESOURCE_ID string = useExistingAiFoundryAiProject ? '' : aiFoundryAiServices!.outputs.resourceId
 
+@description('Contains existing AI project resource ID.')
+output AZURE_EXISTING_AI_PROJECT_RESOURCE_ID string = azureExistingAIProjectResourceId
+
+@description('Contains AI Search Service Endpoint URL')
+output AZURE_AI_SEARCH_ENDPOINT string = 'https://${aiSearch.outputs.name}.search.windows.net/'
+
 @description('Contains AI Search Service Name')
 output AI_SEARCH_SERVICE_NAME string = aiSearch.outputs.name
 
-@description('Contains AI Search Index')
-output AI_SEARCH_INDEX string = azureSearchIndex
+@description('Contains AI Search Product Index')
+output AZURE_AI_SEARCH_PRODUCTS_INDEX string = azureSearchIndex
+
+@description('Contains AI Search Image Index')
+output AZURE_AI_SEARCH_IMAGE_INDEX string = 'product-images'
+
+@description('Contains Azure OpenAI endpoint URL')
+output AZURE_OPENAI_ENDPOINT string = 'https://${aiFoundryAiServicesResourceName}.openai.azure.com/'
 
 @description('Contains GPT Model')
-output AZURE_OPENAI_MODEL string = gptModelName
+output AZURE_OPENAI_GPT_MODEL string = gptModelName
 
 @description('Contains Image Model (empty if none selected)')
 output AZURE_OPENAI_IMAGE_MODEL string = imageModelConfig[imageModelChoice].name
+
+@description('Contains Azure OpenAI GPT/Image endpoint URL (empty if no image model selected)')
+output AZURE_OPENAI_GPT_IMAGE_ENDPOINT string = imageModelChoice != 'none' ? 'https://${aiFoundryAiServicesResourceName}.openai.azure.com/' : ''
+
+@description('Contains Azure OpenAI API Version')
+output AZURE_OPENAI_API_VERSION string = azureOpenaiAPIVersion
 
 @description('Contains OpenAI Resource')
 output AZURE_OPENAI_RESOURCE string = aiFoundryAiServicesResourceName
