@@ -450,7 +450,7 @@ async def _run_generation_task(task_id: str, brief: CreativeBrief, products_data
             filename = parts[-1]
             conv_folder = parts[-2]
             response["image_url"] = f"/api/images/{conv_folder}/{filename}"
-            del response["image_blob_url"]
+            response["image_blob_url"] = blob_url  # Keep the original blob URL in response
             logger.info(f"Converted to proxy URL: {response['image_url']}")
         elif response.get("image_base64"):
             # Fallback: save to blob
@@ -464,6 +464,7 @@ async def _run_generation_task(task_id: str, brief: CreativeBrief, products_data
                     parts = blob_url.split("/")
                     filename = parts[-1]
                     response["image_url"] = f"/api/images/{conversation_id}/{filename}"
+                    response["image_blob_url"] = blob_url  # Include the original blob URL
                     del response["image_base64"]
             except Exception as e:
                 logger.warning(f"Failed to save image to blob: {e}")
