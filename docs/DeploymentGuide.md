@@ -129,13 +129,21 @@ Select one of the following options to deploy the Document Generation Solution A
     sh install.sh
     ```
     During this process, you’ll be prompted with the message:
+    <br> Choose “**Overwrite with versions from template**” and provide a unique environment name when prompted.
+   
     ```
     What would you like to do with these files?
     - Overwrite with versions from template
     - Keep my existing files unchanged
-    ```
-    Choose “**Overwrite with versions from template**” and provide a unique environment name when prompted.
-6. Proceed to [Step 3: Configure Deployment Settings](#step-3-configure-deployment-settings)
+    ```    
+6. **Authenticate with Azure** (VS Code Web requires device code authentication):
+   
+   ```shell
+   az login --use-device-code
+   ```
+   > **Note:** In VS Code Web environment, the regular `az login` command may fail. Use the `--use-device-code` flag to authenticate via device code flow. Follow the prompts in the terminal to complete authentication.
+   
+7. Proceed to [Step 3: Configure Deployment Settings](#step-3-configure-deployment-settings)
 
 </details>
 
