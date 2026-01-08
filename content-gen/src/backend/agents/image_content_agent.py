@@ -1,7 +1,7 @@
-"""Image Content Agent - Generates marketing images via DALL-E 3 or gpt-image-1.
+"""Image Content Agent - Generates marketing images via DALL-E 3, gpt-image-1, or gpt-image-1.5.
 
 Provides the generate_image function used by the orchestrator
-to create marketing images using either DALL-E 3 or gpt-image-1.
+to create marketing images using either DALL-E 3, gpt-image-1, or gpt-image-1.5.
 """
 
 import logging
@@ -74,7 +74,7 @@ async def generate_dalle_image(
     quality: str = None
 ) -> dict:
     """
-    Generate a marketing image using DALL-E 3 or gpt-image-1.
+    Generate a marketing image using DALL-E 3, gpt-image-1, or gpt-image-1.5.
     
     The model used is determined by AZURE_OPENAI_IMAGE_MODEL setting.
     
@@ -84,10 +84,10 @@ async def generate_dalle_image(
         scene_description: Scene/setting description from creative brief
         size: Image size (model-specific, uses settings default if not provided)
               - dall-e-3: 1024x1024, 1024x1792, 1792x1024
-              - gpt-image-1: 1024x1024, 1536x1024, 1024x1536, auto
+              - gpt-image-1/1.5: 1024x1024, 1536x1024, 1024x1536, auto
         quality: Image quality (model-specific, uses settings default if not provided)
               - dall-e-3: standard, hd
-              - gpt-image-1: low, medium, high, auto
+              - gpt-image-1/1.5: low, medium, high, auto
     
     Returns:
         Dictionary containing generated image data and metadata
@@ -97,7 +97,7 @@ async def generate_dalle_image(
     logger.info(f"Using image generation model: {image_model}")
     
     # Use appropriate generator based on model
-    if image_model == "gpt-image-1":
+    if image_model in ["gpt-image-1", "gpt-image-1.5"]:
         return await _generate_gpt_image(prompt, product_description, scene_description, size, quality)
     else:
         return await _generate_dalle_image(prompt, product_description, scene_description, size, quality)
@@ -236,9 +236,9 @@ async def _generate_gpt_image(
     quality: str = None
 ) -> dict:
     """
-    Generate a marketing image using gpt-image-1.
+    Generate a marketing image using gpt-image-1 or gpt-image-1.5.
     
-    gpt-image-1 has different capabilities than DALL-E 3:
+    gpt-image models have different capabilities than DALL-E 3:
     - Supports larger prompt sizes
     - Different size options: 1024x1024, 1536x1024, 1024x1536, auto
     - Different quality options: low, medium, high, auto
@@ -257,18 +257,18 @@ async def _generate_gpt_image(
     brand = app_settings.brand_guidelines
     
     # Use defaults from settings if not provided
-    # Map DALL-E quality settings to gpt-image-1 equivalents if needed
+    # Map DALL-E quality settings to gpt-image-1 or gpt-image-1.5 equivalents if needed
     size = size or app_settings.azure_openai.image_size
     quality = quality or app_settings.azure_openai.image_quality
     
-    # Map DALL-E quality values to gpt-image-1 equivalents
+    # Map DALL-E quality values to gpt-image-1 or gpt-image-1.5 equivalents
     quality_mapping = {
         "standard": "medium",
         "hd": "high",
     }
     quality = quality_mapping.get(quality, quality)
     
-    # Map DALL-E sizes to gpt-image-1 equivalents if needed
+    # Map DALL-E sizes to gpt-image-1 or gpt-image-1.5 equivalents if needed
     size_mapping = {
         "1024x1792": "1024x1536",  # Closest equivalent
         "1792x1024": "1536x1024",  # Closest equivalent
@@ -332,10 +332,10 @@ IMPORTANT GUIDELINES:
         )
         
         try:
-            # gpt-image-1 API call - note: gpt-image-1 doesn't support response_format parameter
+            # gpt-image-1/1.5 API call - note: gpt-image doesn't support response_format parameter
             # It returns base64 data directly in the response
             response = await client.images.generate(
-                model="gpt-image-1",
+                model=app_settings.azure_openai.effective_image_model,
                 prompt=full_prompt,
                 size=size,
                 quality=quality,

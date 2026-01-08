@@ -54,9 +54,10 @@ param gptModelName string = 'gpt-5.1'
 @description('Optional. Version of the GPT model to deploy.')
 param gptModelVersion string = '2025-11-13'
 
-@description('Optional. Image model to deploy: gpt-image-1, dall-e-3, or none to skip.')
+@description('Optional. Image model to deploy: gpt-image-1, gpt-image-1.5, dall-e-3, or none to skip.')
 @allowed([
   'gpt-image-1'
+  'gpt-image-1.5'
   'dall-e-3'
   'none'
 ])
@@ -266,6 +267,11 @@ var imageModelConfig = {
   'gpt-image-1': {
     name: 'gpt-image-1'
     version: '2025-04-15'
+    sku: 'GlobalStandard'
+  }
+  'gpt-image-1.5': {
+    name: 'gpt-image-1.5'
+    version: '2025-12-16'
     sku: 'GlobalStandard'
   }
   'dall-e-3': {

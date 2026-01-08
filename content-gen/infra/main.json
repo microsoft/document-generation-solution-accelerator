@@ -6,7 +6,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.39.26.7824",
-      "templateHash": "9035268371577303624"
+      "templateHash": "16137819665558470436"
     },
     "name": "Intelligent Content Generation Accelerator",
     "description": "Solution Accelerator for multimodal marketing content generation using Microsoft Agent Framework.\n"
@@ -99,11 +99,12 @@
       "defaultValue": "gpt-image-1",
       "allowedValues": [
         "gpt-image-1",
+        "gpt-image-1.5",
         "dall-e-3",
         "none"
       ],
       "metadata": {
-        "description": "Optional. Image model to deploy: gpt-image-1, dall-e-3, or none to skip."
+        "description": "Optional. Image model to deploy: gpt-image-1, gpt-image-1.5, dall-e-3, or none to skip."
       }
     },
     "azureOpenaiAPIVersion": {
@@ -332,6 +333,11 @@
       "gpt-image-1": {
         "name": "gpt-image-1",
         "version": "2025-04-15",
+        "sku": "GlobalStandard"
+      },
+      "gpt-image-1.5": {
+        "name": "gpt-image-1.5",
+        "version": "2025-12-16",
         "sku": "GlobalStandard"
       },
       "dall-e-3": {
@@ -10858,6 +10864,11 @@
                 "roleDefinitionIdOrName": "5e0bd9bd-7b93-4f28-af87-19fc36ad61bd",
                 "principalId": "[reference('userAssignedIdentity').outputs.principalId.value]",
                 "principalType": "ServicePrincipal"
+              },
+              {
+                "roleDefinitionIdOrName": "53ca6127-db72-4b80-b1b0-d745d6d5456d",
+                "principalId": "[deployer().objectId]",
+                "principalType": "User"
               }
             ]
           },
