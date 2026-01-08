@@ -6,7 +6,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.39.26.7824",
-      "templateHash": "8571608347823667459"
+      "templateHash": "16137819665558470436"
     },
     "name": "Intelligent Content Generation Accelerator",
     "description": "Solution Accelerator for multimodal marketing content generation using Microsoft Agent Framework.\n"
@@ -99,11 +99,12 @@
       "defaultValue": "gpt-image-1",
       "allowedValues": [
         "gpt-image-1",
+        "gpt-image-1.5",
         "dall-e-3",
         "none"
       ],
       "metadata": {
-        "description": "Optional. Image model to deploy: gpt-image-1, dall-e-3, or none to skip."
+        "description": "Optional. Image model to deploy: gpt-image-1, gpt-image-1.5, dall-e-3, or none to skip."
       }
     },
     "azureOpenaiAPIVersion": {
@@ -194,7 +195,7 @@
     },
     "acrName": {
       "type": "string",
-      "defaultValue": "contentgenacrmaint",
+      "defaultValue": "contentgencontainerreg",
       "metadata": {
         "description": "Required. The existing Container Registry name (without .azurecr.io). Must contain pre-built images: content-gen-app and content-gen-api."
       }
@@ -332,6 +333,11 @@
       "gpt-image-1": {
         "name": "gpt-image-1",
         "version": "2025-04-15",
+        "sku": "GlobalStandard"
+      },
+      "gpt-image-1.5": {
+        "name": "gpt-image-1.5",
+        "version": "2025-12-16",
         "sku": "GlobalStandard"
       },
       "dall-e-3": {
@@ -10858,6 +10864,11 @@
                 "roleDefinitionIdOrName": "5e0bd9bd-7b93-4f28-af87-19fc36ad61bd",
                 "principalId": "[reference('userAssignedIdentity').outputs.principalId.value]",
                 "principalType": "ServicePrincipal"
+              },
+              {
+                "roleDefinitionIdOrName": "53ca6127-db72-4b80-b1b0-d745d6d5456d",
+                "principalId": "[deployer().objectId]",
+                "principalType": "User"
               }
             ]
           },
@@ -33461,21 +33472,21 @@
       },
       "value": "[format('https://{0}.azurewebsites.net', reference('webSite').outputs.name.value)]"
     },
-    "STORAGE_ACCOUNT_NAME": {
+    "AZURE_BLOB_ACCOUNT_NAME": {
       "type": "string",
       "metadata": {
         "description": "Contains Storage Account Name"
       },
       "value": "[reference('storageAccount').outputs.name.value]"
     },
-    "STORAGE_PRODUCT_IMAGES_CONTAINER": {
+    "AZURE_BLOB_PRODUCT_IMAGES_CONTAINER": {
       "type": "string",
       "metadata": {
         "description": "Contains Product Images Container"
       },
       "value": "[variables('productImagesContainer')]"
     },
-    "STORAGE_GENERATED_IMAGES_CONTAINER": {
+    "AZURE_BLOB_GENERATED_IMAGES_CONTAINER": {
       "type": "string",
       "metadata": {
         "description": "Contains Generated Images Container"
@@ -33489,21 +33500,28 @@
       },
       "value": "[reference('cosmosDB').outputs.name.value]"
     },
-    "COSMOSDB_DATABASE_NAME": {
+    "AZURE_COSMOS_ENDPOINT": {
+      "type": "string",
+      "metadata": {
+        "description": "Contains CosmosDB Endpoint URL"
+      },
+      "value": "[format('https://cosmos-{0}.documents.azure.com:443/', variables('solutionSuffix'))]"
+    },
+    "AZURE_COSMOS_DATABASE_NAME": {
       "type": "string",
       "metadata": {
         "description": "Contains CosmosDB Database Name"
       },
       "value": "[variables('cosmosDBDatabaseName')]"
     },
-    "COSMOSDB_PRODUCTS_CONTAINER": {
+    "AZURE_COSMOS_PRODUCTS_CONTAINER": {
       "type": "string",
       "metadata": {
         "description": "Contains CosmosDB Products Container"
       },
       "value": "[variables('cosmosDBProductsContainer')]"
     },
-    "COSMOSDB_CONVERSATIONS_CONTAINER": {
+    "AZURE_COSMOS_CONVERSATIONS_CONTAINER": {
       "type": "string",
       "metadata": {
         "description": "Contains CosmosDB Conversations Container"
@@ -33538,6 +33556,20 @@
       },
       "value": "[if(variables('useExistingAiFoundryAiProject'), '', reference('aiFoundryAiServices').outputs.resourceId.value)]"
     },
+    "AZURE_EXISTING_AI_PROJECT_RESOURCE_ID": {
+      "type": "string",
+      "metadata": {
+        "description": "Contains existing AI project resource ID."
+      },
+      "value": "[parameters('azureExistingAIProjectResourceId')]"
+    },
+    "AZURE_AI_SEARCH_ENDPOINT": {
+      "type": "string",
+      "metadata": {
+        "description": "Contains AI Search Service Endpoint URL"
+      },
+      "value": "[format('https://{0}.search.windows.net/', reference('aiSearch').outputs.name.value)]"
+    },
     "AI_SEARCH_SERVICE_NAME": {
       "type": "string",
       "metadata": {
@@ -33545,14 +33577,28 @@
       },
       "value": "[reference('aiSearch').outputs.name.value]"
     },
-    "AI_SEARCH_INDEX": {
+    "AZURE_AI_SEARCH_PRODUCTS_INDEX": {
       "type": "string",
       "metadata": {
-        "description": "Contains AI Search Index"
+        "description": "Contains AI Search Product Index"
       },
       "value": "[variables('azureSearchIndex')]"
     },
-    "AZURE_OPENAI_MODEL": {
+    "AZURE_AI_SEARCH_IMAGE_INDEX": {
+      "type": "string",
+      "metadata": {
+        "description": "Contains AI Search Image Index"
+      },
+      "value": "product-images"
+    },
+    "AZURE_OPENAI_ENDPOINT": {
+      "type": "string",
+      "metadata": {
+        "description": "Contains Azure OpenAI endpoint URL"
+      },
+      "value": "[format('https://{0}.openai.azure.com/', variables('aiFoundryAiServicesResourceName'))]"
+    },
+    "AZURE_OPENAI_GPT_MODEL": {
       "type": "string",
       "metadata": {
         "description": "Contains GPT Model"
@@ -33565,6 +33611,20 @@
         "description": "Contains Image Model (empty if none selected)"
       },
       "value": "[variables('imageModelConfig')[parameters('imageModelChoice')].name]"
+    },
+    "AZURE_OPENAI_GPT_IMAGE_ENDPOINT": {
+      "type": "string",
+      "metadata": {
+        "description": "Contains Azure OpenAI GPT/Image endpoint URL (empty if no image model selected)"
+      },
+      "value": "[if(not(equals(parameters('imageModelChoice'), 'none')), format('https://{0}.openai.azure.com/', variables('aiFoundryAiServicesResourceName')), '')]"
+    },
+    "AZURE_OPENAI_API_VERSION": {
+      "type": "string",
+      "metadata": {
+        "description": "Contains Azure OpenAI API Version"
+      },
+      "value": "[parameters('azureOpenaiAPIVersion')]"
     },
     "AZURE_OPENAI_RESOURCE": {
       "type": "string",

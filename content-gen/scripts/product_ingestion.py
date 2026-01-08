@@ -69,13 +69,13 @@ def load_environment(env_file: str | None = None) -> IngestionConfig:
         logger.info(f"Loaded environment from {env_file}")
     
     return IngestionConfig(
-        storage_account_name=os.getenv("AZURE_STORAGE_ACCOUNT", ""),
-        storage_container_name=os.getenv("AZURE_STORAGE_PRODUCT_IMAGES_CONTAINER", "product-images"),
-        cosmos_endpoint=os.getenv("AZURE_COSMOSDB_ACCOUNT", ""),
-        cosmos_database=os.getenv("AZURE_COSMOSDB_DATABASE", "content_generation_db"),
-        cosmos_container=os.getenv("AZURE_COSMOSDB_PRODUCTS_CONTAINER", "products"),
-        search_service_name=os.getenv("AZURE_SEARCH_SERVICE", ""),
-        search_index_name=os.getenv("AZURE_SEARCH_INDEX", "product_index"),
+        storage_account_name=os.getenv("AZURE_BLOB_ACCOUNT_NAME", ""),
+        storage_container_name=os.getenv("AZURE_BLOB_PRODUCT_IMAGES_CONTAINER", "product-images"),
+        cosmos_endpoint=os.getenv("AZURE_COSMOS_ENDPOINT", ""),
+        cosmos_database=os.getenv("AZURE_COSMOS_DATABASE_NAME", "content_generation_db"),
+        cosmos_container=os.getenv("AZURE_COSMOS_PRODUCTS_CONTAINER", "products"),
+        search_service_name=os.getenv("AI_SEARCH_SERVICE_NAME", ""),
+        search_index_name=os.getenv("AZURE_AI_SEARCH_PRODUCTS_INDEX", "product_index"),
         data_path=Path(os.getenv("DATA_PATH", "./sample_data")),
         batch_size=int(os.getenv("BATCH_SIZE", "100"))
     )

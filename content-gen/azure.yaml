@@ -60,11 +60,11 @@ hooks:
         Write-Host "Web App URL: " -NoNewline
         Write-Host "$env:WEB_APP_URL" -ForegroundColor Cyan
         Write-Host "Storage Account: " -NoNewline
-        Write-Host "$env:STORAGE_ACCOUNT_NAME" -ForegroundColor Cyan
+        Write-Host "$env:AZURE_BLOB_ACCOUNT_NAME" -ForegroundColor Cyan
         Write-Host "AI Search Service: " -NoNewline
         Write-Host "$env:AI_SEARCH_SERVICE_NAME" -ForegroundColor Cyan
         Write-Host "AI Search Index: " -NoNewline
-        Write-Host "$env:AI_SEARCH_INDEX" -ForegroundColor Cyan
+        Write-Host "$env:AZURE_AI_SEARCH_PRODUCTS_INDEX" -ForegroundColor Cyan
         Write-Host "AI Service Location: " -NoNewline
         Write-Host "$env:AI_SERVICE_LOCATION" -ForegroundColor Cyan
         
@@ -72,9 +72,21 @@ hooks:
         Write-Host ""
         Write-Host "===== Running Post-Deployment Configuration =====" -ForegroundColor Yellow
         
+        Write-Host "Checking Azure authentication..."
+        
+        # Check if user is logged in, if not prompt for login
+        $signedUserId = az ad signed-in-user show --query id -o tsv 2>$null
+        if (-not $signedUserId) {
+          Write-Host "Not logged in to Azure. Please authenticate..." -ForegroundColor Yellow
+          az login --use-device-code
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "Azure login failed. Cannot proceed without authentication." -ForegroundColor Red
+            exit 1
+          }
+          $signedUserId = az ad signed-in-user show --query id -o tsv 2>$null
+        }
         # Assign Cosmos DB role to current user
         Write-Host "Assigning Cosmos DB Data Contributor role..."
-        $signedUserId = az ad signed-in-user show --query id -o tsv
         az cosmosdb sql role assignment create --resource-group $env:RESOURCE_GROUP_NAME --account-name $env:COSMOSDB_ACCOUNT_NAME --role-definition-id "00000000-0000-0000-0000-000000000002" --principal-id $signedUserId --scope "/" 2>$null
         if ($LASTEXITCODE -eq 0) {
           Write-Host "  Cosmos DB role assigned successfully" -ForegroundColor Green
@@ -132,18 +144,33 @@ hooks:
         echo "===== Provision Complete ====="
         echo ""
         echo "Web App URL: $WEB_APP_URL"
-        echo "Storage Account: $STORAGE_ACCOUNT_NAME"
+        echo "Storage Account: $AZURE_BLOB_ACCOUNT_NAME"
         echo "AI Search Service: $AI_SEARCH_SERVICE_NAME"
-        echo "AI Search Index: $AI_SEARCH_INDEX"
+        echo "AI Search Index: $AZURE_AI_SEARCH_PRODUCTS_INDEX"
         echo "AI Service Location: $AI_SERVICE_LOCATION"
         
         # Run post-deployment role assignments
         echo ""
         echo "===== Running Post-Deployment Configuration ====="
         
+        echo "Checking Azure authentication..."
+        
+        # Check if user is logged in, if not prompt for login
+        if ! signed_user_id=$(az ad signed-in-user show --query id -o tsv 2>/dev/null) || [ -z "$signed_user_id" ]; then
+          echo "Not logged in to Azure. Please authenticate..."
+          if ! az login --use-device-code; then
+            echo "Azure login failed. Cannot proceed without authentication."
+            exit 1
+          fi
+          if ! signed_user_id=$(az ad signed-in-user show --query id -o tsv 2>/dev/null) || [ -z "$signed_user_id" ]; then
+            echo "Failed to authenticate. Please run 'az login' manually before deployment."
+            exit 1
+          fi
+        fi
+
         # Assign Cosmos DB role to current user
         echo "Assigning Cosmos DB Data Contributor role..."
-        signed_user_id=$(az ad signed-in-user show --query id -o tsv)
+        
         az cosmosdb sql role assignment create \
           --resource-group "$RESOURCE_GROUP_NAME" \
           --account-name "$COSMOSDB_ACCOUNT_NAME" \

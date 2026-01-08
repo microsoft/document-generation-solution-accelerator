@@ -66,12 +66,12 @@ class _AzureOpenAISettings(BaseSettings):
     model: str = "gpt-5"
     
     # Image generation model settings
-    # Supported models: "dall-e-3" or "gpt-image-1"
+    # Supported models: "dall-e-3" or "gpt-image-1" or "gpt-image-1.5"
     image_model: str = Field(default="dall-e-3", alias="AZURE_OPENAI_IMAGE_MODEL")
     dalle_model: str = Field(default="dall-e-3", alias="AZURE_OPENAI_DALLE_MODEL")  # Legacy alias
     dalle_endpoint: Optional[str] = Field(default=None, alias="AZURE_OPENAI_DALLE_ENDPOINT")
     
-    # gpt-image-1 specific endpoint (if different from DALL-E endpoint)
+    # gpt-image-1 or gpt-image-1.5 specific endpoint (if different from DALL-E endpoint)
     gpt_image_endpoint: Optional[str] = Field(default=None, alias="AZURE_OPENAI_GPT_IMAGE_ENDPOINT")
     
     resource: Optional[str] = None
@@ -100,7 +100,7 @@ class _AzureOpenAISettings(BaseSettings):
     @property
     def image_endpoint(self) -> Optional[str]:
         """Get the appropriate endpoint for the configured image model."""
-        if self.effective_image_model == "gpt-image-1" and self.gpt_image_endpoint:
+        if self.effective_image_model in ["gpt-image-1", "gpt-image-1.5"] and self.gpt_image_endpoint:
             return self.gpt_image_endpoint
         return self.dalle_endpoint
 
@@ -110,7 +110,7 @@ class _AzureOpenAISettings(BaseSettings):
         
         Image generation requires either:
         - A DALL-E endpoint configured, OR
-        - A gpt-image-1 endpoint configured, OR
+        - A gpt-image-1 or gpt-image-1.5 endpoint configured, OR
         - Using the main OpenAI endpoint with an image model configured
         
         Returns False if image_model is explicitly set to empty string or "none".

@@ -54,7 +54,7 @@ If you have an existing Azure deployment with `azd`:
 
 1. Copy the environment template:
    ```bash
-   cp .env.template .env
+   cp .env.sample .env
    ```
 
 2. Edit `.env` with your Azure resource values (see [Environment Variables Reference](#environment-variables-reference) below)
