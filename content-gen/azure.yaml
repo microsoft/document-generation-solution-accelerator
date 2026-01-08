@@ -72,17 +72,21 @@ hooks:
         Write-Host ""
         Write-Host "===== Running Post-Deployment Configuration =====" -ForegroundColor Yellow
         
-        # Assign Cosmos DB role to current user
-        Write-Host "Assigning Cosmos DB Data Contributor role..."
+        Write-Host "Checking Azure authentication..."
         
         # Check if user is logged in, if not prompt for login
         $signedUserId = az ad signed-in-user show --query id -o tsv 2>$null
         if (-not $signedUserId) {
           Write-Host "Not logged in to Azure. Please authenticate..." -ForegroundColor Yellow
           az login --use-device-code
-          $signedUserId = az ad signed-in-user show --query id -o tsv
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "Azure login failed. Cannot proceed without authentication." -ForegroundColor Red
+            exit 1
+          }
+          $signedUserId = az ad signed-in-user show --query id -o tsv 2>$null
         }
-        
+        # Assign Cosmos DB role to current user
+        Write-Host "Assigning Cosmos DB Data Contributor role..."
         az cosmosdb sql role assignment create --resource-group $env:RESOURCE_GROUP_NAME --account-name $env:COSMOSDB_ACCOUNT_NAME --role-definition-id "00000000-0000-0000-0000-000000000002" --principal-id $signedUserId --scope "/" 2>$null
         if ($LASTEXITCODE -eq 0) {
           Write-Host "  Cosmos DB role assigned successfully" -ForegroundColor Green
@@ -149,16 +153,23 @@ hooks:
         echo ""
         echo "===== Running Post-Deployment Configuration ====="
         
-        # Assign Cosmos DB role to current user
-        echo "Assigning Cosmos DB Data Contributor role..."
+        echo "Checking Azure authentication..."
         
         # Check if user is logged in, if not prompt for login
-        signed_user_id=$(az ad signed-in-user show --query id -o tsv 2>/dev/null)
-        if [ -z "$signed_user_id" ]; then
+        if ! signed_user_id=$(az ad signed-in-user show --query id -o tsv 2>/dev/null) || [ -z "$signed_user_id" ]; then
           echo "Not logged in to Azure. Please authenticate..."
-          az login --use-device-code
-          signed_user_id=$(az ad signed-in-user show --query id -o tsv)
+          if ! az login --use-device-code; then
+            echo "Azure login failed. Cannot proceed without authentication."
+            exit 1
+          fi
+          if ! signed_user_id=$(az ad signed-in-user show --query id -o tsv 2>/dev/null) || [ -z "$signed_user_id" ]; then
+            echo "Failed to authenticate. Please run 'az login' manually before deployment."
+            exit 1
+          fi
         fi
+
+        # Assign Cosmos DB role to current user
+        echo "Assigning Cosmos DB Data Contributor role..."
         
         az cosmosdb sql role assignment create \
           --resource-group "$RESOURCE_GROUP_NAME" \
