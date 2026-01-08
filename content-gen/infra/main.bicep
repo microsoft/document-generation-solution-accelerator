@@ -501,6 +501,11 @@ module aiFoundryAiServices 'br/public:avm/res/cognitive-services/account:0.14.0'
         principalId: userAssignedIdentity.outputs.principalId
         principalType: 'ServicePrincipal'
       }
+      {
+        roleDefinitionIdOrName: '53ca6127-db72-4b80-b1b0-d745d6d5456d' // Azure AI User for deployer
+        principalId: deployer().objectId
+        principalType: 'User'
+      }
     ]
     diagnosticSettings: enableMonitoring ? [{ workspaceResourceId: logAnalyticsWorkspaceResourceId }] : null
     publicNetworkAccess: enablePrivateNetworking ? 'Disabled' : 'Enabled'
