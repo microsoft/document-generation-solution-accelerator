@@ -41,7 +41,6 @@ from azure.identity import DefaultAzureCredential
 # Foundry imports - only used when USE_FOUNDRY=true
 try:
     from azure.ai.projects import AIProjectClient
-    from azure.ai.projects.models import AgentStreamEvent
     FOUNDRY_AVAILABLE = True
 except ImportError:
     FOUNDRY_AVAILABLE = False
@@ -291,7 +290,8 @@ class ContentGenerationOrchestrator:
     """
     
     def __init__(self):
-        self._chat_client = None  # Can be AzureOpenAIChatClient or AIProjectClient
+        self._chat_client = None  # Always AzureOpenAIChatClient
+        self._project_client = None  # AIProjectClient for Foundry mode (used for image generation)
         self._agents: dict = {}
         self._workflow = None
         self._initialized = False
@@ -305,6 +305,7 @@ class ContentGenerationOrchestrator:
             
             if self._use_foundry:
                 # Azure AI Foundry mode
+                # Use AIProjectClient to get an OpenAI client, then wrap it with AzureOpenAIChatClient
                 if not FOUNDRY_AVAILABLE:
                     raise ImportError(
                         "Azure AI Foundry SDK not installed. "
@@ -316,9 +317,40 @@ class ContentGenerationOrchestrator:
                     raise ValueError("AZURE_AI_PROJECT_ENDPOINT is required when USE_FOUNDRY=true")
                 
                 logger.info(f"Using Azure AI Foundry mode with endpoint: {project_endpoint}")
-                self._chat_client = AIProjectClient(
+                
+                # Create the AIProjectClient to get connection info
+                project_client = AIProjectClient(
                     endpoint=project_endpoint,
                     credential=self._credential,
+                )
+                
+                # Store the project client for image generation
+                self._project_client = project_client
+                
+                # Get the Azure OpenAI connection from the project
+                # The project client provides get_openai_client() which we use
+                # to configure our AzureOpenAIChatClient
+                openai_client = project_client.get_openai_client()
+                
+                # Extract connection details and use AzureOpenAIChatClient (same as direct mode)
+                # The openai_client from Foundry uses the project's connection settings
+                # base_url is a URL object, convert to string
+                azure_endpoint = str(openai_client.base_url).rstrip('/').replace('/openai', '')
+                
+                def get_token() -> str:
+                    """Token provider callable - invoked for each request to ensure fresh tokens."""
+                    token = self._credential.get_token(TOKEN_ENDPOINT)
+                    return token.token
+                
+                model_deployment = app_settings.ai_foundry.model_deployment or app_settings.azure_openai.gpt_model
+                api_version = app_settings.azure_openai.api_version
+                
+                logger.info(f"Foundry OpenAI endpoint: {azure_endpoint}, deployment: {model_deployment}")
+                self._chat_client = AzureOpenAIChatClient(
+                    endpoint=azure_endpoint,
+                    deployment_name=model_deployment,
+                    api_version=api_version,
+                    ad_token_provider=get_token,
                 )
             else:
                 # Azure OpenAI Direct mode
@@ -351,8 +383,8 @@ class ContentGenerationOrchestrator:
         # Get the chat client
         chat_client = self._get_chat_client()
         
-        # Agent names - Foundry requires hyphens, not underscores
-        name_sep = "-" if self._use_foundry else "_"
+        # Agent names - use underscores (AzureOpenAIChatClient works with both modes now)
+        name_sep = "_"
         
         # Create all agents
         triage_agent = chat_client.create_agent(
@@ -862,7 +894,7 @@ Important:
             }
 
     async def _generate_foundry_image(self, image_prompt: str, results: dict) -> None:
-        """Generate image using direct REST API call to Foundry endpoint.
+        """Generate image using direct REST API call to Azure OpenAI endpoint.
         
         Azure AI Foundry's agent-based image generation (Responses API) returns
         text descriptions instead of actual image data. This method uses a direct
@@ -888,13 +920,27 @@ Important:
             # Get token for Azure Cognitive Services
             token = self._credential.get_token(TOKEN_ENDPOINT)
             
-            # Build the direct API URL
-            # Foundry endpoint format: https://<project>.services.ai.azure.com
-            project_endpoint = app_settings.ai_foundry.project_endpoint
+            # Use the direct Azure OpenAI endpoint for image generation
+            # This is different from the project endpoint - it goes directly to Azure OpenAI
+            image_endpoint = app_settings.azure_openai.image_endpoint
+            if not image_endpoint:
+                # Fallback: try to derive from regular OpenAI endpoint
+                image_endpoint = app_settings.azure_openai.endpoint
+            
+            if not image_endpoint:
+                logger.error("No Azure OpenAI image endpoint configured")
+                results["image_error"] = "Image endpoint not configured"
+                return
+            
+            # Ensure endpoint doesn't end with /
+            image_endpoint = image_endpoint.rstrip('/')
+            
             image_deployment = app_settings.ai_foundry.image_deployment
+            if not image_deployment:
+                image_deployment = app_settings.azure_openai.image_model
             
             # The direct image API endpoint
-            image_api_url = f"{project_endpoint}/openai/deployments/{image_deployment}/images/generations"
+            image_api_url = f"{image_endpoint}/openai/deployments/{image_deployment}/images/generations"
             api_version = app_settings.azure_openai.image_api_version or "2025-04-01-preview"
             
             logger.info(f"Calling Foundry direct image API: {image_api_url}")

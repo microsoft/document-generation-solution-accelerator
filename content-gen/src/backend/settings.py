@@ -180,8 +180,9 @@ class _AIFoundrySettings(BaseSettings):
     project_endpoint: Optional[str] = Field(default=None, alias="AZURE_AI_PROJECT_ENDPOINT")
     project_name: Optional[str] = Field(default=None, alias="AZURE_AI_PROJECT_NAME")
     
-    # Image model deployment name in Foundry (e.g., "gpt-image-1")
-    image_deployment: str = Field(default="gpt-image-1", alias="AZURE_AI_IMAGE_DEPLOYMENT")
+    # Model deployment names in Foundry
+    model_deployment: Optional[str] = Field(default=None, alias="AZURE_AI_MODEL_DEPLOYMENT_NAME")
+    image_deployment: str = Field(default="gpt-image-1", alias="AZURE_AI_IMAGE_MODEL_DEPLOYMENT")
 
 
 class _SearchSettings(BaseSettings):
