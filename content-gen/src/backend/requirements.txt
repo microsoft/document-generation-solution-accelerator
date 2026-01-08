@@ -13,9 +13,13 @@ azure-identity>=1.17.0
 azure-cosmos>=4.7.0
 azure-storage-blob>=12.22.0
 azure-ai-contentsafety>=1.0.0
+azure-ai-projects>=1.0.0b5  # Azure AI Foundry SDK (optional, for USE_FOUNDRY=true)
 
 # OpenAI
 openai>=1.45.0
+
+# HTTP Client (for Foundry direct API calls)
+httpx>=0.27.0
 
 # Data Validation
 pydantic>=2.8.0

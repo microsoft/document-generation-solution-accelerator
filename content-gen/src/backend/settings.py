@@ -164,6 +164,26 @@ class _CosmosSettings(BaseSettings):
     conversations_container: str = "conversations"
 
 
+class _AIFoundrySettings(BaseSettings):
+    """Azure AI Foundry configuration for agent-based workflows.
+    
+    When USE_FOUNDRY=true, the orchestrator uses Azure AI Foundry's
+    project endpoint instead of direct Azure OpenAI endpoints.
+    """
+    model_config = SettingsConfigDict(
+        env_file=DOTENV_PATH,
+        extra="ignore",
+        env_ignore_empty=True,
+    )
+
+    use_foundry: bool = Field(default=False, alias="USE_FOUNDRY")
+    project_endpoint: Optional[str] = Field(default=None, alias="AZURE_AI_PROJECT_ENDPOINT")
+    project_name: Optional[str] = Field(default=None, alias="AZURE_AI_PROJECT_NAME")
+    
+    # Image model deployment name in Foundry (e.g., "gpt-image-1")
+    image_deployment: str = Field(default="gpt-image-1", alias="AZURE_AI_IMAGE_DEPLOYMENT")
+
+
 class _SearchSettings(BaseSettings):
     """Azure AI Search configuration."""
     model_config = SettingsConfigDict(
@@ -388,6 +408,7 @@ class _AppSettings(BaseModel):
     """Main application settings container."""
     base_settings: _BaseSettings = _BaseSettings()
     azure_openai: _AzureOpenAISettings = _AzureOpenAISettings()
+    ai_foundry: _AIFoundrySettings = _AIFoundrySettings()
     brand_guidelines: _BrandGuidelinesSettings = _BrandGuidelinesSettings()
     ui: Optional[_UiSettings] = _UiSettings()
     
