@@ -92,6 +92,9 @@ param tags object = {}
 @description('Optional. Enable monitoring for applicable resources (WAF-aligned).')
 param enableMonitoring bool = false
 
+@description('Optional. Enable Azure AI Foundry mode for multi-agent orchestration.')
+param useFoundryMode bool = true
+
 @description('Optional. Enable scalability for applicable resources (WAF-aligned).')
 param enableScalability bool = false
 
@@ -891,6 +894,11 @@ module containerInstance 'modules/container-instance.bicep' = {
       { name: 'PORT', value: '8000' }
       { name: 'WORKERS', value: '4' }
       { name: 'RUNNING_IN_PRODUCTION', value: 'true' }
+      // Azure AI Foundry Settings
+      { name: 'USE_FOUNDRY', value: useFoundryMode ? 'true' : 'false' }
+      { name: 'AZURE_AI_PROJECT_ENDPOINT', value: aiFoundryAiProjectEndpoint }
+      { name: 'AZURE_AI_MODEL_DEPLOYMENT_NAME', value: gptModelName }
+      { name: 'AZURE_AI_IMAGE_MODEL_DEPLOYMENT', value: imageModelConfig[imageModelChoice].name }
     ]
   }
 }
