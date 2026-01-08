@@ -305,7 +305,7 @@ class ContentGenerationOrchestrator:
             
             if self._use_foundry:
                 # Azure AI Foundry mode
-                # Use AIProjectClient to get an OpenAI client, then wrap it with AzureOpenAIChatClient
+                # Use AIProjectClient for project operations but use direct Azure OpenAI endpoint for chat
                 if not FOUNDRY_AVAILABLE:
                     raise ImportError(
                         "Azure AI Foundry SDK not installed. "
@@ -316,9 +316,9 @@ class ContentGenerationOrchestrator:
                 if not project_endpoint:
                     raise ValueError("AZURE_AI_PROJECT_ENDPOINT is required when USE_FOUNDRY=true")
                 
-                logger.info(f"Using Azure AI Foundry mode with endpoint: {project_endpoint}")
+                logger.info(f"Using Azure AI Foundry mode with project: {project_endpoint}")
                 
-                # Create the AIProjectClient to get connection info
+                # Create the AIProjectClient for project-specific operations (e.g., image generation)
                 project_client = AIProjectClient(
                     endpoint=project_endpoint,
                     credential=self._credential,
@@ -327,15 +327,12 @@ class ContentGenerationOrchestrator:
                 # Store the project client for image generation
                 self._project_client = project_client
                 
-                # Get the Azure OpenAI connection from the project
-                # The project client provides get_openai_client() which we use
-                # to configure our AzureOpenAIChatClient
-                openai_client = project_client.get_openai_client()
-                
-                # Extract connection details and use AzureOpenAIChatClient (same as direct mode)
-                # The openai_client from Foundry uses the project's connection settings
-                # base_url is a URL object, convert to string
-                azure_endpoint = str(openai_client.base_url).rstrip('/').replace('/openai', '')
+                # For chat completions, use the direct Azure OpenAI endpoint
+                # The Foundry project uses Azure OpenAI under the hood, and we need the direct endpoint
+                # to properly authenticate with Cognitive Services token
+                azure_endpoint = app_settings.azure_openai.endpoint
+                if not azure_endpoint:
+                    raise ValueError("AZURE_OPENAI_ENDPOINT is required for Foundry mode chat completions")
                 
                 def get_token() -> str:
                     """Token provider callable - invoked for each request to ensure fresh tokens."""
@@ -345,7 +342,7 @@ class ContentGenerationOrchestrator:
                 model_deployment = app_settings.ai_foundry.model_deployment or app_settings.azure_openai.gpt_model
                 api_version = app_settings.azure_openai.api_version
                 
-                logger.info(f"Foundry OpenAI endpoint: {azure_endpoint}, deployment: {model_deployment}")
+                logger.info(f"Foundry mode using Azure OpenAI endpoint: {azure_endpoint}, deployment: {model_deployment}")
                 self._chat_client = AzureOpenAIChatClient(
                     endpoint=azure_endpoint,
                     deployment_name=model_deployment,
