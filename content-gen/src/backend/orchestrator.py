@@ -20,6 +20,9 @@ import logging
 import re
 from typing import Any, AsyncIterator, Optional, cast
 
+# Token endpoint for Azure Cognitive Services (used for Azure OpenAI)
+TOKEN_ENDPOINT = "https://cognitiveservices.azure.com/.default"
+
 from agent_framework import (
     ChatAgent,
     ChatMessage,
@@ -286,13 +289,22 @@ class ContentGenerationOrchestrator:
             if not endpoint:
                 raise ValueError("AZURE_OPENAI_ENDPOINT is not configured")
             
-            # Use DefaultAzureCredential for RBAC authentication
-            logger.info("Using DefaultAzureCredential for Azure OpenAI")
+            # Use ad_token_provider for automatic token refresh
+            # This ensures tokens are refreshed automatically when they expire,
+            # avoiding 401 errors that require container restarts
+            credential = DefaultAzureCredential()
+            
+            def get_token() -> str:
+                """Token provider callable - invoked for each request to ensure fresh tokens."""
+                token = credential.get_token(TOKEN_ENDPOINT)
+                return token.token
+            
+            logger.info("Using DefaultAzureCredential with ad_token_provider for Azure OpenAI")
             self._chat_client = AzureOpenAIChatClient(
                 endpoint=endpoint,
                 deployment_name=app_settings.azure_openai.gpt_model,
                 api_version=app_settings.azure_openai.api_version,
-                credential=DefaultAzureCredential(),
+                ad_token_provider=get_token,
             )
         return self._chat_client
     
