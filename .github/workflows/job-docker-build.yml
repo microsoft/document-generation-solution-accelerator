@@ -19,7 +19,10 @@ on:
 
 env:
   BRANCH_NAME: ${{ github.event.workflow_run.head_branch || github.head_ref || github.ref_name }}
-
+permissions:
+  contents: read
+  actions: read
+  
 jobs:
   docker-build:
     if: inputs.trigger_type == 'workflow_dispatch' && inputs.build_docker_image == true

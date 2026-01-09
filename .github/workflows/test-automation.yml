@@ -22,7 +22,10 @@ on:
 env:
     url: ${{ inputs.DOCGEN_URL }}
     accelerator_name: "DocGen"
-
+permissions:
+  contents: read
+  actions: read
+  
 jobs:
   test:
     runs-on: ubuntu-latest
