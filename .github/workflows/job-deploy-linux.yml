@@ -196,18 +196,9 @@ jobs:
           else
             echo "🔧 Configuring Non-WAF deployment - using default main.parameters.json..."
           fi
-      
-      - name: Setup Azure CLI
-        shell: bash
-        run: |
-          curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
 
-      - name: Setup Azure Developer CLI (Linux)
-        if: runner.os == 'Linux'
-        shell: bash
-        run: |
-          curl -fsSL https://aka.ms/install-azd.sh | sudo bash
-          azd version
+      - name: Install azd
+        uses: Azure/setup-azd@v2
           
       - name: Login to AZD
         id: login-azure
@@ -298,26 +289,25 @@ jobs:
           fi
 
           # Extract values from azd output (adjust these based on actual output variable names)
-          export AI_FOUNDRY_RESOURCE_ID=$(echo "$DEPLOY_OUTPUT" | jq -r '.AI_FOUNDRY_RESOURCE_ID // empty')
+          AI_FOUNDRY_RESOURCE_ID=$(echo "$DEPLOY_OUTPUT" | jq -r '.AI_FOUNDRY_RESOURCE_ID // empty')
           echo "AI_FOUNDRY_RESOURCE_ID=$AI_FOUNDRY_RESOURCE_ID" >> $GITHUB_ENV
           
-          export AI_SEARCH_SERVICE_NAME=$(echo "$DEPLOY_OUTPUT" | jq -r '.AI_SEARCH_SERVICE_NAME // empty')
+          AI_SEARCH_SERVICE_NAME=$(echo "$DEPLOY_OUTPUT" | jq -r '.AI_SEARCH_SERVICE_NAME // empty')
           echo "AI_SEARCH_SERVICE_NAME=$AI_SEARCH_SERVICE_NAME" >> $GITHUB_ENV
           
-          export AZURE_COSMOSDB_ACCOUNT=$(echo "$DEPLOY_OUTPUT" | jq -r '.AZURE_COSMOSDB_ACCOUNT // empty')
+          AZURE_COSMOSDB_ACCOUNT=$(echo "$DEPLOY_OUTPUT" | jq -r '.AZURE_COSMOSDB_ACCOUNT // empty')
           echo "AZURE_COSMOSDB_ACCOUNT=$AZURE_COSMOSDB_ACCOUNT" >> $GITHUB_ENV
           
-          export STORAGE_ACCOUNT_NAME=$(echo "$DEPLOY_OUTPUT" | jq -r '.STORAGE_ACCOUNT_NAME // empty')
+          STORAGE_ACCOUNT_NAME=$(echo "$DEPLOY_OUTPUT" | jq -r '.STORAGE_ACCOUNT_NAME // empty')
           echo "STORAGE_ACCOUNT_NAME=$STORAGE_ACCOUNT_NAME" >> $GITHUB_ENV
           
-          export STORAGE_CONTAINER_NAME=$(echo "$DEPLOY_OUTPUT" | jq -r '.STORAGE_CONTAINER_NAME // empty')
+          STORAGE_CONTAINER_NAME=$(echo "$DEPLOY_OUTPUT" | jq -r '.STORAGE_CONTAINER_NAME // empty')
           echo "STORAGE_CONTAINER_NAME=$STORAGE_CONTAINER_NAME" >> $GITHUB_ENV
           
-          export KEY_VAULT_NAME=$(echo "$DEPLOY_OUTPUT" | jq -r '.KEY_VAULT_NAME // empty')
+          KEY_VAULT_NAME=$(echo "$DEPLOY_OUTPUT" | jq -r '.KEY_VAULT_NAME // empty')
           echo "KEY_VAULT_NAME=$KEY_VAULT_NAME" >> $GITHUB_ENV
           
-          export RESOURCE_GROUP_NAME=$(echo "$DEPLOY_OUTPUT" | jq -r '.RESOURCE_GROUP_NAME // .AZURE_RESOURCE_GROUP // empty')
-          [[ -z "$RESOURCE_GROUP_NAME" ]] && export RESOURCE_GROUP_NAME="$RESOURCE_GROUP_NAME"
+          RESOURCE_GROUP_NAME=$(echo "$DEPLOY_OUTPUT" | jq -r '.RESOURCE_GROUP_NAME // empty')
           echo "RESOURCE_GROUP_NAME=$RESOURCE_GROUP_NAME" >> $GITHUB_ENV
           
           WEB_APPURL=$(echo "$DEPLOY_OUTPUT" | jq -r '.WEB_APP_URL // .SERVICE_BACKEND_ENDPOINT_URL // empty')
@@ -329,6 +319,13 @@ jobs:
         env: 
           AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          STORAGE_ACCOUNT_NAME: ${{ env.STORAGE_ACCOUNT_NAME }}
+          STORAGE_CONTAINER_NAME: ${{ env.STORAGE_CONTAINER_NAME }}
+          KEY_VAULT_NAME: ${{ env.KEY_VAULT_NAME }}
+          AZURE_COSMOSDB_ACCOUNT: ${{ env.AZURE_COSMOSDB_ACCOUNT }}
+          RESOURCE_GROUP_NAME: ${{ env.RESOURCE_GROUP_NAME }}
+          AI_SEARCH_SERVICE_NAME: ${{ env.AI_SEARCH_SERVICE_NAME }}
+          AI_FOUNDRY_RESOURCE_ID: ${{ env.AI_FOUNDRY_RESOURCE_ID }}
         run: |
           set -e
           az account set --subscription "$AZURE_SUBSCRIPTION_ID"
