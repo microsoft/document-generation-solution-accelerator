@@ -17,7 +17,7 @@ This solution accelerator is an internal chatbot that interprets and understands
 Solution overview
 </h2>
 
-This solution leverages Azure OpenAI Service (GPT and DALL-E 3), Azure Cosmos DB, and Azure Blob Storage to interpret creative briefs, retrieve product information, generate marketing content, and validate brand compliance.
+This solution leverages Microsoft Foundry, Azure AI Search, Azure Cosmos DB, and Azure Blob Storage to interpret creative briefs, retrieve product information, generate marketing content, and validate brand compliance.
 
 The sample data includes synthetic product catalogs and brand guidelines. The data is intended for use as sample data only.
 
@@ -102,7 +102,6 @@ _Note: This is not meant to outline all costs as selected SKUs, scaled use, cust
 |---|---|---|
 | [Azure AI Foundry](https://learn.microsoft.com/en-us/azure/ai-foundry/) | Free tier. Build generative AI applications on an enterprise-grade platform. | [Pricing](https://azure.microsoft.com/pricing/details/ai-studio/) |
 | [Azure Storage Account](https://learn.microsoft.com/en-us/azure/storage/blobs/) | Standard tier, LRS. Pricing is based on storage and operations. Blob storage for product images and generated content. | [Pricing](https://azure.microsoft.com/pricing/details/storage/blobs/) |
-| [Azure Key Vault](https://learn.microsoft.com/en-us/azure/key-vault/) | Standard tier. Pricing is based on the number of operations. Maintain keys that access and encrypt your cloud resources, apps, and solutions. | [Pricing](https://azure.microsoft.com/pricing/details/key-vault/) |
 | [Azure AI Services](https://learn.microsoft.com/en-us/azure/ai-services/) | S0 tier, defaults to gpt-5.1 (GPT) and gpt-image-1 (DALL-E 3) models. Pricing is based on token count. | [Pricing](https://azure.microsoft.com/pricing/details/cognitive-services/) |
 | [Azure Container Instance](https://learn.microsoft.com/en-us/azure/container-instances/) | Backend API hosting with private VNet integration. Pricing is based on resource allocation. | [Pricing](https://azure.microsoft.com/pricing/details/container-instances/) |
 | [Azure App Service](https://learn.microsoft.com/en-us/azure/app-service/) | B1 tier. Frontend hosting with Node.js proxy server. | [Pricing](https://azure.microsoft.com/pricing/details/app-service/) |
@@ -123,7 +122,7 @@ Business Scenario
 </h2>
 
 
-|![image](./docs/images/landing_page.png)|
+|![image](./docs/images/readme/landing_page.png)|
 |---|
 
 <br/>
