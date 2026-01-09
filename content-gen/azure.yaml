@@ -67,41 +67,8 @@ hooks:
         Write-Host "$env:AZURE_AI_SEARCH_PRODUCTS_INDEX" -ForegroundColor Cyan
         Write-Host "AI Service Location: " -NoNewline
         Write-Host "$env:AI_SERVICE_LOCATION" -ForegroundColor Cyan
-        
-        # Run post-deployment role assignments
-        Write-Host ""
-        Write-Host "===== Running Post-Deployment Configuration =====" -ForegroundColor Yellow
-        
-        Write-Host "Checking Azure authentication..."
-        
-        # Check if user is logged in, if not prompt for login
-        $signedUserId = az ad signed-in-user show --query id -o tsv 2>$null
-        if (-not $signedUserId) {
-          Write-Host "Not logged in to Azure. Please authenticate..." -ForegroundColor Yellow
-          az login --use-device-code
-          if ($LASTEXITCODE -ne 0) {
-            Write-Host "Azure login failed. Cannot proceed without authentication." -ForegroundColor Red
-            exit 1
-          }
-          $signedUserId = az ad signed-in-user show --query id -o tsv 2>$null
-        }
-        # Assign Cosmos DB role to current user
-        Write-Host "Assigning Cosmos DB Data Contributor role..."
-        az cosmosdb sql role assignment create --resource-group $env:RESOURCE_GROUP_NAME --account-name $env:COSMOSDB_ACCOUNT_NAME --role-definition-id "00000000-0000-0000-0000-000000000002" --principal-id $signedUserId --scope "/" 2>$null
-        if ($LASTEXITCODE -eq 0) {
-          Write-Host "  Cosmos DB role assigned successfully" -ForegroundColor Green
-        } else {
-          Write-Host "  Cosmos DB role may already be assigned" -ForegroundColor Yellow
-        }
-        
-        if ($env:CONTAINER_INSTANCE_NAME) {
-          Write-Host ""
-          Write-Host "Container Instance: " -NoNewline
-          Write-Host "$env:CONTAINER_INSTANCE_NAME" -ForegroundColor Cyan
-          Write-Host "Container Private IP: " -NoNewline
-          Write-Host "$env:CONTAINER_INSTANCE_PRIVATE_IP" -ForegroundColor Cyan
-        }
-        
+        Write-Host "Container Instance: " -NoNewline
+        Write-Host "$env:CONTAINER_INSTANCE_NAME" -ForegroundColor Cyan     
         
         # Run post-deploy script to upload sample data and create search index
         Write-Host ""
@@ -114,13 +81,10 @@ hooks:
         elseif (Test-Path "../.venv/Scripts/python.exe") { $python = "../.venv/Scripts/python.exe" }
         elseif (Test-Path "./.venv/bin/python") { $python = "./.venv/bin/python" }
         elseif (Test-Path "../.venv/bin/python") { $python = "../.venv/bin/python" }
-        & $python -m pip install -r ./scripts/requirements-post-deploy.txt
+        & $python -m pip install -r ./scripts/requirements-post-deploy.txt --quiet 2>$null | Out-Null
         
         if (Test-Path "./scripts/post_deploy.py") {
-          & $python ./scripts/post_deploy.py `
-            --resource-group $env:RESOURCE_GROUP_NAME `
-            --app-name $env:APP_SERVICE_NAME `
-            --skip-tests
+          & $python ./scripts/post_deploy.py --skip-tests
           
           if ($LASTEXITCODE -eq 0) {
             Write-Host "Post-deploy script completed successfully!" -ForegroundColor Green
@@ -148,41 +112,7 @@ hooks:
         echo "AI Search Service: $AI_SEARCH_SERVICE_NAME"
         echo "AI Search Index: $AZURE_AI_SEARCH_PRODUCTS_INDEX"
         echo "AI Service Location: $AI_SERVICE_LOCATION"
-        
-        # Run post-deployment role assignments
-        echo ""
-        echo "===== Running Post-Deployment Configuration ====="
-        
-        echo "Checking Azure authentication..."
-        
-        # Check if user is logged in, if not prompt for login
-        if ! signed_user_id=$(az ad signed-in-user show --query id -o tsv 2>/dev/null) || [ -z "$signed_user_id" ]; then
-          echo "Not logged in to Azure. Please authenticate..."
-          if ! az login --use-device-code; then
-            echo "Azure login failed. Cannot proceed without authentication."
-            exit 1
-          fi
-          if ! signed_user_id=$(az ad signed-in-user show --query id -o tsv 2>/dev/null) || [ -z "$signed_user_id" ]; then
-            echo "Failed to authenticate. Please run 'az login' manually before deployment."
-            exit 1
-          fi
-        fi
-
-        # Assign Cosmos DB role to current user
-        echo "Assigning Cosmos DB Data Contributor role..."
-        
-        az cosmosdb sql role assignment create \
-          --resource-group "$RESOURCE_GROUP_NAME" \
-          --account-name "$COSMOSDB_ACCOUNT_NAME" \
-          --role-definition-id "00000000-0000-0000-0000-000000000002" \
-          --principal-id "$signed_user_id" \
-          --scope "/" 2>/dev/null && echo "  Cosmos DB role assigned successfully" || echo "  Cosmos DB role may already be assigned"
-        
-        if [ -n "$CONTAINER_INSTANCE_NAME" ]; then
-          echo ""
-          echo "Container Instance: $CONTAINER_INSTANCE_NAME"
-          echo "Container Private IP: $CONTAINER_INSTANCE_PRIVATE_IP"
-        fi
+        echo "Container Instance: $CONTAINER_INSTANCE_NAME"
         
         echo ""
         echo "Container Registry: $ACR_NAME"
@@ -202,11 +132,8 @@ hooks:
             PYTHON_BIN="python3"
           fi
 
-          "$PYTHON_BIN" -m pip install -r ./scripts/requirements-post-deploy.txt \
-            && "$PYTHON_BIN" ./scripts/post_deploy.py \
-            --resource-group "$RESOURCE_GROUP_NAME" \
-            --app-name "$APP_SERVICE_NAME" \
-            --skip-tests \
+          "$PYTHON_BIN" -m pip install -r ./scripts/requirements-post-deploy.txt --quiet > /dev/null 2>&1 \
+            && "$PYTHON_BIN" ./scripts/post_deploy.py --skip-tests \
             && echo "Post-deploy script completed successfully!" \
             || echo "Post-deploy script completed with warnings (some steps may have failed)"
         else
