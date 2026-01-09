@@ -14,12 +14,18 @@ to Blob Storage, Cosmos DB, and Azure AI Search - eliminating the need to
 modify firewall rules.
 
 Usage:
-    python post_deploy.py --resource-group rg-name [options]
+    python post_deploy.py [options]
+
+    Reads resource names from azd environment variables by default.
+    Can override with explicit arguments if needed.
 
 Options:
-    --resource-group, -g    Resource group name (required)
-    --app-name              App Service name (auto-detected if not provided)
-    --api-key               Admin API key for authentication (or set ADMIN_API_KEY env var)
+    --resource-group, -g    Resource group name (or use RESOURCE_GROUP_NAME env var)
+    --app-name              App Service name (or use APP_SERVICE_NAME env var)
+    --storage-account       Storage account name (or use AZURE_BLOB_ACCOUNT_NAME env var)
+    --cosmos-account        Cosmos DB account name (or use COSMOSDB_ACCOUNT_NAME env var)
+    --search-service        AI Search service name (or use AI_SEARCH_SERVICE_NAME env var)
+    --api-key               Admin API key (or use ADMIN_API_KEY env var)
     --skip-images           Skip uploading images
     --skip-data             Skip loading sample data
     --skip-index            Skip creating search index
@@ -32,7 +38,6 @@ import asyncio
 import base64
 import json
 import os
-import subprocess
 import sys
 import time
 from dataclasses import dataclass
@@ -100,63 +105,12 @@ def print_warning(text: str):
     print(f"{Colors.YELLOW}⚠ {text}{Colors.END}")
 
 
-def run_az_command(args: List[str], capture_output: bool = True) -> subprocess.CompletedProcess:
-    """Run an Azure CLI command."""
-    cmd = ["az"] + args
+def discover_resources(resource_group: str, app_name: str, storage_account: str, cosmos_account: str, search_service: str, api_key: str = "") -> ResourceConfig:
+    """Build resource configuration from provided values (no Azure CLI required)."""
+    print_step("Configuring Azure resources...")
     
-    if sys.platform == "win32":
-        # Windows: shell=True required to find az.cmd
-        return subprocess.run(cmd, capture_output=capture_output, text=True, shell=True)
-    else:
-        # Linux/Mac: Don't use shell=True to avoid /bin/sh triggering welcome banner
-        return subprocess.run(cmd, capture_output=capture_output, text=True)
-
-
-def discover_resources(resource_group: str, app_name: Optional[str] = None, api_key: str = "") -> ResourceConfig:
-    """Discover Azure resources in the resource group."""
-    print_step("Discovering Azure resources...")
-    
-    # Get App Service (or use provided name)
-    if not app_name:
-        result = run_az_command([
-            "webapp", "list",
-            "--resource-group", resource_group,
-            "--query", "[0].name", "-o", "tsv"
-        ])
-        app_name = result.stdout.strip()
-    
-    # Get App URL
-    result = run_az_command([
-        "webapp", "show",
-        "--name", app_name,
-        "--resource-group", resource_group,
-        "--query", "defaultHostName", "-o", "tsv"
-    ])
-    app_url = f"https://{result.stdout.strip()}"
-    
-    # Get storage account (for reference only)
-    result = run_az_command([
-        "storage", "account", "list",
-        "--resource-group", resource_group,
-        "--query", "[0].name", "-o", "tsv"
-    ])
-    storage_account = result.stdout.strip()
-    
-    # Get Cosmos DB account (for reference only)
-    result = run_az_command([
-        "cosmosdb", "list",
-        "--resource-group", resource_group,
-        "--query", "[0].name", "-o", "tsv"
-    ])
-    cosmos_account = result.stdout.strip()
-    
-    # Get AI Search service (for reference only)
-    result = run_az_command([
-        "search", "service", "list",
-        "--resource-group", resource_group,
-        "--query", "[0].name", "-o", "tsv"
-    ])
-    search_service = result.stdout.strip()
+    # Build App URL from app name
+    app_url = f"https://{app_name}.azurewebsites.net"
     
     config = ResourceConfig(
         resource_group=resource_group,
@@ -540,8 +494,11 @@ async def main():
         description="Post-deployment script for Content Generation Solution Accelerator",
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    parser.add_argument("-g", "--resource-group", required=True, help="Azure resource group name")
-    parser.add_argument("--app-name", help="App Service name (auto-detected if not provided)")
+    parser.add_argument("-g", "--resource-group", help="Azure resource group name (reads from RESOURCE_GROUP_NAME if not provided)")
+    parser.add_argument("--app-name", help="App Service name (reads from APP_SERVICE_NAME if not provided)")
+    parser.add_argument("--storage-account", help="Storage account name (reads from AZURE_BLOB_ACCOUNT_NAME if not provided)")
+    parser.add_argument("--cosmos-account", help="Cosmos DB account name (reads from COSMOSDB_ACCOUNT_NAME if not provided)")
+    parser.add_argument("--search-service", help="AI Search service name (reads from AI_SEARCH_SERVICE_NAME if not provided)")
     parser.add_argument("--api-key", help="Admin API key (or set ADMIN_API_KEY env var)")
     parser.add_argument("--skip-images", action="store_true", help="Skip uploading images")
     parser.add_argument("--skip-data", action="store_true", help="Skip loading sample data")
@@ -551,16 +508,26 @@ async def main():
     
     args = parser.parse_args()
     
-    # Get API key from args or environment
+    # Get values from args or environment variables (args take precedence)
+    resource_group = args.resource_group or os.environ.get("RESOURCE_GROUP_NAME", "")
+    app_name = args.app_name or os.environ.get("APP_SERVICE_NAME", "")
+    storage_account = args.storage_account or os.environ.get("AZURE_BLOB_ACCOUNT_NAME", "")
+    cosmos_account = args.cosmos_account or os.environ.get("COSMOSDB_ACCOUNT_NAME", "")
+    search_service = args.search_service or os.environ.get("AI_SEARCH_SERVICE_NAME", "")
     api_key = args.api_key or os.environ.get("ADMIN_API_KEY", "")
     
+    # Validate required values are present
+    if not resource_group or not app_name or not storage_account or not cosmos_account or not search_service:
+        print_error("Missing required resource names. Provide via arguments or set environment variables: RESOURCE_GROUP_NAME (--resource-group), APP_SERVICE_NAME (--app-name), AZURE_BLOB_ACCOUNT_NAME (--storage-account), COSMOSDB_ACCOUNT_NAME (--cosmos-account), AI_SEARCH_SERVICE_NAME (--search-service)")
+        sys.exit(1)
+    
     print_header("Content Generation Solution Accelerator - Post Deployment")
-    print(f"Resource Group: {args.resource_group}")
+    print(f"Resource Group: {resource_group}")
     print(f"Dry Run: {args.dry_run}")
     print()
     
-    # Discover resources
-    config = discover_resources(args.resource_group, args.app_name, api_key)
+    # Configure resources
+    config = discover_resources(resource_group, app_name, storage_account, cosmos_account, search_service, api_key)
     
     # Check admin API health first
     if not args.dry_run:

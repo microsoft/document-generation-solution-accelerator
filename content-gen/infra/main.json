@@ -6,7 +6,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.39.26.7824",
-      "templateHash": "16137819665558470436"
+      "templateHash": "9059763401810969608"
     },
     "name": "Intelligent Content Generation Accelerator",
     "description": "Solution Accelerator for multimodal marketing content generation using Microsoft Agent Framework.\n"
@@ -24613,6 +24613,10 @@
             "value": [
               {
                 "principalId": "[reference('userAssignedIdentity').outputs.principalId.value]",
+                "roleDefinitionId": "00000000-0000-0000-0000-000000000002"
+              },
+              {
+                "principalId": "[deployer().objectId]",
                 "roleDefinitionId": "00000000-0000-0000-0000-000000000002"
               }
             ]

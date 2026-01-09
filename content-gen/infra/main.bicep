@@ -736,6 +736,10 @@ module cosmosDB 'br/public:avm/res/document-db/database-account:0.18.0' = {
         principalId: userAssignedIdentity.outputs.principalId
         roleDefinitionId: '00000000-0000-0000-0000-000000000002' // Built-in Cosmos DB Data Contributor
       }
+      {
+        principalId: deployer().objectId
+        roleDefinitionId: '00000000-0000-0000-0000-000000000002' // Built-in Cosmos DB Data Contributor to the deployer
+      }
     ]
     diagnosticSettings: enableMonitoring ? [{ workspaceResourceId: logAnalyticsWorkspaceResourceId }] : null
     networkRestrictions: {
