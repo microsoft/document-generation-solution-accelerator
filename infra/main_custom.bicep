@@ -1102,6 +1102,10 @@ module keyvault 'br/public:avm/res/key-vault/vault:0.12.1' = {
       {name: 'AZURE-OPENAI-PREVIEW-API-VERSION', value: azureOpenaiAPIVersion}
       {name: 'AZURE-OPEN-AI-DEPLOYMENT-MODEL', value: gptModelName}
       {name: 'TENANT-ID', value: subscription().tenantId}
+      {
+        name: 'AZURE-AI-AGENT-ENDPOINT'
+        value: aiFoundryAiProjectEndpoint
+      }
     ]
   }
   dependsOn:[
@@ -1160,7 +1164,8 @@ module webSite 'modules/web-sites.bicep' = {
       {
         name: 'appsettings'
         properties: {
-          SCM_DO_BUILD_DURING_DEPLOYMENT: 'false'
+          SCM_DO_BUILD_DURING_DEPLOYMENT: 'True'
+          ENABLE_ORYX_BUILD: 'True'
           AUTH_ENABLED: 'false'
           AZURE_SEARCH_SERVICE: aiSearch.outputs.name
           AZURE_SEARCH_INDEX: azureSearchIndex

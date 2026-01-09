@@ -177,6 +177,6 @@ for path in paths:
         docs = []
 
 if docs != []:
-    results = search_client.upload_documents(documents=docs)
+    search_client.upload_documents(documents=docs)
 
 print(f'{str(counter)} files processed.')

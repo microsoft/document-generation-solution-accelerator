@@ -1,9 +1,9 @@
 import React from 'react';
-import { render, screen,fireEvent,act } from '@testing-library/react';
+import { render, screen,fireEvent } from '@testing-library/react';
 import { AppStateContext } from '../../state/AppProvider';
 import Sidebar from './Sidebar';
 import { ChatHistoryLoadingState } from '../../api/models';
-import { BrowserRouter as Router, useLocation ,useNavigate} from 'react-router-dom';
+import { BrowserRouter as Router, useLocation } from 'react-router-dom';
 import { getUserInfo } from '../../api';
 import {defaultMockState} from '../../test/test.utils';
 
@@ -187,7 +187,6 @@ describe('Sidebar', () => {
   });
   it('returns the correct view based on the current URL', () => {
    
-    const mockUseLocation = jest.fn();
     (useLocation as jest.Mock).mockReturnValue({ pathname: '/draft' });
     
     renderSidebar(); 

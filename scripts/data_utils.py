@@ -157,7 +157,13 @@ class PdfTextSplitter(TextSplitter):
 
     def mask_urls_and_imgs(self, text) -> Tuple[Dict[str, str], str]:
         def find_urls(string):
-            regex = r"(?i)\b((?:https?://|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^()\s<>]+|\(([^()\s<>]+|(\([^()\s<>]+\)))*\))+(?:\(([^()\s<>]+|(\([^()\s<>]+\)))*\)|[^()\s`!()\[\]{};:'\".,<>?«»“”‘’]))"
+            regex = (
+                r"(?i)\b("
+                r"(?:https?://|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)"
+                r"(?:[^()\s<>]+|\(([^()\s<>]+|(\([^()\s<>]+\)))*\))+"
+                r"(?:\(([^()\s<>]+|(\([^()\s<>]+\)))*\)|[^()\s`!()\[\]{};:'\".,<>?«»“”‘’])"
+                r")"
+            )
             urls = re.findall(regex, string)
             return [x[0] for x in urls]
 
@@ -693,7 +699,9 @@ def extract_pdf_content(file_path, form_recognizer_client, use_layout=False):
     page_map = []
     model = "prebuilt-layout" if use_layout else "prebuilt-read"
 
-    base64file = base64.b64encode(open(file_path, "rb").read()).decode()
+    with open(file_path, "rb") as f:
+        file_bytes = f.read()
+    base64file = base64.b64encode(file_bytes).decode()
     poller = form_recognizer_client.begin_analyze_document(
         model, AnalyzeDocumentRequest(bytes_source=base64file)
     )
@@ -1048,7 +1056,8 @@ def image_content_to_tag(image_content: str) -> str:
 
 
 def get_caption(image_path, captioning_model_endpoint, captioning_model_key):
-    encoded_image = base64.b64encode(open(image_path, "rb").read()).decode("ascii")
+    with open(image_path, "rb") as image_file:
+        encoded_image = base64.b64encode(image_file.read()).decode("ascii")
     file_ext = image_path.split(".")[-1]
     headers = {
         "Content-Type": "application/json",

@@ -10,7 +10,7 @@ class BrowsePage(BasePage):
     CLOSE_BUTTON = "//button[.='Close']"
 
     def __init__(self, page):
-        self.page = page
+        super().__init__(page)
 
     def enter_a_question(self, text):
         # Type a question in the text area

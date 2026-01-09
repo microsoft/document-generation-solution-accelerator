@@ -2,7 +2,7 @@ import React from 'react';
 import { render, fireEvent, screen, waitFor } from '@testing-library/react';
 import { AppStateContext } from '../../state/AppProvider';
 import { ChatHistoryPanel } from './ChatHistoryPanel';
-import { ChatHistoryLoadingState, ChatMessage, Conversation, CosmosDBStatus, Feedback, historyDeleteAll,historyList } from '../../api';
+import { ChatHistoryLoadingState, ChatMessage, Conversation, CosmosDBStatus, Feedback } from '../../api';
 import * as api from '../../api';
 import {defaultMockState} from '../../test/test.utils';
 
