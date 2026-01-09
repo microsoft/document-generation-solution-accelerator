@@ -20,7 +20,10 @@ env:
   GPT_MIN_CAPACITY: 150
   TEXT_EMBEDDING_MIN_CAPACITY: 80
   BRANCH_NAME: ${{ github.event.workflow_run.head_branch || github.head_ref || github.ref_name }}
-
+permissions:
+  contents: read
+  actions: read
+  
 jobs:
   deploy:
     runs-on: ubuntu-latest

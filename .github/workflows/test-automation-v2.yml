@@ -24,7 +24,10 @@ env:
     url: ${{ inputs.DOCGEN_URL }}
     accelerator_name: "DocGen"
     test_suite: ${{ inputs.TEST_SUITE }}
-
+permissions:
+  contents: read
+  actions: read
+  
 jobs:
   test:
     runs-on: ubuntu-latest

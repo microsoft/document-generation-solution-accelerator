@@ -38,7 +38,10 @@ on:
       WEB_APPURL:
         description: "Container Web App URL"
         value: ${{ jobs.deploy-linux.outputs.WEB_APPURL }}
-
+permissions:
+  contents: read
+  actions: read
+  
 jobs:
   deploy-linux:
     runs-on: ubuntu-latest

@@ -40,7 +40,10 @@ on:
         description: 'Docker Image Tag'
         required: true
         type: string
-
+permissions:
+  contents: read
+  actions: read
+  
 jobs:
   cleanup-deployment:
     runs-on: ${{ inputs.runner_os }}

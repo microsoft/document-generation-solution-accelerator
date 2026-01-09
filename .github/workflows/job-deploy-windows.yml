@@ -38,7 +38,10 @@ on:
       WEB_APPURL:
         description: "Container Web App URL"
         value: ${{ jobs.deploy-windows.outputs.WEB_APPURL }}
-
+permissions:
+  contents: read
+  actions: read
+  
 jobs:
   deploy-windows:
     runs-on: windows-latest
