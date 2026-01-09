@@ -37,7 +37,7 @@ jobs:
     runs-on: ubuntu-latest  # Use the latest Ubuntu runner
 
     steps:
-      - uses: actions/checkout@v5  # Checkout the repository
+      - uses: actions/checkout@v6  # Checkout the repository
 
       # Set up Python environment for Backend
       - name: Set up Python
@@ -67,7 +67,7 @@ jobs:
             echo "No tests found, skipping coverage check."
           fi
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: backend-coverage
           path: |
@@ -80,16 +80,16 @@ jobs:
     runs-on: ubuntu-latest  # Use the latest Ubuntu runner
 
     steps:
-      - uses: actions/checkout@v5  # Checkout the repository
+      - uses: actions/checkout@v6  # Checkout the repository
 
       # Set up Node.js environment for Frontend
       - name: Set up Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
           node-version: '20'  # Set the Node.js version
       
       - name: Cache npm dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.npm
           key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
@@ -121,7 +121,7 @@ jobs:
             echo "No tests found, skipping coverage check."
           fi
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: frontend-coverage
           path: |
