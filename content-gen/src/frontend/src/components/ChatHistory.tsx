@@ -8,9 +8,8 @@ import {
 } from '@fluentui/react-components';
 import {
   Chat24Regular,
-  Delete24Regular,
-  Add24Regular,
-  ChevronRight20Regular,
+  MoreHorizontal20Regular,
+  EditRegular,
 } from '@fluentui/react-icons';
 
 interface ConversationSummary {
@@ -103,72 +102,28 @@ export function ChatHistory({
     return conversations;
   })();
 
-  const handleDeleteConversation = async (conversationId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    try {
-      // Backend gets user from auth headers
-      const response = await fetch(`/api/conversations/${conversationId}`, {
-        method: 'DELETE',
-      });
-      if (response.ok) {
-        setConversations(prev => prev.filter(c => c.id !== conversationId));
-        // If deleting current conversation, start a new one
-        if (conversationId === currentConversationId) {
-          onNewConversation();
-        }
-      }
-    } catch (err) {
-      console.error('Error deleting conversation:', err);
-    }
-  };
-
-  const formatTimestamp = (timestamp: string) => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffHours = diffMs / (1000 * 60 * 60);
-    const diffDays = diffHours / 24;
-
-    if (diffHours < 1) {
-      return 'Just now';
-    } else if (diffHours < 24) {
-      return `${Math.floor(diffHours)}h ago`;
-    } else if (diffDays < 7) {
-      return `${Math.floor(diffDays)}d ago`;
-    } else {
-      return date.toLocaleDateString();
-    }
-  };
-
   const visibleConversations = showAll ? displayConversations : displayConversations.slice(0, INITIAL_COUNT);
-  const hasMore = displayConversations.length > INITIAL_COUNT;
 
   return (
     <div style={{ 
       height: '100%', 
       display: 'flex', 
       flexDirection: 'column',
-      padding: 'clamp(12px, 2vw, 16px)',
-      backgroundColor: tokens.colorNeutralBackground2,
-      borderRadius: '8px',
+      padding: '16px',
+      backgroundColor: tokens.colorNeutralBackground1,
       overflow: 'hidden',
     }}>
       {/* Header */}
-      <div style={{ 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'space-between',
-        marginBottom: 'clamp(12px, 2vw, 16px)',
-        flexShrink: 0,
-      }}>
         <Text 
           weight="semibold" 
-          size={400}
-          style={{ fontSize: 'clamp(14px, 2vw, 16px)' }}
+        size={300}
+        style={{ 
+          marginBottom: '16px',
+          color: tokens.colorNeutralForeground1,
+        }}
         >
           Chat History
         </Text>
-      </div>
 
       {/* Conversation List */}
       <div style={{ 
@@ -176,22 +131,22 @@ export function ChatHistory({
         overflowY: 'auto',
         display: 'flex',
         flexDirection: 'column',
-        gap: '4px',
-        minHeight: 0, /* Allow flex shrinking */
+        gap: '0',
+        minHeight: 0,
       }}>
         {isLoading ? (
           <div style={{ 
             display: 'flex', 
             justifyContent: 'center', 
             alignItems: 'center',
-            padding: 'clamp(16px, 4vw, 32px)' 
+            padding: '32px' 
           }}>
             <Spinner size="small" label="Loading..." />
           </div>
         ) : error ? (
           <div style={{ 
             textAlign: 'center', 
-            padding: 'clamp(16px, 4vw, 32px)',
+            padding: '32px',
             color: tokens.colorNeutralForeground3 
           }}>
             <Text size={200}>{error}</Text>
@@ -205,22 +160,20 @@ export function ChatHistory({
         ) : displayConversations.length === 0 ? (
           <div style={{ 
             textAlign: 'center', 
-            padding: 'clamp(16px, 4vw, 32px)',
+            padding: '32px',
             color: tokens.colorNeutralForeground3 
           }}>
-            <Chat24Regular style={{ fontSize: 'clamp(20px, 3vw, 24px)', marginBottom: '8px', opacity: 0.5 }} />
+            <Chat24Regular style={{ fontSize: '24px', marginBottom: '8px', opacity: 0.5 }} />
             <Text size={200} block>No conversations yet</Text>
           </div>
         ) : (
           <>
-            {visibleConversations.map((conversation) => (
+            {visibleConversations.map((conversation, index) => (
               <ConversationItem
                 key={conversation.id}
                 conversation={conversation}
-                isActive={conversation.id === currentConversationId}
                 onSelect={() => onSelectConversation(conversation.id)}
-                onDelete={(e) => handleDeleteConversation(conversation.id, e)}
-                formatTimestamp={formatTimestamp}
+                showMenu={index === 0} // Only show menu on first item per Figma
               />
             ))}
           </>
@@ -229,42 +182,33 @@ export function ChatHistory({
 
       {/* Footer Links */}
       <div style={{ 
-        marginTop: 'clamp(12px, 2vw, 16px)',
-        paddingTop: 'clamp(12px, 2vw, 16px)',
-        borderTop: `1px solid ${tokens.colorNeutralStroke2}`,
+        marginTop: '16px',
         display: 'flex',
         flexDirection: 'column',
-        gap: 'clamp(8px, 1.5vw, 12px)',
+        gap: '12px',
         flexShrink: 0,
       }}>
-        {hasMore && (
           <Link
             onClick={() => setShowAll(!showAll)}
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-              fontSize: 'clamp(11px, 1.5vw, 13px)',
+            fontSize: '13px',
+            color: tokens.colorBrandForeground1,
             }}
           >
-            {showAll ? 'Show less' : 'See all'}
-            <ChevronRight20Regular style={{ 
-              transform: showAll ? 'rotate(90deg)' : 'none',
-              transition: 'transform 0.2s',
-            }} />
+          See all
           </Link>
-        )}
         
         <Link
           onClick={onNewConversation}
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '6px',
-            fontSize: 'clamp(11px, 1.5vw, 13px)',
+            gap: '8px',
+            fontSize: '13px',
+            color: tokens.colorNeutralForeground1,
           }}
         >
-          <Add24Regular style={{ fontSize: 'clamp(14px, 2vw, 16px)' }} />
+          <EditRegular style={{ fontSize: '16px' }} />
           Start new chat
         </Link>
       </div>
@@ -274,18 +218,14 @@ export function ChatHistory({
 
 interface ConversationItemProps {
   conversation: ConversationSummary;
-  isActive: boolean;
   onSelect: () => void;
-  onDelete: (e: React.MouseEvent) => void;
-  formatTimestamp: (timestamp: string) => string;
+  showMenu?: boolean;
 }
 
 function ConversationItem({ 
   conversation, 
-  isActive, 
   onSelect, 
-  onDelete,
-  formatTimestamp,
+  showMenu = false,
 }: ConversationItemProps) {
   const [isHovered, setIsHovered] = useState(false);
   
@@ -295,56 +235,44 @@ function ConversationItem({
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       style={{
-        padding: 'clamp(8px, 1.5vw, 10px) clamp(10px, 1.5vw, 12px)',
-        borderRadius: '6px',
+        padding: '8px 0',
         cursor: 'pointer',
-        backgroundColor: isActive 
-          ? tokens.colorBrandBackground2 
-          : isHovered 
-            ? tokens.colorNeutralBackground1Hover 
-            : 'transparent',
-        transition: 'background-color 0.15s',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
         gap: '8px',
+        borderBottom: `1px solid ${tokens.colorNeutralStroke2}`,
       }}
     >
-      <div style={{ flex: 1, minWidth: 0 }}>
         <Text 
           size={200}
-          weight={isActive ? 'semibold' : 'regular'}
           style={{ 
             overflow: 'hidden', 
             textOverflow: 'ellipsis', 
             whiteSpace: 'nowrap',
-            display: 'block',
-            fontSize: 'clamp(11px, 1.5vw, 13px)',
+          flex: 1,
+          fontSize: '13px',
+          color: tokens.colorNeutralForeground1,
           }}
         >
           {conversation.title || 'Untitled'}
         </Text>
-        <Text 
-          size={100} 
-          style={{ 
-            color: tokens.colorNeutralForeground4,
-            fontSize: 'clamp(10px, 1.2vw, 12px)',
-          }}
-        >
-          {formatTimestamp(conversation.timestamp)}
-        </Text>
-      </div>
       
-      {isHovered && (
+      {/* Three-dot ellipsis menu - only show on first item or hover */}
+      {(showMenu || isHovered) && (
         <Button
           appearance="subtle"
-          icon={<Delete24Regular style={{ fontSize: 'clamp(14px, 2vw, 16px)' }} />}
+          icon={<MoreHorizontal20Regular />}
           size="small"
-          onClick={onDelete}
+          onClick={(e) => {
+            e.stopPropagation();
+            // Future: open menu with options
+          }}
           style={{ 
-            minWidth: '28px', 
-            height: '28px',
-            padding: '4px',
+            minWidth: '24px', 
+            height: '24px',
+            padding: '2px',
+            color: tokens.colorNeutralForeground3,
           }}
         />
       )}

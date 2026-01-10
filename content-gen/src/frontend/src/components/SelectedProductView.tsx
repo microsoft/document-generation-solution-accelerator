@@ -19,11 +19,17 @@ export function SelectedProductView({ products }: SelectedProductViewProps) {
   if (products.length === 0) return null;
 
   return (
-    <div style={{ 
+    <div className="message assistant" style={{ 
       display: 'flex',
       gap: 'clamp(6px, 1vw, 8px)',
       alignItems: 'flex-start',
-      maxWidth: '100%'
+      maxWidth: '100%',
+      width: '100%',
+      alignSelf: 'flex-start',
+      backgroundColor: tokens.colorNeutralBackground3,
+      padding: '12px 16px',
+      borderRadius: '8px',
+      margin: '16px 0 0 0',
     }}>
       {/* Bot Avatar */}
       <div style={{ 

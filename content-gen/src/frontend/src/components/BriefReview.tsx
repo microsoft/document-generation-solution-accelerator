@@ -1,14 +1,11 @@
 import {
-  Card,
   Button,
   Text,
-  Badge,
   tokens,
 } from '@fluentui/react-components';
 import {
-  Checkmark24Regular,
-  Dismiss24Regular,
-  Bot24Regular,
+  Checkmark20Regular,
+  ArrowReset20Regular,
 } from '@fluentui/react-icons';
 import type { CreativeBrief } from '../types';
 
@@ -19,16 +16,21 @@ interface BriefReviewProps {
   isAwaitingResponse?: boolean;
 }
 
-const briefFields: { key: keyof CreativeBrief; label: string }[] = [
-  { key: 'overview', label: 'Overview' },
-  { key: 'objectives', label: 'Objectives' },
-  { key: 'target_audience', label: 'Target Audience' },
+// Define the brief fields to display - matching Figma order
+const briefFields: { key: keyof CreativeBrief; label: string; prefix?: string }[] = [
+  { key: 'objectives', label: 'Objective', prefix: '• ' },
+  { key: 'target_audience', label: 'Audience', prefix: '• ' },
+  { key: 'tone_and_style', label: 'Tone & Style', prefix: '• ' },
+  { key: 'deliverable', label: 'Deliverables', prefix: '• ' },
+];
+
+// Additional fields that appear in the main content area
+const contentFields: { key: keyof CreativeBrief; label: string }[] = [
+  { key: 'overview', label: '' },
   { key: 'key_message', label: 'Key Message' },
-  { key: 'tone_and_style', label: 'Tone & Style' },
-  { key: 'deliverable', label: 'Deliverable' },
-  { key: 'timelines', label: 'Timelines' },
-  { key: 'visual_guidelines', label: 'Visual Guidelines' },
-  { key: 'cta', label: 'Call to Action' },
+  { key: 'visual_guidelines', label: '' },
+  { key: 'cta', label: 'CTA' },
+  { key: 'timelines', label: 'Timeline' },
 ];
 
 export function BriefReview({
@@ -37,169 +39,207 @@ export function BriefReview({
   onStartOver,
   isAwaitingResponse = false,
 }: BriefReviewProps) {
-  // Count how many fields are populated
-  const populatedFields = briefFields.filter(({ key }) => brief[key]?.trim()).length;
-  
+
   return (
-    <div style={{ 
-      display: 'flex',
-      gap: 'clamp(6px, 1vw, 8px)',
-      alignItems: 'flex-start',
-      maxWidth: '100%'
+    <div className="message assistant" style={{ 
+      width: '100%',
+      alignSelf: 'flex-start',
+      backgroundColor: tokens.colorNeutralBackground3,
+      padding: '12px 16px',
+      borderRadius: '8px',
+      margin: '16px 0 0 0',
     }}>
-      {/* Bot Avatar */}
-      <div style={{ 
-        width: 'clamp(28px, 4vw, 32px)',
-        height: 'clamp(28px, 4vw, 32px)',
-        minWidth: '28px',
-        minHeight: '28px',
-        borderRadius: '50%',
-        backgroundColor: tokens.colorNeutralBackground3,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexShrink: 0
-      }}>
-        <Bot24Regular style={{ fontSize: 'clamp(14px, 2vw, 16px)' }} />
-      </div>
+      {/* Header text */}
+      <Text 
+        size={300} 
+        style={{ 
+          display: 'block',
+          marginBottom: '12px',
+          color: tokens.colorNeutralForeground1,
+        }}
+      >
+        Thanks—here's my understanding:
+      </Text>
       
-      <Card style={{ 
-        flex: 1,
-        maxWidth: 'calc(100% - 40px)',
-        backgroundColor: tokens.colorNeutralBackground1,
-        minWidth: 0,
+      {/* Brief Fields - Bullet point list like Figma */}
+      <div style={{ 
+        display: 'flex', 
+        flexDirection: 'column', 
+        gap: '8px',
+        marginBottom: '16px',
       }}>
-        <Badge appearance="outline" size="small" style={{ marginBottom: '8px' }}>
-          PlanningAgent
-        </Badge>
-        
-        <Text 
-          weight="semibold" 
-          size={300} 
-          block 
-          style={{ 
-            marginBottom: '8px',
-            fontSize: 'clamp(14px, 2vw, 16px)',
-          }}
-        >
-          Here's what I've captured from your creative brief:
-        </Text>
-        
-        {/* Brief Fields - Read Only */}
-        <div style={{ 
-          display: 'flex', 
-          flexDirection: 'column', 
-          gap: '8px',
-          maxHeight: 'clamp(250px, 40vh, 350px)',
-          overflowY: 'auto',
-          paddingRight: '8px',
-          marginBottom: '16px',
-        }}>
-          {briefFields.map(({ key, label }) => {
-            const value = brief[key];
-            if (!value?.trim()) return null; // Skip empty fields
-            
-            return (
-              <div key={key} style={{ 
-                padding: 'clamp(8px, 1.5vw, 12px)', 
-                backgroundColor: tokens.colorNeutralBackground2, 
-                borderRadius: '6px',
-              }}>
+        {briefFields.map(({ key, label, prefix }) => {
+          const value = brief[key];
+          if (!value?.trim()) return null;
+          
+          return (
+            <div key={key} style={{ 
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '4px',
+            }}>
+              <Text size={200} style={{ color: tokens.colorNeutralForeground1 }}>
+                {prefix}
+              </Text>
+              <div>
                 <Text 
                   weight="semibold" 
-                  size={100} 
-                  style={{ 
-                    color: tokens.colorBrandForeground1, 
-                    display: 'block', 
-                    marginBottom: '4px',
-                    fontSize: 'clamp(11px, 1.4vw, 12px)',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px',
-                  }}
-                >
-                  {label}
-                </Text>
-                <Text 
                   size={200}
-                  style={{ 
-                    color: tokens.colorNeutralForeground1,
-                    fontSize: 'clamp(13px, 1.8vw, 14px)',
-                    lineHeight: '1.5',
-                  }}
+                  style={{ color: tokens.colorNeutralForeground1 }}
                 >
+                  {label}:
+                </Text>
+                {' '}
+                <Text size={200} style={{ color: tokens.colorNeutralForeground2 }}>
                   {value}
                 </Text>
               </div>
-            );
-          })}
-        </div>
-        
-        {/* Prompt for feedback */}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Additional content fields in a bordered card - like Figma */}
+      {(brief.overview || brief.key_message || brief.visual_guidelines) && (
         <div style={{
-          padding: 'clamp(12px, 2vw, 16px)',
-          backgroundColor: tokens.colorNeutralBackground3,
+          padding: '16px',
+          backgroundColor: tokens.colorNeutralBackground2,
           borderRadius: '8px',
           marginBottom: '16px',
-          borderLeft: `3px solid ${tokens.colorBrandBackground}`,
+          border: `1px solid ${tokens.colorNeutralStroke2}`,
         }}>
-          <Text 
-            size={200} 
-            style={{ 
-              color: tokens.colorNeutralForeground1,
-              fontSize: 'clamp(13px, 1.8vw, 14px)',
-              lineHeight: '1.6',
-            }}
-          >
-            {populatedFields < 5 ? (
-              <>
-                I've captured <strong>{populatedFields}</strong> of 9 key areas. Would you like to add more details? 
-                You can tell me things like:
-                <ul style={{ margin: '8px 0 0 0', paddingLeft: '20px' }}>
-                  <li>"The target audience should be homeowners aged 35-55"</li>
-                  <li>"Add a timeline of 2 weeks for the campaign"</li>
-                  <li>"The tone should be warm and inviting"</li>
-                </ul>
-              </>
-            ) : (
-              <>
-                Does this look correct? You can:
-                <ul style={{ margin: '8px 0 0 0', paddingLeft: '20px' }}>
-                  <li><strong>Modify:</strong> "Change the target audience to young professionals"</li>
-                  <li><strong>Add:</strong> "Add a call to action: Shop Now"</li>
-                  <li><strong>Remove:</strong> "Remove the timelines section"</li>
-                </ul>
-                Or if everything looks good, click <strong>Confirm Brief</strong> to proceed.
-              </>
-            )}
-          </Text>
+          {/* Campaign Objective section */}
+          {brief.overview && (
+            <div style={{ marginBottom: '12px' }}>
+              <Text 
+                weight="semibold" 
+                size={300}
+                style={{ 
+                  color: tokens.colorNeutralForeground1,
+                  display: 'block',
+                  marginBottom: '4px',
+                }}
+              >
+                Campaign Objective
+              </Text>
+              <Text size={200} style={{ color: tokens.colorNeutralForeground2, lineHeight: '1.5' }}>
+                {brief.overview}
+              </Text>
+            </div>
+          )}
+
+          {/* Audience section */}
+          {brief.target_audience && (
+            <div style={{ marginBottom: '12px' }}>
+              <Text 
+                weight="semibold" 
+                size={300}
+                style={{ 
+                  color: tokens.colorNeutralForeground1,
+                  display: 'block',
+                  marginBottom: '4px',
+                }}
+              >
+                Audience
+              </Text>
+              <Text size={200} style={{ color: tokens.colorNeutralForeground2, lineHeight: '1.5' }}>
+                {brief.target_audience}
+              </Text>
+            </div>
+          )}
+
+          {/* Visual guidelines / Creation instructions */}
+          {brief.visual_guidelines && (
+            <div style={{ marginBottom: '12px' }}>
+              <Text size={200} style={{ color: tokens.colorNeutralForeground2, lineHeight: '1.5' }}>
+                {brief.visual_guidelines}
+              </Text>
+            </div>
+          )}
+
+          {/* Tone & Style section */}
+          {brief.tone_and_style && (
+            <div style={{ marginBottom: '12px' }}>
+              <Text 
+                weight="semibold" 
+                size={300}
+                style={{ 
+                  color: tokens.colorNeutralForeground1,
+                  display: 'block',
+                  marginBottom: '4px',
+                }}
+              >
+                Tone & Style:
+              </Text>
+              <Text size={200} style={{ color: tokens.colorNeutralForeground2, lineHeight: '1.5' }}>
+                {brief.tone_and_style}
+              </Text>
+            </div>
+          )}
+
+          {/* Deliverables section */}
+          {brief.deliverable && (
+            <div>
+              <Text 
+                weight="semibold" 
+                size={300}
+                style={{ 
+                  color: tokens.colorNeutralForeground1,
+                  display: 'block',
+                  marginBottom: '4px',
+                }}
+              >
+                Deliverables:
+              </Text>
+              <Text size={200} style={{ color: tokens.colorNeutralForeground2, lineHeight: '1.5' }}>
+                {brief.deliverable}
+              </Text>
+            </div>
+          )}
         </div>
-        
-        {/* Action Buttons */}
-        <div style={{ 
-          display: 'flex', 
-          gap: '8px',
-          flexWrap: 'wrap',
-        }}>
-          <Button
-            appearance="primary"
-            icon={<Checkmark24Regular />}
-            onClick={onConfirm}
-            size="small"
-            disabled={isAwaitingResponse}
-          >
-            Confirm Brief
-          </Button>
-          <Button
-            appearance="subtle"
-            icon={<Dismiss24Regular />}
-            onClick={onStartOver}
-            size="small"
-            disabled={isAwaitingResponse}
-          >
-            Start Over
-          </Button>
-        </div>
-      </Card>
+      )}
+      
+      {/* Action Buttons - Matching Figma styling */}
+      <div style={{ 
+        display: 'flex', 
+        gap: '8px',
+        flexWrap: 'wrap',
+      }}>
+        <Button
+          appearance="outline"
+          icon={<ArrowReset20Regular />}
+          onClick={onStartOver}
+          size="small"
+          disabled={isAwaitingResponse}
+          style={{
+            borderColor: tokens.colorNeutralStroke1,
+          }}
+        >
+          Start over
+        </Button>
+        <Button
+          appearance="primary"
+          icon={<Checkmark20Regular />}
+          onClick={onConfirm}
+          size="small"
+          disabled={isAwaitingResponse}
+        >
+          Confirm brief
+        </Button>
+      </div>
+
+      {/* AI disclaimer footer */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginTop: '12px',
+        paddingTop: '8px',
+      }}>
+        <Text size={100} style={{ color: tokens.colorNeutralForeground4 }}>
+          AI-generated content may be incorrect
+        </Text>
+      </div>
     </div>
   );
 }
