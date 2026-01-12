@@ -249,8 +249,9 @@ class _SearchCommonSettings(BaseSettings):
 class DatasourcePayloadConstructor(BaseModel, ABC):
     _settings: "_AppSettings" = PrivateAttr()
 
-    def __init__(self, settings: "_AppSettings", **data):
-        super().__init__(**data)
+    def __init__(self, *args, settings: "_AppSettings", **data):
+        # Call next __init__ in MRO to allow cooperative multiple inheritance
+        super().__init__(*args, **data)
         self._settings = settings
 
     @abstractmethod
@@ -301,6 +302,10 @@ class _AzureSearchSettings(BaseSettings, DatasourcePayloadConstructor):
     embedding_dependency: Optional[dict] = None
     fields_mapping: Optional[dict] = None
     filter: Optional[str] = Field(default=None, exclude=True)
+
+    def __init__(self, settings: "_AppSettings", **data):
+        # Ensure both BaseSettings and DatasourcePayloadConstructor are initialized
+        super().__init__(settings=settings, **data)
 
     @field_validator("content_columns", "vector_columns", mode="before")
     @classmethod
@@ -439,6 +444,7 @@ class _AppSettings(BaseModel):
             logging.warning(
                 "No datasource configuration found in the environment -- calls will be made to Azure OpenAI without grounding data."
             )
+            return self
 
 
 app_settings = _AppSettings()

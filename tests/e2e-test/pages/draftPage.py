@@ -13,7 +13,7 @@ class DraftPage(BasePage):
     invalid_response1 = "There was an issue fetching your data. Please try again."
 
     def __init__(self, page):
-        self.page = page
+        super().__init__(page)
 
     def validate_draft_sections_loaded(self):
         max_wait_time = 180  # seconds

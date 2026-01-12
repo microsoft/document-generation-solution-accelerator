@@ -39,7 +39,6 @@ export const Answer = ({ answer, onCitationClicked }: Props) => {
   }
 
   const [isRefAccordionOpen, { toggle: toggleIsRefAccordionOpen }] = useBoolean(false)
-  const filePathTruncationLimit = 50
 
   const parsedAnswer = useMemo(() => parseAnswer(answer), [answer])
   const [chevronIsExpanded, setChevronIsExpanded] = useState(isRefAccordionOpen)
@@ -156,7 +155,7 @@ export const Answer = ({ answer, onCitationClicked }: Props) => {
   const onLikeResponseClicked = async () => {
     if (answer.message_id == undefined) return
 
-    let newFeedbackState = feedbackState
+    let newFeedbackState: Feedback.Neutral | Feedback.Positive
     // Set or unset the thumbs up state
     if (feedbackState == Feedback.Positive) {
       newFeedbackState = Feedback.Neutral
@@ -176,7 +175,7 @@ export const Answer = ({ answer, onCitationClicked }: Props) => {
   const onDislikeResponseClicked = async () => {
     if (answer.message_id == undefined) return
 
-    let newFeedbackState = feedbackState
+    let newFeedbackState: Feedback.Neutral | Feedback.Negative
     if (feedbackState === undefined || feedbackState === Feedback.Neutral || feedbackState === Feedback.Positive) {
       newFeedbackState = Feedback.Negative
       setFeedbackState(newFeedbackState)

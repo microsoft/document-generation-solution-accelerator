@@ -1,13 +1,10 @@
 import { render, screen, fireEvent, act, waitFor } from '@testing-library/react'
-import { BrowserRouter } from 'react-router-dom'
 import { AppStateContext } from '../../state/AppProvider'
 import Draft from './Draft'
-import { Section } from '../../api/models'
 import { saveAs } from 'file-saver'
-import { defaultMockState } from '../../test/test.utils';
 import { MemoryRouter } from 'react-router-dom';
 
-import { Document, Packer, Paragraph, TextRun } from 'docx'
+import { Document} from 'docx'
 
 
 // Mocks for third-party components and modules

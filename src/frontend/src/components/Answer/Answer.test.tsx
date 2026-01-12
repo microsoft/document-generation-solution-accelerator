@@ -1,11 +1,9 @@
-import { renderWithContext, screen, waitFor, fireEvent, act, logRoles } from '../../test/test.utils';
+import { renderWithContext, screen, waitFor, fireEvent, act } from '../../test/test.utils';
 import { Answer } from './Answer'
-import { AppStateContext } from '../../state/AppProvider'
 import {AskResponse, Citation, Feedback, historyMessageFeedback } from '../../api';
 //import { Feedback, AskResponse, Citation } from '../../api/models'
 import { cloneDeep } from 'lodash'
 import userEvent from '@testing-library/user-event';
-import { CitationPanel } from '../../pages/chat/Components/CitationPanel';
 
 // Mock required modules and functions
 jest.mock('../../api/api', () => ({
@@ -26,9 +24,6 @@ jest.mock('react-syntax-highlighter/dist/esm/styles/prism', () => ({
 jest.mock('remark-gfm', () => jest.fn());
 jest.mock('rehype-raw', () => jest.fn());
 jest.mock('remark-supersub', () => jest.fn());
-
-const mockDispatch = jest.fn();
-const mockOnCitationClicked = jest.fn();
 
 // Mock context provider values
 let mockAppState = {
@@ -360,7 +355,6 @@ describe('Answer Component', () => {
     it('should open and submit negative feedback dialog', async () => {
         userEvent.setup();
         renderComponent();
-        const handleChange = jest.fn();
         const dislikeButton = screen.getByLabelText('Dislike this response');
 
         // Click dislike to open dialog
@@ -368,7 +362,7 @@ describe('Answer Component', () => {
         expect(screen.getByText("Why wasn't this response helpful?")).toBeInTheDocument();
 
         // Select feedback and submit
-        const checkboxEle = await screen.findByLabelText(/Citations are wrong/i)
+        const checkboxEle = await screen.findByLabelText(/Citations are wrong/i);
         //logRoles(checkboxEle)
         await waitFor(() => {
             userEvent.click(checkboxEle);
@@ -382,12 +376,8 @@ describe('Answer Component', () => {
 
     it('calls resetFeedbackDialog and setFeedbackState with Feedback.Neutral on dialog dismiss', async () => {
 
-        const resetFeedbackDialogMock = jest.fn();
-        const setFeedbackStateMock = jest.fn();
-
         userEvent.setup();
         renderComponent();
-        const handleChange = jest.fn();
         const dislikeButton = screen.getByLabelText('Dislike this response');
 
         // Click dislike to open dialog
@@ -410,7 +400,6 @@ describe('Answer Component', () => {
     it('Dialog Options should be able to select and unSelect', async () => {
         userEvent.setup();
         renderComponent();
-        const handleChange = jest.fn();
         const dislikeButton = screen.getByLabelText('Dislike this response');
 
         // Click dislike to open dialog
@@ -419,7 +408,7 @@ describe('Answer Component', () => {
         expect(screen.getByText("Why wasn't this response helpful?")).toBeInTheDocument();
 
         // Select feedback and submit
-        const checkboxEle = await screen.findByLabelText(/Citations are wrong/i)
+        const checkboxEle = await screen.findByLabelText(/Citations are wrong/i);
         expect(checkboxEle).not.toBeChecked();
 
         await userEvent.click(checkboxEle);
@@ -427,7 +416,7 @@ describe('Answer Component', () => {
             expect(checkboxEle).toBeChecked();
         });
 
-        const checkboxEle1 = await screen.findByLabelText(/Citations are wrong/i)
+        const checkboxEle1 = await screen.findByLabelText(/Citations are wrong/i);
 
         await userEvent.click(checkboxEle1);
         await waitFor(() => {
@@ -439,7 +428,6 @@ describe('Answer Component', () => {
     it('Should able to show ReportInappropriateFeedbackContent form while click on "InappropriateFeedback" button ', async () => {
         userEvent.setup();
         renderComponent();
-        const handleChange = jest.fn();
         const dislikeButton = screen.getByLabelText('Dislike this response');
 
         // Click dislike to open dialog
@@ -514,7 +502,6 @@ describe('Answer Component', () => {
             feedbackState: { '123': Feedback.OtherHarmful },
         }
         renderComponent(answerWithMissingFeedback, extraMockState);
-        const handleChange = jest.fn();
         const dislikeButton = screen.getByLabelText('Dislike this response');
 
         // Click dislike to open dialog
@@ -529,10 +516,6 @@ describe('Answer Component', () => {
 
         tempMockCitation[0].filepath = '';
         tempMockCitation[0].reindex_id = '';
-        const answerWithMissingFeedback = {
-            ...mockAnswerProps,
-            CitationPanel: [...tempMockCitation]
-        }
 
         renderComponent();
 
