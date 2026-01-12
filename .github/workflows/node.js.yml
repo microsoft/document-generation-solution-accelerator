@@ -5,7 +5,7 @@ name: Build Frontend
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "dev", "hb-psl-fix-testissue" ]
     paths:
       - 'src/frontend/**/*.ts'
       - 'src/frontend/**/*.tsx'
@@ -17,7 +17,7 @@ on:
       - 'src/frontend/**/*.html'
       - '.github/workflows/node.js.yml'
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main", "dev" ]
     paths:
       - 'src/frontend/**/*.ts'
       - 'src/frontend/**/*.tsx'
@@ -37,7 +37,7 @@ jobs:
         working-directory: src/frontend
     strategy:
       matrix:
-        node-version: [18.x, 21.x]
+        node-version: [20.x, 22.x]
         # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
 
     steps:
@@ -49,6 +49,5 @@ jobs:
         cache: 'npm'
         cache-dependency-path: 'src/frontend/package-lock.json'
     - run: npm ci
-    - run: npm install --save-dev jest-environment-jsdom  # Install missing package
     - run: NODE_OPTIONS=--max_old_space_size=8192 npm run build --if-present
     - run: npm run test --if-present

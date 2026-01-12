@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main  # Trigger on push to the main branch
+      - dev
     paths:
       - 'src/**/*.py'
       - 'src/requirements*.txt'
@@ -16,6 +17,7 @@ on:
   pull_request:
     branches:
       - main  # Trigger on pull requests to the main branch
+      - dev
     types:
       - opened
       - ready_for_review
