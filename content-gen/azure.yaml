@@ -72,6 +72,7 @@ hooks:
         
         # Run post-deploy script to upload sample data and create search index
         Write-Host ""
+        # Note: Cosmos DB role is assigned to deployer via Bicep.
         Write-Host "===== Running Post-Deploy Script =====" -ForegroundColor Yellow
         Write-Host "This will upload sample data and create the search index..."
 
@@ -81,7 +82,7 @@ hooks:
         elseif (Test-Path "../.venv/Scripts/python.exe") { $python = "../.venv/Scripts/python.exe" }
         elseif (Test-Path "./.venv/bin/python") { $python = "./.venv/bin/python" }
         elseif (Test-Path "../.venv/bin/python") { $python = "../.venv/bin/python" }
-        & $python -m pip install -r ./scripts/requirements-post-deploy.txt --quiet 2>$null | Out-Null
+        & $python -m pip install -r ./scripts/requirements-post-deploy.txt --quiet | Out-Null
         
         if (Test-Path "./scripts/post_deploy.py") {
           & $python ./scripts/post_deploy.py --skip-tests
@@ -119,6 +120,7 @@ hooks:
         
         # Run post-deploy script to upload sample data and create search index
         echo ""
+        # Note: Cosmos DB role is assigned to deployer via Bicep.
         echo "===== Running Post-Deploy Script ====="
         echo "This will upload sample data and create the search index..."
         
@@ -132,7 +134,7 @@ hooks:
             PYTHON_BIN="python3"
           fi
 
-          "$PYTHON_BIN" -m pip install -r ./scripts/requirements-post-deploy.txt --quiet > /dev/null 2>&1 \
+          "$PYTHON_BIN" -m pip install -r ./scripts/requirements-post-deploy.txt --quiet > /dev/null \
             && "$PYTHON_BIN" ./scripts/post_deploy.py --skip-tests \
             && echo "Post-deploy script completed successfully!" \
             || echo "Post-deploy script completed with warnings (some steps may have failed)"
