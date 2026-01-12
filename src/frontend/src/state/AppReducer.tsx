@@ -108,16 +108,16 @@ export const appStateReducer = (state: AppState, action: Action): AppState => {
       case 'SET_IS_REQUEST_INITIATED' : 
       return {...state, isRequestInitiated : action.payload}
     case 'ADD_FAILED_SECTION':
-       var tempFailedSections = [...state.failedSections];
-       const exists = tempFailedSections.some((item) => item.title === action.payload.title);
-       if (!exists) 
+      const tempFailedSections = [...state.failedSections];
+      const exists = tempFailedSections.some((item) => item.title === action.payload.title);
+      if (!exists) {
         tempFailedSections.push(action.payload);
-        return { ...state , failedSections : [...tempFailedSections]  }
-     case 'REMOVED_FAILED_SECTION' : 
-      var tempFailedSections = [...state.failedSections];
-      tempFailedSections = state.failedSections.filter((item) => item.title !== action.payload.section.title);
-      return { ...state , failedSections : [...tempFailedSections] }
-    case 'UPDATE_SECTION_API_REQ_STATUS' : 
+      }
+      return { ...state, failedSections: [...tempFailedSections] }
+    case 'REMOVED_FAILED_SECTION':
+      const filteredFailedSections = state.failedSections.filter((item) => item.title !== action.payload.section.title);
+      return { ...state, failedSections: filteredFailedSections }
+    case 'UPDATE_SECTION_API_REQ_STATUS':
       return {...state, isFailedReqInitiated : action.payload}
     
     case 'UPDATE_IS_LOADED_SECTIONS' :
