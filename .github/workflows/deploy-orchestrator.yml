@@ -64,7 +64,10 @@ on:
 
 env:
   AZURE_DEV_COLLECT_TELEMETRY: ${{ vars.AZURE_DEV_COLLECT_TELEMETRY }}
-
+permissions:
+  contents: read
+  actions: read
+  
 jobs:
   docker-build:
     uses: ./.github/workflows/job-docker-build.yml
