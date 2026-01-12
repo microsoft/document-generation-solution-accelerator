@@ -24,15 +24,6 @@ const briefFields: { key: keyof CreativeBrief; label: string; prefix?: string }[
   { key: 'deliverable', label: 'Deliverables', prefix: '• ' },
 ];
 
-// Additional fields that appear in the main content area
-const contentFields: { key: keyof CreativeBrief; label: string }[] = [
-  { key: 'overview', label: '' },
-  { key: 'key_message', label: 'Key Message' },
-  { key: 'visual_guidelines', label: '' },
-  { key: 'cta', label: 'CTA' },
-  { key: 'timelines', label: 'Timeline' },
-];
-
 export function BriefReview({
   brief,
   onConfirm,

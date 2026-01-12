@@ -23,7 +23,7 @@ type ViewMode = 'list' | 'grid';
 export function ProductReview({
   products,
   onConfirm,
-  onStartOver,
+  onStartOver: _onStartOver,
   isAwaitingResponse = false,
   availableProducts = [],
   onProductSelect,

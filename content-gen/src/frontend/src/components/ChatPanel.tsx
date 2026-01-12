@@ -15,7 +15,6 @@ import {
   Copy20Regular,
 } from '@fluentui/react-icons';
 import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import type { ChatMessage, CreativeBrief, Product, GeneratedContent } from '../types';
 import { BriefReview } from './BriefReview';
 import { ConfirmedBriefView } from './ConfirmedBriefView';
@@ -384,7 +383,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
         whiteSpace: 'pre-wrap',
         width: '100%',
       }}>
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+        <ReactMarkdown>
           {message.content}
         </ReactMarkdown>
 

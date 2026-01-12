@@ -11,7 +11,7 @@ interface TaskHeaderProps {
  * Matches the Figma design with gradient background
  */
 export function TaskHeader({ 
-  title = 'Content Generation',
+  title: _title = 'Content Generation',
   description,
   isVisible = true,
 }: TaskHeaderProps) {

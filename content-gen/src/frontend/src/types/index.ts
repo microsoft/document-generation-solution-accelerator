@@ -21,6 +21,7 @@ export interface Product {
   price: number;
   sku: string;
   image_url?: string;
+  hex_value?: string; // Color hex code for paint products
   // Legacy fields for backward compatibility
   category?: string;
   sub_category?: string;
