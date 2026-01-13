@@ -196,9 +196,9 @@ jobs:
             fi
           fi
           
-          # Validate QUOTA_FAILED (must be 'true' or 'false')
-          if [[ "$INPUT_QUOTA_FAILED" != "true" && "$INPUT_QUOTA_FAILED" != "false" ]]; then
-            echo "❌ ERROR: QUOTA_FAILED must be 'true' or 'false', got: '$INPUT_QUOTA_FAILED'"
+          # Validate QUOTA_FAILED (must be 'true', 'false', or empty string)
+          if [[ "$INPUT_QUOTA_FAILED" != "true" && "$INPUT_QUOTA_FAILED" != "false" && "$INPUT_QUOTA_FAILED" != "" ]]; then
+            echo "❌ ERROR: QUOTA_FAILED must be 'true', 'false', or empty string, got: '$INPUT_QUOTA_FAILED'"
             VALIDATION_FAILED=true
           else
             echo "✅ QUOTA_FAILED: '$INPUT_QUOTA_FAILED' is valid"
