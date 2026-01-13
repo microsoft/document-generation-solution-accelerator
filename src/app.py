@@ -324,7 +324,8 @@ async def send_chat_request(request_body, request_headers) -> AsyncGenerator[Dic
                 # Use ChatAgent with streaming or non-streaming
                 async with ChatAgent(
                     chat_client=chat_client,
-                    tool_choice="auto",  # Let agent decide when to use Azure AI Search
+                    tools=[{"type": "azure_ai_search"}],
+                    tool_choice="auto",
                     store=True,
                 ) as chat_agent:
                     # Thread management with TTL cache
@@ -442,7 +443,8 @@ async def send_chat_request(request_body, request_headers) -> AsyncGenerator[Dic
                 # Use ChatAgent for template generation (non-streaming only for template)
                 async with ChatAgent(
                     chat_client=chat_client,
-                    tool_choice="auto",  # Let agent decide when to use Azure AI Search
+                    tools=[{"type": "azure_ai_search"}],
+                    tool_choice="auto",
                     store=True,
                 ) as chat_agent:
                     # Thread management with TTL cache
@@ -1478,6 +1480,7 @@ async def get_section_content(request_body, request_headers):
             # Use ChatAgent to generate section content
             async with ChatAgent(
                 chat_client=chat_client,
+                tools=[{"type": "azure_ai_search"}],
                 tool_choice="auto",
                 store=True,
             ) as chat_agent:
