@@ -16,8 +16,6 @@ import {
   Copy20Regular,
   ArrowDownload20Regular,
   ShieldError20Regular,
-  ThumbLike20Regular,
-  ThumbDislike20Regular,
 } from '@fluentui/react-icons';
 import type { GeneratedContent, ComplianceViolation, Product } from '../types';
 
@@ -165,11 +163,10 @@ export function InlineContentPreview({
     }
   };
 
-  // Get product display name with hex
+  // Get product display name
   const getProductDisplayName = () => {
     if (selectedProduct) {
-      const hex = selectedProduct.hex_value || 'EEEFEA';
-      return `${selectedProduct.product_name} (${hex.toUpperCase()})`;
+      return selectedProduct.product_name;
     }
     return text_content?.headline || 'Your Content';
   };
@@ -439,22 +436,6 @@ export function InlineContentPreview({
               size="small"
               onClick={onRegenerate}
               disabled={isLoading}
-              style={{ minWidth: '32px', color: tokens.colorNeutralForeground3 }}
-            />
-          </Tooltip>
-          <Tooltip content="Helpful" relationship="label">
-            <Button
-              appearance="subtle"
-              icon={<ThumbLike20Regular />}
-              size="small"
-              style={{ minWidth: '32px', color: tokens.colorNeutralForeground3 }}
-            />
-          </Tooltip>
-          <Tooltip content="Not helpful" relationship="label">
-            <Button
-              appearance="subtle"
-              icon={<ThumbDislike20Regular />}
-              size="small"
               style={{ minWidth: '32px', color: tokens.colorNeutralForeground3 }}
             />
           </Tooltip>

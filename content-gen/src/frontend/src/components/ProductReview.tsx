@@ -5,6 +5,7 @@ import {
 } from '@fluentui/react-components';
 import {
   Sparkle20Regular,
+  Box20Regular,
 } from '@fluentui/react-icons';
 import type { Product } from '../types';
 
@@ -27,13 +28,6 @@ export function ProductReview({
 }: ProductReviewProps) {
   const displayProducts = availableProducts.length > 0 ? availableProducts : products;
   const selectedProductIds = new Set(products.map(p => p.sku || p.product_name));
-
-  const getProductColor = (product: Product): string => {
-    if (product.hex_value) return product.hex_value;
-    const hash = product.product_name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-    const hue = hash % 360;
-    return `hsl(${hue}, 30%, 85%)`;
-  };
 
   const isProductSelected = (product: Product): boolean => {
     return selectedProductIds.has(product.sku || product.product_name);
@@ -73,7 +67,6 @@ export function ProductReview({
             <ProductCardGrid
               key={product.sku || index}
               product={product}
-              color={getProductColor(product)}
               isSelected={isProductSelected(product)}
               onClick={() => handleProductClick(product)}
             />
@@ -129,12 +122,11 @@ export function ProductReview({
 
 interface ProductCardGridProps {
   product: Product;
-  color: string;
   isSelected: boolean;
   onClick: () => void;
 }
 
-function ProductCardGrid({ product, color, isSelected, onClick }: ProductCardGridProps) {
+function ProductCardGrid({ product, isSelected, onClick }: ProductCardGridProps) {
   return (
     <div 
       className={`product-card ${isSelected ? 'selected' : ''}`}
@@ -152,17 +144,36 @@ function ProductCardGrid({ product, color, isSelected, onClick }: ProductCardGri
         transition: 'all 0.15s ease-in-out',
       }}
     >
-      <div 
-        className="product-color-swatch"
-        style={{
-          width: '80px',
-          height: '80px',
-          borderRadius: '8px',
-          backgroundColor: color,
-          border: `1px solid ${tokens.colorNeutralStroke2}`,
-          flexShrink: 0,
-        }}
-      />
+      {product.image_url ? (
+        <img
+          src={product.image_url}
+          alt={product.product_name}
+          style={{
+            width: '80px',
+            height: '80px',
+            objectFit: 'cover',
+            borderRadius: '8px',
+            border: `1px solid ${tokens.colorNeutralStroke2}`,
+            flexShrink: 0,
+          }}
+        />
+      ) : (
+        <div 
+          style={{
+            width: '80px',
+            height: '80px',
+            borderRadius: '8px',
+            backgroundColor: tokens.colorNeutralBackground3,
+            border: `1px solid ${tokens.colorNeutralStroke2}`,
+            flexShrink: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Box20Regular style={{ color: tokens.colorNeutralForeground3, fontSize: '24px' }} />
+        </div>
+      )}
       
       <div className="product-info" style={{ flex: 1, minWidth: 0 }}>
         <Text 

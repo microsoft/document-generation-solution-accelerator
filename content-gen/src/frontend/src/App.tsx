@@ -647,6 +647,7 @@ function App() {
             onProductsStartOver={handleProductsStartOver}
             onProductSelect={handleProductSelect}
             imageGenerationEnabled={imageGenerationEnabled}
+            onNewConversation={handleNewConversation}
           />
         </div>
         

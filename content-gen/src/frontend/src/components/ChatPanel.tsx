@@ -9,9 +9,7 @@ import {
 import {
   Send20Regular,
   Stop24Regular,
-  Attach20Regular,
-  ThumbLike20Regular,
-  ThumbDislike20Regular,
+  Add20Regular,
   Copy20Regular,
 } from '@fluentui/react-icons';
 import ReactMarkdown from 'react-markdown';
@@ -43,6 +41,8 @@ interface ChatPanelProps {
   onProductSelect?: (product: Product) => void;
   // Feature flags
   imageGenerationEnabled?: boolean;
+  // New chat
+  onNewConversation?: () => void;
 }
 
 export function ChatPanel({ 
@@ -63,6 +63,7 @@ export function ChatPanel({
   onProductsStartOver,
   onProductSelect,
   imageGenerationEnabled = true,
+  onNewConversation,
 }: ChatPanelProps) {
   const [inputValue, setInputValue] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -278,11 +279,12 @@ export function ChatPanel({
           
           {/* Icons on the right */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0px' }}>
-            <Tooltip content="Attach file" relationship="label">
+            <Tooltip content="New chat" relationship="label">
               <Button
                 appearance="subtle"
-                icon={<Attach20Regular />}
+                icon={<Add20Regular />}
                 size="small"
+                onClick={onNewConversation}
                 disabled={isLoading}
                 style={{ 
                   minWidth: '32px',
@@ -418,30 +420,6 @@ function MessageBubble({ message }: { message: ChatMessage }) {
                   icon={<Copy20Regular />}
                   size="small"
                   onClick={onCopy}
-                  style={{ 
-                    minWidth: '28px', 
-                    height: '28px',
-                    color: tokens.colorNeutralForeground3,
-                  }}
-                />
-              </Tooltip>
-              <Tooltip content="Helpful" relationship="label">
-                <Button
-                  appearance="subtle"
-                  icon={<ThumbLike20Regular />}
-                  size="small"
-                  style={{ 
-                    minWidth: '28px', 
-                    height: '28px',
-                    color: tokens.colorNeutralForeground3,
-                  }}
-                />
-              </Tooltip>
-              <Tooltip content="Not helpful" relationship="label">
-                <Button
-                  appearance="subtle"
-                  icon={<ThumbDislike20Regular />}
-                  size="small"
                   style={{ 
                     minWidth: '28px', 
                     height: '28px',

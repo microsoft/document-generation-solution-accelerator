@@ -5,19 +5,13 @@ import {
 } from '@fluentui/react-components';
 import {
   Checkmark20Regular,
+  Box20Regular,
 } from '@fluentui/react-icons';
 import type { Product } from '../types';
 
 interface SelectedProductViewProps {
   products: Product[];
 }
-
-const getProductColor = (product: Product): string => {
-  if (product.hex_value) return product.hex_value;
-  const hash = product.product_name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  const hue = hash % 360;
-  return `hsl(${hue}, 30%, 85%)`;
-};
 
 export function SelectedProductView({ products }: SelectedProductViewProps) {
   if (products.length === 0) return null;
@@ -69,16 +63,36 @@ export function SelectedProductView({ products }: SelectedProductViewProps) {
               border: `1px solid ${tokens.colorNeutralStroke2}`,
             }}
           >
-            <div 
-              style={{
-                width: '56px',
-                height: '56px',
-                borderRadius: '6px',
-                backgroundColor: getProductColor(product),
-                border: `1px solid ${tokens.colorNeutralStroke2}`,
-                flexShrink: 0,
-              }}
-            />
+            {product.image_url ? (
+              <img
+                src={product.image_url}
+                alt={product.product_name}
+                style={{
+                  width: '56px',
+                  height: '56px',
+                  objectFit: 'cover',
+                  borderRadius: '6px',
+                  border: `1px solid ${tokens.colorNeutralStroke2}`,
+                  flexShrink: 0,
+                }}
+              />
+            ) : (
+              <div 
+                style={{
+                  width: '56px',
+                  height: '56px',
+                  borderRadius: '6px',
+                  backgroundColor: tokens.colorNeutralBackground3,
+                  border: `1px solid ${tokens.colorNeutralStroke2}`,
+                  flexShrink: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Box20Regular style={{ color: tokens.colorNeutralForeground3 }} />
+              </div>
+            )}
             
             <div style={{ flex: 1, minWidth: 0 }}>
               <Text 
