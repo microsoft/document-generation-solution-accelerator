@@ -287,7 +287,7 @@ az webapp config set \
     --http20-enabled false
 
 # Build and deploy frontend
-cd content-gen/src/frontend
+cd content-gen/src/app/frontend
 npm install
 npm run build
 
@@ -396,7 +396,7 @@ az container restart -g $RESOURCE_GROUP -n aci-contentgen-backend
 ### Update Frontend
 
 ```bash
-cd content-gen/src/frontend
+cd content-gen/src/app/frontend
 npm run build
 cd ../frontend-server
 zip -r frontend-deploy.zip static/ server.js package.json package-lock.json
