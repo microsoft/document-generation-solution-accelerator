@@ -62,7 +62,7 @@ jobs:
         id: determine_tag
         run: |
          if [[ "${{ github.ref_name }}" == "main" ]]; then
-          echo "tagname=latest_v2" >> $GITHUB_OUTPUT
+          echo "tagname=latest" >> $GITHUB_OUTPUT
          elif [[ "${{ github.ref_name }}" == "dev" ]]; then
           echo "tagname=dev" >> $GITHUB_OUTPUT
          elif [[ "${{ github.ref_name }}" == "demo" ]]; then
