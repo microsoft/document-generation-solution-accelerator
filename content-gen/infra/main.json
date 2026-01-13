@@ -6,7 +6,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.39.26.7824",
-      "templateHash": "9059763401810969608"
+      "templateHash": "12629934330443935294"
     },
     "name": "Intelligent Content Generation Accelerator",
     "description": "Solution Accelerator for multimodal marketing content generation using Microsoft Agent Framework.\n"
@@ -170,6 +170,13 @@
       "defaultValue": false,
       "metadata": {
         "description": "Optional. Enable monitoring for applicable resources (WAF-aligned)."
+      }
+    },
+    "useFoundryMode": {
+      "type": "bool",
+      "defaultValue": true,
+      "metadata": {
+        "description": "Optional. Enable Azure AI Foundry mode for multi-agent orchestration."
       }
     },
     "enableScalability": {
@@ -33260,6 +33267,22 @@
               {
                 "name": "RUNNING_IN_PRODUCTION",
                 "value": "true"
+              },
+              {
+                "name": "USE_FOUNDRY",
+                "value": "[if(parameters('useFoundryMode'), 'true', 'false')]"
+              },
+              {
+                "name": "AZURE_AI_PROJECT_ENDPOINT",
+                "value": "[if(variables('useExistingAiFoundryAiProject'), format('https://{0}.services.ai.azure.com/api/projects/{1}', variables('aiFoundryAiServicesResourceName'), variables('aiFoundryAiProjectResourceName')), reference('aiFoundryAiServicesProject').outputs.apiEndpoint.value)]"
+              },
+              {
+                "name": "AZURE_AI_MODEL_DEPLOYMENT_NAME",
+                "value": "[parameters('gptModelName')]"
+              },
+              {
+                "name": "AZURE_AI_IMAGE_MODEL_DEPLOYMENT",
+                "value": "[variables('imageModelConfig')[parameters('imageModelChoice')].name]"
               }
             ]
           }
@@ -33456,6 +33479,7 @@
         }
       },
       "dependsOn": [
+        "aiFoundryAiServicesProject",
         "userAssignedIdentity",
         "virtualNetwork"
       ]
@@ -33692,6 +33716,34 @@
         "description": "Contains ACR Name"
       },
       "value": "[variables('acrResourceName')]"
+    },
+    "USE_FOUNDRY": {
+      "type": "bool",
+      "metadata": {
+        "description": "Contains flag for Azure AI Foundry usage"
+      },
+      "value": "[if(parameters('useFoundryMode'), true(), false())]"
+    },
+    "AZURE_AI_PROJECT_ENDPOINT": {
+      "type": "string",
+      "metadata": {
+        "description": "Contains Azure AI Project Endpoint"
+      },
+      "value": "[if(variables('useExistingAiFoundryAiProject'), format('https://{0}.services.ai.azure.com/api/projects/{1}', variables('aiFoundryAiServicesResourceName'), variables('aiFoundryAiProjectResourceName')), reference('aiFoundryAiServicesProject').outputs.apiEndpoint.value)]"
+    },
+    "AZURE_AI_MODEL_DEPLOYMENT_NAME": {
+      "type": "string",
+      "metadata": {
+        "description": "Contains Azure AI Model Deployment Name"
+      },
+      "value": "[parameters('gptModelName')]"
+    },
+    "AZURE_AI_IMAGE_MODEL_DEPLOYMENT": {
+      "type": "string",
+      "metadata": {
+        "description": "Contains Azure AI Image Model Deployment Name (empty if none selected)"
+      },
+      "value": "[variables('imageModelConfig')[parameters('imageModelChoice')].name]"
     }
   }
 }
