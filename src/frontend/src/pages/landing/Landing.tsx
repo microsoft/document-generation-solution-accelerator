@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, useContext, useLayoutEffect } from 'react'
+import { useContext } from 'react'
 import { Stack } from '@fluentui/react'
 import styles from './Landing.module.css'
 import Contoso from '../../assets/Contoso.svg'

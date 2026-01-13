@@ -2,7 +2,6 @@ import React from 'react'
 import { render, screen } from '@testing-library/react'
 import '@testing-library/jest-dom'
 import { AuthNotConfigure } from './AuthNotConfigure'
-import styles from '../Chat.module.css'
 
 // Mock the Fluent UI icons
 jest.mock('@fluentui/react-icons', () => ({

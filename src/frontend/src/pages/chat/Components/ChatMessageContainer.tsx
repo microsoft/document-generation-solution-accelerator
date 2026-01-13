@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, useContext, useLayoutEffect, forwardRef } from 'react';
+import { forwardRef } from 'react';
 import styles from '../Chat.module.css';
 import { Answer } from '../../../components/Answer';
 import { parseCitationFromMessage, generateTemplateSections } from '../../../helpers/helpers';

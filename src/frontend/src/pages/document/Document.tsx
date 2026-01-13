@@ -11,7 +11,6 @@ interface DocumentData {
 const Document = (): JSX.Element => {
   const params = useParams();
   const [document, setDocument] = useState<DocumentData | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false); // Step 1
 
   useEffect(() => {

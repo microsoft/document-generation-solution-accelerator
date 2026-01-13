@@ -30,7 +30,7 @@ class GeneratePage(BasePage):
 
 
     def __init__(self, page):
-        self.page = page
+        super().__init__(page)
 
     def validate_generate_page(self):
         """Validate that Generate page chat conversation elements are visible"""

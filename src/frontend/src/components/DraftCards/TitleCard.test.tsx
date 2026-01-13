@@ -4,16 +4,6 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import TitleCard from './TitleCard';
 import { AppStateContext } from '../../state/AppProvider';
 
-const contextValue = {
-    state: {
-      draftedDocumentTitle: null,
-      isChatHistoryOpen: false,
-      chatHistoryLoadingState: 'idle',
-      isCosmosDBAvailable: true,
-      chatHistory: [],
-    },
-  };
-  
 const mockDispatch = jest.fn();
 
 const renderWithContext = (contextValue : any) => {

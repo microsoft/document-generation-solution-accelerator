@@ -1,6 +1,5 @@
 import { render, fireEvent, screen } from '@testing-library/react'
 import { QuestionInput } from './QuestionInput'
-import { SendRegular } from '@fluentui/react-icons'
 
 // Mocking the Send SVG import
 jest.mock('../../assets/Send.svg', () => 'mock-send-svg')

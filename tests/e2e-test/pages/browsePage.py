@@ -18,7 +18,7 @@ class BrowsePage(BasePage):
     CLEAR_CHAT_BROOM_BUTTON = "button[aria-label='clear chat button']"
 
     def __init__(self, page):
-        self.page = page
+        super().__init__(page)
 
     def validate_browse_page(self):
         """Validate that Browse page chat conversation elements are visible"""
