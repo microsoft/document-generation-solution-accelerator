@@ -3,10 +3,6 @@ import {
   Text,
   tokens,
 } from '@fluentui/react-components';
-import {
-  Checkmark20Regular,
-  ArrowReset20Regular,
-} from '@fluentui/react-icons';
 import type { CreativeBrief } from '../types';
 
 interface BriefReviewProps {
@@ -16,12 +12,13 @@ interface BriefReviewProps {
   isAwaitingResponse?: boolean;
 }
 
-// Define the brief fields to display - matching Figma order
 const briefFields: { key: keyof CreativeBrief; label: string; prefix?: string }[] = [
   { key: 'objectives', label: 'Objective', prefix: '• ' },
   { key: 'target_audience', label: 'Audience', prefix: '• ' },
+  { key: 'key_message', label: 'Key Message', prefix: '• ' },
   { key: 'tone_and_style', label: 'Tone & Style', prefix: '• ' },
-  { key: 'deliverable', label: 'Deliverables', prefix: '• ' },
+  { key: 'timelines', label: 'Timelines', prefix: '• ' },
+  { key: 'cta', label: 'Call to Action', prefix: '• ' },
 ];
 
 export function BriefReview({
@@ -30,6 +27,11 @@ export function BriefReview({
   onStartOver,
   isAwaitingResponse = false,
 }: BriefReviewProps) {
+  const allFields: (keyof CreativeBrief)[] = [
+    'overview', 'objectives', 'target_audience', 'key_message', 
+    'tone_and_style', 'deliverable', 'timelines', 'visual_guidelines', 'cta'
+  ];
+  const populatedFields = allFields.filter(key => brief[key]?.trim()).length;
 
   return (
     <div className="message assistant" style={{ 
@@ -91,7 +93,7 @@ export function BriefReview({
       </div>
 
       {/* Additional content fields in a bordered card - like Figma */}
-      {(brief.overview || brief.key_message || brief.visual_guidelines) && (
+      {(brief.overview || brief.key_message || brief.visual_guidelines || brief.timelines || brief.cta) && (
         <div style={{
           padding: '16px',
           backgroundColor: tokens.colorNeutralBackground2,
@@ -139,9 +141,40 @@ export function BriefReview({
             </div>
           )}
 
+          {/* Key Message section */}
+          {brief.key_message && (
+            <div style={{ marginBottom: '12px' }}>
+              <Text 
+                weight="semibold" 
+                size={300}
+                style={{ 
+                  color: tokens.colorNeutralForeground1,
+                  display: 'block',
+                  marginBottom: '4px',
+                }}
+              >
+                Key Message
+              </Text>
+              <Text size={200} style={{ color: tokens.colorNeutralForeground2, lineHeight: '1.5' }}>
+                {brief.key_message}
+              </Text>
+            </div>
+          )}
+
           {/* Visual guidelines / Creation instructions */}
           {brief.visual_guidelines && (
             <div style={{ marginBottom: '12px' }}>
+              <Text 
+                weight="semibold" 
+                size={300}
+                style={{ 
+                  color: tokens.colorNeutralForeground1,
+                  display: 'block',
+                  marginBottom: '4px',
+                }}
+              >
+                Visual Guidelines
+              </Text>
               <Text size={200} style={{ color: tokens.colorNeutralForeground2, lineHeight: '1.5' }}>
                 {brief.visual_guidelines}
               </Text>
@@ -170,6 +203,46 @@ export function BriefReview({
 
           {/* Deliverables section */}
           {brief.deliverable && (
+            <div style={{ marginBottom: brief.timelines || brief.cta ? '12px' : '0' }}>
+              <Text 
+                weight="semibold" 
+                size={300}
+                style={{ 
+                  color: tokens.colorNeutralForeground1,
+                  display: 'block',
+                  marginBottom: '4px',
+                }}
+              >
+                Deliverables
+              </Text>
+              <Text size={200} style={{ color: tokens.colorNeutralForeground2, lineHeight: '1.5' }}>
+                {brief.deliverable}
+              </Text>
+            </div>
+          )}
+
+          {/* Timelines section */}
+          {brief.timelines && (
+            <div style={{ marginBottom: brief.cta ? '12px' : '0' }}>
+              <Text 
+                weight="semibold" 
+                size={300}
+                style={{ 
+                  color: tokens.colorNeutralForeground1,
+                  display: 'block',
+                  marginBottom: '4px',
+                }}
+              >
+                Timelines
+              </Text>
+              <Text size={200} style={{ color: tokens.colorNeutralForeground2, lineHeight: '1.5' }}>
+                {brief.timelines}
+              </Text>
+            </div>
+          )}
+
+          {/* Call to Action section */}
+          {brief.cta && (
             <div>
               <Text 
                 weight="semibold" 
@@ -180,15 +253,47 @@ export function BriefReview({
                   marginBottom: '4px',
                 }}
               >
-                Deliverables:
+                Call to Action
               </Text>
               <Text size={200} style={{ color: tokens.colorNeutralForeground2, lineHeight: '1.5' }}>
-                {brief.deliverable}
+                {brief.cta}
               </Text>
             </div>
           )}
         </div>
       )}
+
+      <div style={{
+        padding: '12px 16px',
+        backgroundColor: tokens.colorNeutralBackground2,
+        borderRadius: '8px',
+        marginBottom: '16px',
+        borderLeft: `3px solid ${tokens.colorBrandBackground}`,
+      }}>
+        <Text size={200} style={{ color: tokens.colorNeutralForeground1, lineHeight: '1.6' }}>
+          {populatedFields < 5 ? (
+            <>
+              I've captured <strong>{populatedFields}</strong> of 9 key areas. Would you like to add more details? 
+              You can tell me things like:
+              <ul style={{ margin: '8px 0 0 0', paddingLeft: '20px' }}>
+                <li>"The target audience should be homeowners aged 35-55"</li>
+                <li>"Add a timeline of 2 weeks for the campaign"</li>
+                <li>"The tone should be warm and inviting"</li>
+              </ul>
+            </>
+          ) : (
+            <>
+              Does this look correct? You can:
+              <ul style={{ margin: '8px 0 0 0', paddingLeft: '20px' }}>
+                <li><strong>Modify:</strong> "Change the target audience to young professionals"</li>
+                <li><strong>Add:</strong> "Add a call to action: Shop Now"</li>
+                <li><strong>Remove:</strong> "Remove the timelines section"</li>
+              </ul>
+              Or if everything looks good, click <strong>Confirm brief</strong> to proceed.
+            </>
+          )}
+        </Text>
+      </div>
       
       {/* Action Buttons - Matching Figma styling */}
       <div style={{ 
@@ -198,22 +303,22 @@ export function BriefReview({
       }}>
         <Button
           appearance="outline"
-          icon={<ArrowReset20Regular />}
           onClick={onStartOver}
           size="small"
           disabled={isAwaitingResponse}
           style={{
             borderColor: tokens.colorNeutralStroke1,
+            fontWeight: 600,
           }}
         >
           Start over
         </Button>
         <Button
           appearance="primary"
-          icon={<Checkmark20Regular />}
           onClick={onConfirm}
           size="small"
           disabled={isAwaitingResponse}
+          style={{ fontWeight: 600 }}
         >
           Confirm brief
         </Button>

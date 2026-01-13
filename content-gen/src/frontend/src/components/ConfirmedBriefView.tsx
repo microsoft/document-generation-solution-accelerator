@@ -13,10 +13,15 @@ interface ConfirmedBriefViewProps {
 }
 
 const briefFields: { key: keyof CreativeBrief; label: string }[] = [
-  { key: 'objectives', label: 'Objective' },
-  { key: 'target_audience', label: 'Audience' },
+  { key: 'overview', label: 'Overview' },
+  { key: 'objectives', label: 'Objectives' },
+  { key: 'target_audience', label: 'Target Audience' },
+  { key: 'key_message', label: 'Key Message' },
   { key: 'tone_and_style', label: 'Tone & Style' },
-  { key: 'deliverable', label: 'Deliverables' },
+  { key: 'deliverable', label: 'Deliverable' },
+  { key: 'timelines', label: 'Timelines' },
+  { key: 'visual_guidelines', label: 'Visual Guidelines' },
+  { key: 'cta', label: 'Call to Action' },
 ];
 
 export function ConfirmedBriefView({ brief }: ConfirmedBriefViewProps) {

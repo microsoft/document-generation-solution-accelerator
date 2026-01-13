@@ -34,11 +34,13 @@ interface ChatPanelProps {
   confirmedBrief?: CreativeBrief | null;
   generatedContent?: GeneratedContent | null;
   selectedProducts?: Product[];
+  availableProducts?: Product[];
   onBriefConfirm?: () => void;
   onBriefCancel?: () => void;
   onGenerateContent?: () => void;
   onRegenerateContent?: () => void;
   onProductsStartOver?: () => void;
+  onProductSelect?: (product: Product) => void;
   // Feature flags
   imageGenerationEnabled?: boolean;
 }
@@ -53,11 +55,13 @@ export function ChatPanel({
   confirmedBrief,
   generatedContent,
   selectedProducts = [],
+  availableProducts = [],
   onBriefConfirm,
   onBriefCancel,
   onGenerateContent,
   onRegenerateContent,
   onProductsStartOver,
+  onProductSelect,
   imageGenerationEnabled = true,
 }: ChatPanelProps) {
   const [inputValue, setInputValue] = useState('');
@@ -139,9 +143,11 @@ export function ChatPanel({
             {showProductReview && (
               <ProductReview
                 products={selectedProducts}
+                availableProducts={availableProducts}
                 onConfirm={onGenerateContent}
                 onStartOver={onProductsStartOver || (() => {})}
                 isAwaitingResponse={isLoading}
+                onProductSelect={onProductSelect}
               />
             )}
             

@@ -9,7 +9,7 @@ import {
 import {
   Chat24Regular,
   MoreHorizontal20Regular,
-  EditRegular,
+  Compose20Regular,
 } from '@fluentui/react-icons';
 
 interface ConversationSummary {
@@ -103,6 +103,7 @@ export function ChatHistory({
   })();
 
   const visibleConversations = showAll ? displayConversations : displayConversations.slice(0, INITIAL_COUNT);
+  const hasMore = displayConversations.length > INITIAL_COUNT;
 
   return (
     <div style={{ 
@@ -110,29 +111,37 @@ export function ChatHistory({
       display: 'flex', 
       flexDirection: 'column',
       padding: '16px',
-      backgroundColor: tokens.colorNeutralBackground1,
+      backgroundColor: tokens.colorNeutralBackground3,
       overflow: 'hidden',
     }}>
-      {/* Header */}
-        <Text 
-          weight="semibold" 
+      <Text 
+        weight="semibold" 
         size={300}
         style={{ 
-          marginBottom: '16px',
+          marginBottom: '12px',
           color: tokens.colorNeutralForeground1,
+          flexShrink: 0,
         }}
-        >
-          Chat History
-        </Text>
+      >
+        Chat History
+      </Text>
 
-      {/* Conversation List */}
+      <div style={{ 
+        borderBottom: `1px solid ${tokens.colorNeutralStroke2}`,
+        marginBottom: '12px',
+        flexShrink: 0,
+      }} />
+
       <div style={{ 
         flex: 1, 
-        overflowY: 'auto',
         display: 'flex',
         flexDirection: 'column',
-        gap: '0',
         minHeight: 0,
+        overflowY: showAll ? 'auto' : 'hidden',
+        paddingLeft: '8px',
+        paddingRight: '8px',
+        marginLeft: '-8px',
+        marginRight: '-8px',
       }}>
         {isLoading ? (
           <div style={{ 
@@ -172,45 +181,53 @@ export function ChatHistory({
               <ConversationItem
                 key={conversation.id}
                 conversation={conversation}
+                isActive={conversation.id === currentConversationId}
                 onSelect={() => onSelectConversation(conversation.id)}
-                showMenu={index === 0} // Only show menu on first item per Figma
+                showMenu={index === 0}
               />
             ))}
           </>
         )}
-      </div>
 
-      {/* Footer Links */}
-      <div style={{ 
-        marginTop: '16px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '12px',
-        flexShrink: 0,
-      }}>
+        <div style={{ 
+          marginTop: '8px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '12px',
+          flexShrink: 0,
+          ...(showAll && {
+            position: 'sticky',
+            bottom: 0,
+            backgroundColor: tokens.colorNeutralBackground3,
+            paddingTop: '8px',
+            paddingBottom: '4px',
+          }),
+        }}>
+          {hasMore && (
+            <Link
+              onClick={() => setShowAll(!showAll)}
+              style={{
+                fontSize: '13px',
+                color: tokens.colorBrandForeground1,
+              }}
+            >
+              {showAll ? 'Show less' : 'See all'}
+            </Link>
+          )}
           <Link
-            onClick={() => setShowAll(!showAll)}
+            onClick={onNewConversation}
             style={{
-            fontSize: '13px',
-            color: tokens.colorBrandForeground1,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              fontSize: '13px',
+              color: tokens.colorNeutralForeground1,
             }}
           >
-          See all
+            <Compose20Regular />
+            Start new chat
           </Link>
-        
-        <Link
-          onClick={onNewConversation}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            fontSize: '13px',
-            color: tokens.colorNeutralForeground1,
-          }}
-        >
-          <EditRegular style={{ fontSize: '16px' }} />
-          Start new chat
-        </Link>
+        </div>
       </div>
     </div>
   );
@@ -218,12 +235,14 @@ export function ChatHistory({
 
 interface ConversationItemProps {
   conversation: ConversationSummary;
+  isActive: boolean;
   onSelect: () => void;
   showMenu?: boolean;
 }
 
 function ConversationItem({ 
   conversation, 
+  isActive,
   onSelect, 
   showMenu = false,
 }: ConversationItemProps) {
@@ -235,30 +254,39 @@ function ConversationItem({
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       style={{
-        padding: '8px 0',
+        padding: '8px',
         cursor: 'pointer',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
         gap: '8px',
-        borderBottom: `1px solid ${tokens.colorNeutralStroke2}`,
+        backgroundColor: isActive 
+          ? tokens.colorNeutralBackground1 
+          : 'transparent',
+        border: isActive 
+          ? `1px solid ${tokens.colorNeutralStroke2}` 
+          : '1px solid transparent',
+        borderRadius: '6px',
+        marginLeft: '-8px',
+        marginRight: '-8px',
+        transition: 'background-color 0.15s, border-color 0.15s',
       }}
     >
-        <Text 
-          size={200}
-          style={{ 
-            overflow: 'hidden', 
-            textOverflow: 'ellipsis', 
-            whiteSpace: 'nowrap',
+      <Text 
+        size={200}
+        weight={isActive ? 'semibold' : 'regular'}
+        style={{ 
+          overflow: 'hidden', 
+          textOverflow: 'ellipsis', 
+          whiteSpace: 'nowrap',
           flex: 1,
           fontSize: '13px',
           color: tokens.colorNeutralForeground1,
-          }}
-        >
-          {conversation.title || 'Untitled'}
-        </Text>
+        }}
+      >
+        {conversation.title || 'Untitled'}
+      </Text>
       
-      {/* Three-dot ellipsis menu - only show on first item or hover */}
       {(showMenu || isHovered) && (
         <Button
           appearance="subtle"
@@ -266,7 +294,6 @@ function ConversationItem({
           size="small"
           onClick={(e) => {
             e.stopPropagation();
-            // Future: open menu with options
           }}
           style={{ 
             minWidth: '24px', 
