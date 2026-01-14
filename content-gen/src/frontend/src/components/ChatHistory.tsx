@@ -168,7 +168,10 @@ export function ChatHistory({
           </div>
         ) : displayConversations.length === 0 ? (
           <div style={{ 
-            textAlign: 'center', 
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
             padding: '32px',
             color: tokens.colorNeutralForeground3 
           }}>
