@@ -202,7 +202,7 @@ jobs:
             echo "RESOURCE_GROUP_NAME=${{ inputs.resource_group_name }}" >> $GITHUB_ENV
           else
             echo "Generating a unique resource group name..."
-            ACCL_NAME="docgenv2"  # Account name as specified
+            ACCL_NAME="docgen"  # Account name as specified
             SHORT_UUID=$(uuidgen | cut -d'-' -f1)
             UNIQUE_RG_NAME="arg-${ACCL_NAME}-${SHORT_UUID}"
             echo "RESOURCE_GROUP_NAME=${UNIQUE_RG_NAME}" >> $GITHUB_ENV
@@ -298,9 +298,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Configuration | Value |" >> $GITHUB_STEP_SUMMARY
           echo "|---------------|-------|" >> $GITHUB_STEP_SUMMARY
-          echo "| **Trigger Type** | \`${{ github.event_name }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| **Branch** | \`${{ env.BRANCH_NAME }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Runner OS** | \`${{ inputs.runner_os }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| **WAF Enabled** | ${{ env.WAF_ENABLED == 'true' && '✅ Yes' || '❌ No' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| **EXP Enabled** | ${{ env.EXP == 'true' && '✅ Yes' || '❌ No' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| **Run E2E Tests** | \`${{ env.RUN_E2E_TESTS }}\` |" >> $GITHUB_STEP_SUMMARY
@@ -328,7 +326,7 @@ jobs:
   deploy-linux:
     name: Deploy on Linux
     needs: azure-setup
-    if: inputs.runner_os == 'ubuntu-latest' && always() && needs.azure-setup.result == 'success'
+    if: inputs.runner_os == 'ubuntu-latest' && !cancelled() && needs.azure-setup.result == 'success'
     uses: ./.github/workflows/job-deploy-linux.yml
     with:
       ENV_NAME: ${{ needs.azure-setup.outputs.ENV_NAME }}
@@ -346,7 +344,7 @@ jobs:
   deploy-windows:
     name: Deploy on Windows
     needs: azure-setup
-    if: inputs.runner_os == 'windows-latest' && always() && needs.azure-setup.result == 'success'
+    if: inputs.runner_os == 'windows-latest' && !cancelled() && needs.azure-setup.result == 'success'
     uses: ./.github/workflows/job-deploy-windows.yml
     with:
       ENV_NAME: ${{ needs.azure-setup.outputs.ENV_NAME }}

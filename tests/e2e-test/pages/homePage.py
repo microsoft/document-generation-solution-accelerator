@@ -1,5 +1,6 @@
 from base.base import BasePage
 from playwright.sync_api import expect
+from config.constants import URL
 
 
 class HomePage(BasePage):
@@ -22,6 +23,16 @@ class HomePage(BasePage):
         self.page.wait_for_timeout(3000)
         self.page.locator(self.BROWSE_BUTTON).click()
         self.page.wait_for_timeout(5000)
+
+    def click_generate_button(self):
+        # click on GENERATE
+        self.page.wait_for_timeout(3000)
+        self.page.locator(self.GENERATE_TEXT).click()
+        self.page.wait_for_timeout(5000)
+    
+    def open_home_page(self):
+        self.page.goto(URL)
+        self.page.wait_for_timeout(3000)
 
     def validate_home_page(self):
         self.page.wait_for_timeout(5000)
