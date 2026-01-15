@@ -658,24 +658,34 @@ class ContentGenerationOrchestrator:
                             for msg in event.data.conversation
                         ])
                         
-                        # Get the last message content
-                        last_msg_content = event.data.conversation[-1].text if event.data.conversation else ""
-                        last_msg_agent = event.data.conversation[-1].author_name if event.data.conversation else "unknown"
+                        # Check ALL messages in the conversation for RAI refusal
+                        # This catches cases where an early agent refused but still handed off
+                        rai_refusal_msg = None
+                        rai_refusal_agent = None
+                        for msg in event.data.conversation:
+                            if msg.role.value != "user" and msg.text:
+                                if _check_message_for_rai_refusal(msg.text):
+                                    rai_refusal_msg = msg.text
+                                    rai_refusal_agent = msg.author_name or "assistant"
+                                    logger.info(f"RAI refusal detected from {rai_refusal_agent} in conversation history")
+                                    break  # Use the FIRST refusal found
                         
-                        # Check if this is an RAI refusal - if so, mark as final and don't continue
-                        is_rai_refusal = _check_message_for_rai_refusal(last_msg_content)
-                        if is_rai_refusal:
-                            logger.info(f"RAI refusal detected from {last_msg_agent}, terminating workflow")
+                        if rai_refusal_msg:
+                            logger.info(f"Terminating workflow due to RAI refusal from {rai_refusal_agent}")
                             yield {
                                 "type": "agent_response",
-                                "agent": last_msg_agent,
-                                "content": last_msg_content,
+                                "agent": rai_refusal_agent,
+                                "content": rai_refusal_msg,
                                 "conversation_history": conversation_text,
                                 "is_final": True,  # Mark as final to stop workflow
                                 "rai_blocked": True,  # Flag indicating RAI block
                                 "metadata": {"conversation_id": conversation_id}
                             }
                             return  # Exit the generator to stop processing
+                        
+                        # Get the last message content for normal flow
+                        last_msg_content = event.data.conversation[-1].text if event.data.conversation else ""
+                        last_msg_agent = event.data.conversation[-1].author_name if event.data.conversation else "unknown"
                         
                         yield {
                             "type": "agent_response",
@@ -749,23 +759,33 @@ class ContentGenerationOrchestrator:
                 
                 elif isinstance(event, RequestInfoEvent):
                     if isinstance(event.data, HandoffAgentUserRequest):
-                        # Get the last message content
-                        last_msg_content = event.data.conversation[-1].text if event.data.conversation else ""
-                        last_msg_agent = event.data.conversation[-1].author_name if event.data.conversation else "unknown"
+                        # Check ALL messages in the conversation for RAI refusal
+                        # This catches cases where an early agent refused but still handed off
+                        rai_refusal_msg = None
+                        rai_refusal_agent = None
+                        for msg in event.data.conversation:
+                            if msg.role.value != "user" and msg.text:
+                                if _check_message_for_rai_refusal(msg.text):
+                                    rai_refusal_msg = msg.text
+                                    rai_refusal_agent = msg.author_name or "assistant"
+                                    logger.info(f"RAI refusal detected from {rai_refusal_agent} in user response flow")
+                                    break  # Use the FIRST refusal found
                         
-                        # Check if this is an RAI refusal - if so, mark as final and don't continue
-                        is_rai_refusal = _check_message_for_rai_refusal(last_msg_content)
-                        if is_rai_refusal:
-                            logger.info(f"RAI refusal detected from {last_msg_agent} in user response flow, terminating workflow")
+                        if rai_refusal_msg:
+                            logger.info(f"Terminating workflow due to RAI refusal from {rai_refusal_agent}")
                             yield {
                                 "type": "agent_response",
-                                "agent": last_msg_agent,
-                                "content": last_msg_content,
+                                "agent": rai_refusal_agent,
+                                "content": rai_refusal_msg,
                                 "is_final": True,  # Mark as final to stop workflow
                                 "rai_blocked": True,  # Flag indicating RAI block
                                 "metadata": {"conversation_id": conversation_id}
                             }
                             return  # Exit the generator to stop processing
+                        
+                        # Get the last message content for normal flow
+                        last_msg_content = event.data.conversation[-1].text if event.data.conversation else ""
+                        last_msg_agent = event.data.conversation[-1].author_name if event.data.conversation else "unknown"
                         
                         yield {
                             "type": "agent_response",
