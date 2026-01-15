@@ -213,7 +213,9 @@ function App() {
           
           setGenerationStatus('Updating creative brief...');
           const parsed = await parseBrief(refinementPrompt, conversationId, userId, signal);
-          setPendingBrief(parsed.brief);
+          if (parsed.brief) {
+            setPendingBrief(parsed.brief);
+          }
           setGenerationStatus('');
           
           const assistantMessage: ChatMessage = {
@@ -287,10 +289,24 @@ function App() {
           setGenerationStatus('Analyzing creative brief...');
           const parsed = await parseBrief(content, conversationId, userId, signal);
           
-          // Check if clarification is needed
-          if (parsed.requires_clarification && parsed.clarifying_questions) {
+          // Check if request was blocked due to harmful content
+          if (parsed.rai_blocked) {
+            // Show the refusal message without any brief UI
+            setGenerationStatus('');
+            
+            const assistantMessage: ChatMessage = {
+              id: uuidv4(),
+              role: 'assistant',
+              content: parsed.message,
+              agent: 'ContentSafety',
+              timestamp: new Date().toISOString(),
+            };
+            setMessages(prev => [...prev, assistantMessage]);
+          } else if (parsed.requires_clarification && parsed.clarifying_questions) {
             // Set partial brief for display but show clarifying questions
-            setPendingBrief(parsed.brief);
+            if (parsed.brief) {
+              setPendingBrief(parsed.brief);
+            }
             setGenerationStatus('');
             
             const assistantMessage: ChatMessage = {
@@ -303,7 +319,9 @@ function App() {
             setMessages(prev => [...prev, assistantMessage]);
           } else {
             // Brief is complete, show for confirmation
-            setPendingBrief(parsed.brief);
+            if (parsed.brief) {
+              setPendingBrief(parsed.brief);
+            }
             setGenerationStatus('');
             
             const assistantMessage: ChatMessage = {

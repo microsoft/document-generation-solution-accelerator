@@ -132,118 +132,6 @@ If you have a legitimate marketing request, I'd be happy to help you create:
 Please share a marketing-related request and I'll assist you."""
 
 
-# RAI (Responsible AI) detection patterns
-# These patterns indicate when an agent has identified a jailbreak attempt,
-# content safety violation, or out-of-scope request
-RAI_REFUSAL_PATTERNS = [
-    # Out-of-scope refusals - exact phrases from instructions
-    "i'm a specialized marketing content generation assistant",
-    "i cannot help with general questions",
-    "outside of marketing",
-    "i can only assist with marketing",
-    "this request is outside my scope",
-    "not within my capabilities as a marketing",
-    "designed exclusively for creating marketing materials",
-    "cannot help with general questions or topics outside",
-    # Content safety refusals
-    "i cannot generate content that",
-    "i'm unable to create content involving",
-    "this request violates content safety",
-    "violates content safety guidelines",
-    "inappropriate content",
-    "harmful content",
-    "i cannot assist with this type of request",
-    "violates our content guidelines",
-    "against our content policy",
-    "cannot process this request",
-    # Jailbreak detection
-    "i cannot ignore my instructions",
-    "i cannot pretend to be",
-    "i cannot bypass my guidelines",
-    "i cannot override my safety",
-    "this appears to be an attempt to",
-    "i'm designed to decline requests that",
-    "designed to decline requests",
-    # General refusals indicating RAI concern
-    "i'm not able to help with that",
-    "i cannot fulfill this request",
-    "this is not something i can assist with",
-    "i must decline this request",
-    "i can't help with",
-    "i am not able to",
-    "i'm sorry, but i can",
-    "i apologize, but i can",
-    "unfortunately, i cannot",
-    "i'm afraid i can't",
-    # Common model refusal patterns
-    "as an ai assistant",
-    "as a marketing assistant, i",
-    "my purpose is to help with marketing",
-    "i specialize in marketing",
-    "that's outside my area",
-    "not within my scope",
-    "falls outside",
-    "beyond my capabilities",
-    "not something i'm able to",
-]
-
-
-def _check_for_rai_refusal(conversation: list) -> bool:
-    """
-    Check if any agent response in the conversation indicates an RAI refusal.
-    
-    This detects when an agent has identified a jailbreak attempt, content safety
-    violation, or out-of-scope request and refused to continue.
-    
-    Args:
-        conversation: List of ChatMessage objects from the workflow
-        
-    Returns:
-        bool: True if an RAI refusal was detected, triggering workflow termination
-    """
-    for msg in conversation:
-        # Only check assistant/agent messages, not user messages
-        if msg.role.value == "user":
-            continue
-        
-        message_text = msg.text.lower() if msg.text else ""
-        
-        # Check for RAI refusal patterns
-        for pattern in RAI_REFUSAL_PATTERNS:
-            if pattern in message_text:
-                agent_name = msg.author_name or "unknown agent"
-                logger.info(f"RAI refusal detected from {agent_name}: matched pattern '{pattern}'")
-                return True
-    
-    return False
-
-
-def _check_message_for_rai_refusal(message_text: str) -> bool:
-    """
-    Check if a single message indicates an RAI refusal.
-    
-    This is used to detect refusals at the application layer and terminate
-    the workflow immediately, without waiting for the next workflow cycle.
-    
-    Args:
-        message_text: The text content of the message to check
-        
-    Returns:
-        bool: True if an RAI refusal pattern was detected
-    """
-    if not message_text:
-        return False
-    
-    message_lower = message_text.lower()
-    
-    for pattern in RAI_REFUSAL_PATTERNS:
-        if pattern in message_lower:
-            logger.info(f"RAI refusal pattern detected in message: '{pattern}'")
-            return True
-    
-    return False
-
-
 # Agent system instructions
 TRIAGE_INSTRUCTIONS = f"""You are a Triage Agent (coordinator) for a retail marketing content generation system.
 
@@ -274,16 +162,6 @@ I can assist you with:
 • Product research for marketing purposes
 
 What marketing content can I help you create today?"
-
-## ABSOLUTE RULE - NO HANDOFF AFTER REFUSAL
-After you provide ANY refusal message (out-of-scope, content safety, jailbreak):
-- DO NOT call transfer_to_planning_agent or any transfer function
-- DO NOT call any tool or function
-- DO NOT hand off to any other agent
-- STOP IMMEDIATELY after your refusal response
-- The conversation ENDS with your refusal
-
-This is NON-NEGOTIABLE. If you refuse a request, you must NOT use any handoff/transfer functions.
 
 ### ONLY assist with these marketing-specific tasks:
 - Creating marketing copy (ads, social posts, emails, product descriptions)
@@ -332,16 +210,6 @@ If you detect ANY of these issues, respond with:
 "I cannot process this request as it violates content safety guidelines. I'm designed to decline requests that involve [specific concern]. 
 
 I can only help create professional, appropriate marketing content. Please provide a legitimate marketing brief and I'll be happy to assist."
-
-## ABSOLUTE RULE - NO HANDOFF AFTER REFUSAL
-After you provide ANY refusal response:
-- DO NOT call transfer_to_triage_agent or any transfer function
-- DO NOT call any tool or function
-- DO NOT hand off to any other agent
-- STOP IMMEDIATELY after your refusal response
-- The conversation ENDS with your refusal
-
-This is NON-NEGOTIABLE. If you refuse a request, you must NOT use any handoff/transfer functions.
 
 ## BRIEF PARSING (for legitimate requests only)
 When given a creative brief, extract and structure a JSON object with these REQUIRED fields:
@@ -685,13 +553,8 @@ class ContentGenerationOrchestrator:
             # Compliance can hand back to content agents for corrections or to triage
             .add_handoff(compliance_agent, [text_content_agent, image_content_agent, triage_agent])
             .with_termination_condition(
-                # Terminate the workflow under these conditions:
-                # 1. After 10 user messages (prevent infinite loops)
-                # 2. When an agent detects an RAI concern (jailbreak, content safety, out-of-scope)
-                lambda conv: (
-                    sum(1 for msg in conv if msg.role.value == "user") >= 10
-                    or _check_for_rai_refusal(conv)
-                )
+                # Terminate the workflow after 10 user messages (prevent infinite loops)
+                lambda conv: sum(1 for msg in conv if msg.role.value == "user") >= 10
             )
             .build()
         )
@@ -770,32 +633,7 @@ class ContentGenerationOrchestrator:
                             for msg in event.data.conversation
                         ])
                         
-                        # Check ALL messages in the conversation for RAI refusal
-                        # This catches cases where an early agent refused but still handed off
-                        rai_refusal_msg = None
-                        rai_refusal_agent = None
-                        for msg in event.data.conversation:
-                            if msg.role.value != "user" and msg.text:
-                                if _check_message_for_rai_refusal(msg.text):
-                                    rai_refusal_msg = msg.text
-                                    rai_refusal_agent = msg.author_name or "assistant"
-                                    logger.info(f"RAI refusal detected from {rai_refusal_agent} in conversation history")
-                                    break  # Use the FIRST refusal found
-                        
-                        if rai_refusal_msg:
-                            logger.info(f"Terminating workflow due to RAI refusal from {rai_refusal_agent}")
-                            yield {
-                                "type": "agent_response",
-                                "agent": rai_refusal_agent,
-                                "content": rai_refusal_msg,
-                                "conversation_history": conversation_text,
-                                "is_final": True,  # Mark as final to stop workflow
-                                "rai_blocked": True,  # Flag indicating RAI block
-                                "metadata": {"conversation_id": conversation_id}
-                            }
-                            return  # Exit the generator to stop processing
-                        
-                        # Get the last message content for normal flow
+                        # Get the last message content
                         last_msg_content = event.data.conversation[-1].text if event.data.conversation else ""
                         last_msg_agent = event.data.conversation[-1].author_name if event.data.conversation else "unknown"
                         
@@ -886,31 +724,7 @@ class ContentGenerationOrchestrator:
                 
                 elif isinstance(event, RequestInfoEvent):
                     if isinstance(event.data, HandoffAgentUserRequest):
-                        # Check ALL messages in the conversation for RAI refusal
-                        # This catches cases where an early agent refused but still handed off
-                        rai_refusal_msg = None
-                        rai_refusal_agent = None
-                        for msg in event.data.conversation:
-                            if msg.role.value != "user" and msg.text:
-                                if _check_message_for_rai_refusal(msg.text):
-                                    rai_refusal_msg = msg.text
-                                    rai_refusal_agent = msg.author_name or "assistant"
-                                    logger.info(f"RAI refusal detected from {rai_refusal_agent} in user response flow")
-                                    break  # Use the FIRST refusal found
-                        
-                        if rai_refusal_msg:
-                            logger.info(f"Terminating workflow due to RAI refusal from {rai_refusal_agent}")
-                            yield {
-                                "type": "agent_response",
-                                "agent": rai_refusal_agent,
-                                "content": rai_refusal_msg,
-                                "is_final": True,  # Mark as final to stop workflow
-                                "rai_blocked": True,  # Flag indicating RAI block
-                                "metadata": {"conversation_id": conversation_id}
-                            }
-                            return  # Exit the generator to stop processing
-                        
-                        # Get the last message content for normal flow
+                        # Get the last message content
                         last_msg_content = event.data.conversation[-1].text if event.data.conversation else ""
                         last_msg_agent = event.data.conversation[-1].author_name if event.data.conversation else "unknown"
                         
@@ -953,7 +767,7 @@ class ContentGenerationOrchestrator:
     async def parse_brief(
         self,
         brief_text: str
-    ) -> tuple[CreativeBrief, str | None]:
+    ) -> tuple[CreativeBrief, str | None, bool]:
         """
         Parse a free-text creative brief into structured format.
         If critical information is missing, return clarifying questions.
@@ -962,12 +776,31 @@ class ContentGenerationOrchestrator:
             brief_text: Free-text creative brief from user
         
         Returns:
-            tuple: (CreativeBrief, clarifying_questions_or_none)
-                - If all critical fields are provided: (brief, None)
-                - If critical fields are missing: (partial_brief, clarifying_questions_string)
+            tuple: (CreativeBrief, clarifying_questions_or_none, is_blocked)
+                - If all critical fields are provided: (brief, None, False)
+                - If critical fields are missing: (partial_brief, clarifying_questions_string, False)
+                - If harmful content detected: (empty_brief, refusal_message, True)
         """
         if not self._initialized:
             self.initialize()
+        
+        # PROACTIVE CONTENT SAFETY CHECK - Block harmful content at input layer
+        is_harmful, matched_pattern = _check_input_for_harmful_content(brief_text)
+        if is_harmful:
+            logger.warning(f"Blocking harmful content in parse_brief. Pattern: {matched_pattern}")
+            # Return empty brief with refusal message and blocked=True
+            empty_brief = CreativeBrief(
+                overview="",
+                objectives="",
+                target_audience="",
+                key_message="",
+                tone_and_style="",
+                deliverable="",
+                timelines="",
+                visual_guidelines="",
+                cta=""
+            )
+            return empty_brief, RAI_HARMFUL_CONTENT_RESPONSE, True
         
         planning_agent = self._agents["planning"]
         
@@ -1055,14 +888,14 @@ Analyze this creative brief request and determine if all critical information is
             
             # Check if we need clarifying questions
             if analysis.get("status") == "incomplete" and analysis.get("clarifying_message"):
-                return (brief, analysis["clarifying_message"])
+                return (brief, analysis["clarifying_message"], False)
             
-            return (brief, None)
+            return (brief, None, False)
             
         except Exception as e:
             logger.error(f"Failed to parse brief analysis response: {e}")
             # Fallback to basic extraction
-            return (self._extract_brief_from_text(brief_text), None)
+            return (self._extract_brief_from_text(brief_text), None, False)
     
     def _extract_brief_from_text(self, text: str) -> CreativeBrief:
         """Extract brief fields from labeled text like 'Overview: ...'"""

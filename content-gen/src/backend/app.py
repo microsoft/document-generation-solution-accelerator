@@ -216,7 +216,33 @@ async def parse_brief():
         logger.warning(f"Failed to save brief message to CosmosDB: {e}")
     
     orchestrator = get_orchestrator()
-    parsed_brief, clarifying_questions = await orchestrator.parse_brief(brief_text)
+    parsed_brief, clarifying_questions, rai_blocked = await orchestrator.parse_brief(brief_text)
+    
+    # Check if request was blocked due to harmful content
+    if rai_blocked:
+        # Save the refusal as assistant response
+        try:
+            cosmos_service = await get_cosmos_service()
+            await cosmos_service.add_message_to_conversation(
+                conversation_id=conversation_id,
+                user_id=user_id,
+                message={
+                    "role": "assistant",
+                    "content": clarifying_questions,  # This is the refusal message
+                    "agent": "ContentSafety",
+                    "timestamp": datetime.now(timezone.utc).isoformat()
+                }
+            )
+        except Exception as e:
+            logger.warning(f"Failed to save RAI response to CosmosDB: {e}")
+        
+        return jsonify({
+            "rai_blocked": True,
+            "requires_clarification": False,
+            "requires_confirmation": False,
+            "conversation_id": conversation_id,
+            "message": clarifying_questions
+        })
     
     # Check if we need clarifying questions
     if clarifying_questions:
