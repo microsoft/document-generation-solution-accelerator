@@ -431,7 +431,7 @@ class CosmosDBService:
         Get all conversations for a user with summary data.
         
         Args:
-            user_id: User ID (empty string for development mode - returns conversations with empty/null user_id)
+            user_id: User ID ("anonymous" for unauthenticated users)
             limit: Maximum number of conversations
         
         Returns:
@@ -439,31 +439,16 @@ class CosmosDBService:
         """
         await self.initialize()
         
-        # Get conversations with messages to extract title and last message
-        # In development mode (empty user_id), get conversations where user_id is empty, null, or not set
-        if user_id:
-            # Production mode: get conversations for the authenticated user
-            query = """
-                SELECT TOP @limit c.id, c.user_id, c.updated_at, c.messages, c.brief
-                FROM c 
-                WHERE c.user_id = @user_id
-                ORDER BY c.updated_at DESC
-            """
-            params = [
-                {"name": "@user_id", "value": user_id},
-                {"name": "@limit", "value": limit}
-            ]
-        else:
-            # Development mode: get conversations where user_id is empty, null, or not defined
-            query = """
-                SELECT TOP @limit c.id, c.user_id, c.updated_at, c.messages, c.brief
-                FROM c 
-                WHERE (NOT IS_DEFINED(c.user_id) OR c.user_id = null OR c.user_id = "")
-                ORDER BY c.updated_at DESC
-            """
-            params = [
-                {"name": "@limit", "value": limit}
-            ]
+        query = """
+            SELECT TOP @limit c.id, c.user_id, c.updated_at, c.messages, c.brief
+            FROM c 
+            WHERE c.user_id = @user_id
+            ORDER BY c.updated_at DESC
+        """
+        params = [
+            {"name": "@user_id", "value": user_id},
+            {"name": "@limit", "value": limit}
+        ]
         
         conversations = []
         async for item in self._conversations_container.query_items(

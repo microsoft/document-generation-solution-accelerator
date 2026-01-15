@@ -49,14 +49,14 @@ def get_authenticated_user():
     Get the authenticated user from EasyAuth headers.
     
     In production (with App Service Auth), the X-Ms-Client-Principal-Id header
-    contains the user's ID. In development mode, returns empty/None values.
+    contains the user's ID. In development mode, returns "anonymous".
     """
     user_principal_id = request.headers.get("X-Ms-Client-Principal-Id", "")
     user_name = request.headers.get("X-Ms-Client-Principal-Name", "")
     auth_provider = request.headers.get("X-Ms-Client-Principal-Idp", "")
     
     return {
-        "user_principal_id": user_principal_id or "",
+        "user_principal_id": user_principal_id or "anonymous",
         "user_name": user_name or "",
         "auth_provider": auth_provider or "",
         "is_authenticated": bool(user_principal_id)
@@ -1051,14 +1051,13 @@ async def list_conversations():
     List conversations for a user.
     
     Uses authenticated user from EasyAuth headers. In development mode
-    (when not authenticated), returns conversations where user_id is empty/null.
+    (when not authenticated), uses "anonymous" as user_id.
     
     Query params:
         limit: Max number of results (default 20)
     """
-    # Get authenticated user from headers
     auth_user = get_authenticated_user()
-    user_id = auth_user["user_principal_id"]  # Empty string if not authenticated
+    user_id = auth_user["user_principal_id"]
     
     limit = int(request.args.get("limit", 20))
     
