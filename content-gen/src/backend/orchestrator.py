@@ -58,6 +58,80 @@ from settings import app_settings
 logger = logging.getLogger(__name__)
 
 
+# Harmful content patterns to detect in USER INPUT before processing
+# This provides proactive content safety by blocking harmful requests at the input layer
+HARMFUL_INPUT_PATTERNS = [
+    # Violence and weapons
+    r"\b(make|making|create|creating|build|building|how to make|how to build)\b.{0,30}\b(bomb|explosive|weapon|gun|firearm|knife attack|poison)\b",
+    r"\b(bomb|explosive|weapon|gun|firearm)\b.{0,30}\b(make|making|create|creating|build|building)\b",
+    r"\b(kill|murder|assassinate|harm|hurt|attack|shoot|stab)\b.{0,20}\b(people|person|someone|victims)\b",
+    r"\b(terrorist|terrorism|mass shooting|school shooting|violence)\b",
+    # Illegal activities
+    r"\b(illegal drugs|drug trafficking|sell drugs|meth|cocaine|heroin|fentanyl)\b",
+    r"\b(how to steal|stealing|robbery|burglary|break into)\b",
+    r"\b(money laundering|fraud scheme|scam people|con people)\b",
+    r"\b(hack|hacking|cyber attack|ddos|malware|ransomware)\b.{0,20}\b(create|make|build|deploy|spread)\b",
+    # Hate and discrimination
+    r"\b(racist|sexist|homophobic|transphobic|discriminat)\b.{0,20}\b(content|campaign|ad|message)\b",
+    r"\b(hate speech|white supremac|nazi|ethnic cleansing)\b",
+    # Self-harm
+    r"\b(suicide|self.?harm|cut myself|kill myself)\b",
+    # Sexual content
+    r"\b(child porn|csam|minors|underage|pedophil)\b",
+    r"\b(explicit|pornograph|sexual content)\b.{0,20}\b(create|make|generate)\b",
+    # Misinformation
+    r"\b(fake news|disinformation|misinformation)\b.{0,20}\b(campaign|spread|create)\b",
+    # Specific harmful combinations
+    r"\bbomb\b",  # Direct mention of bomb in any context
+    r"\bexplosive device\b",
+    r"\bweapon of mass\b",
+]
+
+# Compiled regex patterns for performance
+_HARMFUL_PATTERNS_COMPILED = [re.compile(pattern, re.IGNORECASE) for pattern in HARMFUL_INPUT_PATTERNS]
+
+
+def _check_input_for_harmful_content(message: str) -> tuple[bool, str]:
+    """
+    Proactively check user input for harmful content BEFORE sending to agents.
+    
+    This is the first line of defense - catching harmful requests at the input
+    layer rather than relying on the agent to refuse.
+    
+    Args:
+        message: The user's input message
+        
+    Returns:
+        tuple: (is_harmful: bool, matched_pattern: str or empty)
+    """
+    if not message:
+        return False, ""
+    
+    message_lower = message.lower()
+    
+    for i, pattern in enumerate(_HARMFUL_PATTERNS_COMPILED):
+        if pattern.search(message_lower):
+            matched = HARMFUL_INPUT_PATTERNS[i]
+            logger.warning(f"Harmful content detected in user input. Pattern: {matched}")
+            return True, matched
+    
+    return False, ""
+
+
+# Standard RAI refusal message for harmful content
+RAI_HARMFUL_CONTENT_RESPONSE = """I'm a specialized marketing content generation assistant designed exclusively for creating professional marketing materials.
+
+I cannot help with this request as it involves content that violates our content safety guidelines. I'm designed to create positive, helpful marketing content only.
+
+If you have a legitimate marketing request, I'd be happy to help you create:
+- Product descriptions and campaigns
+- Social media content
+- Email marketing materials
+- Brand messaging and taglines
+
+Please share a marketing-related request and I'll assist you."""
+
+
 # RAI (Responsible AI) detection patterns
 # These patterns indicate when an agent has identified a jailbreak attempt,
 # content safety violation, or out-of-scope request
@@ -650,6 +724,23 @@ class ContentGenerationOrchestrator:
         
         logger.info(f"Processing message for conversation {conversation_id}")
         
+        # PROACTIVE CONTENT SAFETY CHECK - Block harmful content at input layer
+        # This is the first line of defense, before any agent processes the request
+        is_harmful, matched_pattern = _check_input_for_harmful_content(message)
+        if is_harmful:
+            logger.warning(f"Blocking harmful content for conversation {conversation_id}. Pattern: {matched_pattern}")
+            yield {
+                "type": "agent_response",
+                "agent": "content_safety",
+                "content": RAI_HARMFUL_CONTENT_RESPONSE,
+                "conversation_history": f"user: {message}\ncontent_safety: {RAI_HARMFUL_CONTENT_RESPONSE}",
+                "is_final": True,
+                "rai_blocked": True,
+                "blocked_reason": "harmful_content_detected",
+                "metadata": {"conversation_id": conversation_id}
+            }
+            return  # Exit immediately - do not process through agents
+        
         # Prepare the input with context
         full_input = message
         if context:
@@ -766,6 +857,21 @@ class ContentGenerationOrchestrator:
         """
         if not self._initialized:
             self.initialize()
+        
+        # PROACTIVE CONTENT SAFETY CHECK - Block harmful content in follow-up messages too
+        is_harmful, matched_pattern = _check_input_for_harmful_content(user_response)
+        if is_harmful:
+            logger.warning(f"Blocking harmful content in user response for conversation {conversation_id}. Pattern: {matched_pattern}")
+            yield {
+                "type": "agent_response",
+                "agent": "content_safety",
+                "content": RAI_HARMFUL_CONTENT_RESPONSE,
+                "is_final": True,
+                "rai_blocked": True,
+                "blocked_reason": "harmful_content_detected",
+                "metadata": {"conversation_id": conversation_id}
+            }
+            return  # Exit immediately - do not continue workflow
         
         try:
             responses = {request_id: user_response}
