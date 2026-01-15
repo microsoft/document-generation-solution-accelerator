@@ -28,7 +28,7 @@ from agent_framework import (
     ChatAgent,
     ChatMessage,
     HandoffBuilder,
-    HandoffUserInputRequest,
+    HandoffAgentUserRequest,
     RequestInfoEvent,
     WorkflowEvent,
     WorkflowOutputEvent,
@@ -517,7 +517,7 @@ class ContentGenerationOrchestrator:
                 
                 elif isinstance(event, RequestInfoEvent):
                     # Workflow is requesting user input
-                    if isinstance(event.data, HandoffUserInputRequest):
+                    if isinstance(event.data, HandoffAgentUserRequest):
                         # Extract conversation history
                         conversation_text = "\n".join([
                             f"{msg.author_name or msg.role.value}: {msg.text}"
@@ -594,7 +594,7 @@ class ContentGenerationOrchestrator:
                     }
                 
                 elif isinstance(event, RequestInfoEvent):
-                    if isinstance(event.data, HandoffUserInputRequest):
+                    if isinstance(event.data, HandoffAgentUserRequest):
                         yield {
                             "type": "agent_response",
                             "agent": event.data.conversation[-1].author_name if event.data.conversation else "unknown",
