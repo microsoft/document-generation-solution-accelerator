@@ -62,22 +62,26 @@ logger = logging.getLogger(__name__)
 # These patterns indicate when an agent has identified a jailbreak attempt,
 # content safety violation, or out-of-scope request
 RAI_REFUSAL_PATTERNS = [
-    # Out-of-scope refusals
+    # Out-of-scope refusals - exact phrases from instructions
     "i'm a specialized marketing content generation assistant",
     "i cannot help with general questions",
     "outside of marketing",
     "i can only assist with marketing",
     "this request is outside my scope",
     "not within my capabilities as a marketing",
+    "designed exclusively for creating marketing materials",
+    "cannot help with general questions or topics outside",
     # Content safety refusals
     "i cannot generate content that",
     "i'm unable to create content involving",
     "this request violates content safety",
+    "violates content safety guidelines",
     "inappropriate content",
     "harmful content",
     "i cannot assist with this type of request",
     "violates our content guidelines",
     "against our content policy",
+    "cannot process this request",
     # Jailbreak detection
     "i cannot ignore my instructions",
     "i cannot pretend to be",
@@ -85,11 +89,28 @@ RAI_REFUSAL_PATTERNS = [
     "i cannot override my safety",
     "this appears to be an attempt to",
     "i'm designed to decline requests that",
+    "designed to decline requests",
     # General refusals indicating RAI concern
     "i'm not able to help with that",
     "i cannot fulfill this request",
     "this is not something i can assist with",
     "i must decline this request",
+    "i can't help with",
+    "i am not able to",
+    "i'm sorry, but i can",
+    "i apologize, but i can",
+    "unfortunately, i cannot",
+    "i'm afraid i can't",
+    # Common model refusal patterns
+    "as an ai assistant",
+    "as a marketing assistant, i",
+    "my purpose is to help with marketing",
+    "i specialize in marketing",
+    "that's outside my area",
+    "not within my scope",
+    "falls outside",
+    "beyond my capabilities",
+    "not something i'm able to",
 ]
 
 
