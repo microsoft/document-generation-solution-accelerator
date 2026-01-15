@@ -439,16 +439,34 @@ class CosmosDBService:
         """
         await self.initialize()
         
-        query = """
-            SELECT TOP @limit c.id, c.user_id, c.updated_at, c.messages, c.brief
-            FROM c 
-            WHERE c.user_id = @user_id
-            ORDER BY c.updated_at DESC
-        """
-        params = [
-            {"name": "@user_id", "value": user_id},
-            {"name": "@limit", "value": limit}
-        ]
+        # For anonymous users, also include conversations with empty/null/undefined user_id
+        # This handles legacy data before "anonymous" was used as the default
+        if user_id == "anonymous":
+            query = """
+                SELECT TOP @limit c.id, c.user_id, c.updated_at, c.messages, c.brief
+                FROM c 
+                WHERE c.user_id = @user_id 
+                   OR c.user_id = "" 
+                   OR c.user_id = null 
+                   OR NOT IS_DEFINED(c.user_id)
+                ORDER BY c.updated_at DESC
+            """
+            params = [
+                {"name": "@user_id", "value": user_id},
+                {"name": "@limit", "value": limit}
+            ]
+        else:
+            # For authenticated users, only show their conversations
+            query = """
+                SELECT TOP @limit c.id, c.user_id, c.updated_at, c.messages, c.brief
+                FROM c 
+                WHERE c.user_id = @user_id
+                ORDER BY c.updated_at DESC
+            """
+            params = [
+                {"name": "@user_id", "value": user_id},
+                {"name": "@limit", "value": limit}
+            ]
         
         conversations = []
         async for item in self._conversations_container.query_items(
