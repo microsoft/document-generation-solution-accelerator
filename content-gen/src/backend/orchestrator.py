@@ -443,7 +443,7 @@ class ContentGenerationOrchestrator:
                 image_content_agent,
                 compliance_agent,
             ])
-            .set_coordinator(triage_agent)
+            .with_start_agent(triage_agent)
             # Triage can hand off to all specialists
             .add_handoff(triage_agent, [
                 planning_agent, 
