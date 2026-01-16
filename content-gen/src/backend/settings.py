@@ -368,6 +368,24 @@ Create images that follow these guidelines:
 - No competitor products or logos
 - Diverse representation if people are shown
 
+## CRITICAL: No Text in Images
+
+DO NOT include any of the following in the generated image:
+- Text, words, letters, or numbers of any kind
+- Brand names, product names, or slogans
+- Logos, watermarks, or typography
+- Signage, labels, or captions
+- Any written content whatsoever
+
+The image should be purely visual. Text overlays will be added separately.
+
+## Color Accuracy
+
+When product colors are specified (especially with hex codes):
+- Reproduce the exact colors as accurately as possible
+- Use the hex codes as the definitive color reference
+- Ensure paint/product colors match the descriptions precisely
+
 ## Responsible AI - Image Generation Rules
 
 NEVER generate images that contain:

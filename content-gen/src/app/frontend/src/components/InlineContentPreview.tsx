@@ -109,30 +109,45 @@ export function InlineContentPreview({
       img.crossOrigin = 'anonymous';
       
       img.onload = () => {
+        // Calculate banner height
+        const bannerHeight = Math.max(60, img.height * 0.1);
+        const padding = Math.max(16, img.width * 0.03);
+        
+        // Set canvas size to include bottom banner
         canvas.width = img.width;
-        canvas.height = img.height;
+        canvas.height = img.height + bannerHeight;
+        
+        // Draw the image at the top
         ctx.drawImage(img, 0, 0);
+        
+        // Draw white banner at the bottom
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, img.height, img.width, bannerHeight);
+        
+        // Draw banner border line
+        ctx.strokeStyle = '#e5e5e5';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(0, img.height);
+        ctx.lineTo(img.width, img.height);
+        ctx.stroke();
 
-        if (text_content?.headline) {
-          const padding = Math.max(16, img.width * 0.03);
-          const maxTextWidth = img.width - (padding * 2);
-          const headlineText = selectedProduct?.product_name || text_content.headline;
-          const headlineFontSize = Math.max(20, Math.min(48, img.width * 0.05));
-          
-          ctx.font = `600 ${headlineFontSize}px Georgia, serif`;
-          ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
-          ctx.fillText(headlineText, padding + 2, padding + headlineFontSize + 2, maxTextWidth);
-          ctx.fillStyle = 'white';
-          ctx.fillText(headlineText, padding, padding + headlineFontSize, maxTextWidth);
+        // Draw text in the banner
+        const headlineText = selectedProduct?.product_name || text_content?.headline || 'Your Product';
+        const headlineFontSize = Math.max(18, Math.min(36, img.width * 0.04));
+        const taglineText = text_content?.tagline || '';
+        const taglineFontSize = Math.max(12, Math.min(20, img.width * 0.025));
+        
+        // Draw headline
+        ctx.font = `600 ${headlineFontSize}px Georgia, serif`;
+        ctx.fillStyle = '#1a1a1a';
+        ctx.fillText(headlineText, padding, img.height + padding + headlineFontSize * 0.8, img.width - padding * 2);
 
-          if (text_content.cta_text) {
-            const subtitleFontSize = Math.max(13, Math.min(24, img.width * 0.025));
-            ctx.font = `400 ${subtitleFontSize}px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif`;
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
-            ctx.fillText(text_content.cta_text, padding + 2, padding + headlineFontSize + subtitleFontSize + 10, maxTextWidth);
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-            ctx.fillText(text_content.cta_text, padding, padding + headlineFontSize + subtitleFontSize + 8, maxTextWidth);
-          }
+        // Draw tagline if available
+        if (taglineText) {
+          ctx.font = `400 italic ${taglineFontSize}px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif`;
+          ctx.fillStyle = '#666666';
+          ctx.fillText(taglineText, padding, img.height + padding + headlineFontSize + taglineFontSize * 0.8 + 4, img.width - padding * 2);
         }
 
         canvas.toBlob((blob) => {
@@ -140,7 +155,7 @@ export function InlineContentPreview({
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.download = 'generated-image-with-text.png';
+            link.download = 'generated-marketing-image.png';
             link.click();
             URL.revokeObjectURL(url);
           }
@@ -272,70 +287,73 @@ export function InlineContentPreview({
         </div>
       )}
 
-      {/* Image Preview - with product overlay */}
+      {/* Image Preview - with bottom banner for text */}
       {imageGenerationEnabled && image_content?.image_url && (
         <div style={{ 
-          position: 'relative',
           borderRadius: '8px',
           overflow: 'hidden',
           marginBottom: '16px',
           maxWidth: isSmall ? '100%' : '500px',
+          backgroundColor: tokens.colorNeutralBackground1,
+          border: `1px solid ${tokens.colorNeutralStroke2}`,
         }}>
-          <img
-            src={image_content.image_url}
-            alt={image_content.alt_text || 'Generated marketing image'}
-            style={{
-              width: '100%',
-              height: 'auto',
-              display: 'block',
-            }}
-          />
-          
-          {/* Text overlay on image */}
-          <div style={{
-            position: 'absolute',
-            top: '16px',
-            left: '16px',
-            right: '16px',
-            color: 'white',
-            textShadow: '0 2px 4px rgba(0,0,0,0.4)',
-          }}>
-            <Text 
-              size={500} 
-              weight="semibold" 
-              style={{ 
-                color: 'white', 
-                display: 'block',
-                fontFamily: 'Georgia, serif',
-                fontSize: isSmall ? '16px' : '24px',
-              }}
-            >
-              {selectedProduct?.product_name || text_content?.headline || 'Snow Veil'}
-            </Text>
-            <Text size={200} style={{ 
-              color: 'rgba(255,255,255,0.9)',
-              fontStyle: 'italic',
-            }}>
-              A Crisp White for Modern Interiors
-            </Text>
-          </div>
-          
-          {/* Download button */}
-          <Tooltip content="Download image" relationship="label">
-            <Button
-              appearance="subtle"
-              icon={<ArrowDownload20Regular />}
-              size="small"
-              onClick={handleDownloadImage}
+          {/* Image container */}
+          <div style={{ position: 'relative' }}>
+            <img
+              src={image_content.image_url}
+              alt={image_content.alt_text || 'Generated marketing image'}
               style={{
-                position: 'absolute',
-                bottom: '8px',
-                right: '8px',
-                backgroundColor: 'rgba(255,255,255,0.9)',
-                minWidth: '32px',
+                width: '100%',
+                height: 'auto',
+                display: 'block',
               }}
             />
-          </Tooltip>
+            
+            {/* Download button on image */}
+            <Tooltip content="Download image with banner" relationship="label">
+              <Button
+                appearance="subtle"
+                icon={<ArrowDownload20Regular />}
+                size="small"
+                onClick={handleDownloadImage}
+                style={{
+                  position: 'absolute',
+                  bottom: '8px',
+                  right: '8px',
+                  backgroundColor: 'rgba(255,255,255,0.9)',
+                  minWidth: '32px',
+                }}
+              />
+            </Tooltip>
+          </div>
+          
+          {/* Text banner below image */}
+          <div style={{
+            padding: '12px 16px',
+            backgroundColor: tokens.colorNeutralBackground1,
+            borderTop: `1px solid ${tokens.colorNeutralStroke2}`,
+          }}>
+            <Text 
+              size={400} 
+              weight="semibold" 
+              style={{ 
+                color: tokens.colorNeutralForeground1,
+                display: 'block',
+                fontFamily: 'Georgia, serif',
+                marginBottom: '4px',
+              }}
+            >
+              {selectedProduct?.product_name || text_content?.headline || 'Your Product'}
+            </Text>
+            {text_content?.tagline && (
+              <Text size={200} style={{ 
+                color: tokens.colorNeutralForeground3,
+                fontStyle: 'italic',
+              }}>
+                {text_content.tagline}
+              </Text>
+            )}
+          </div>
         </div>
       )}
 

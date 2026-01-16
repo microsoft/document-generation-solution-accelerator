@@ -150,7 +150,11 @@ SCENE:
 MAIN REQUIREMENT:
 {main_prompt}
 
-IMPORTANT:
+CRITICAL INSTRUCTIONS:
+- DO NOT include any text, words, letters, numbers, logos, or watermarks in the image
+- DO NOT render any typography, labels, signage, or written content
+- Create a purely visual image without any text elements
+- Accurately reproduce product colors using the exact hex codes provided
 - Create a polished, professional marketing image
 - Suitable for retail advertising
 - High visual impact
@@ -170,6 +174,8 @@ SCENE: {scene_desc[:300] if scene_desc else main_prompt[:300]}
 REQUIREMENT: {main_prompt[:500]}
 
 Style: Modern, clean, minimalist. Brand colors: {brand.primary_color}, {brand.secondary_color}. High visual impact for retail advertising.
+
+CRITICAL: DO NOT include any text, words, letters, numbers, logos, or watermarks. Create a purely visual image without any text elements. Accurately reproduce product colors using exact hex codes.
 """
 
     try:
@@ -294,7 +300,11 @@ SCENE DESCRIPTION:
 MAIN REQUIREMENT:
 {main_prompt}
 
-IMPORTANT GUIDELINES:
+CRITICAL INSTRUCTIONS:
+- DO NOT include any text, words, letters, numbers, logos, watermarks, or typography in the image
+- DO NOT render any signage, labels, or written content of any kind
+- Create a purely visual image without any text elements whatsoever
+- Accurately reproduce product colors using the exact hex codes provided in the product context
 - Create a polished, professional marketing image
 - Suitable for retail advertising and marketing campaigns
 - High visual impact with clean composition
