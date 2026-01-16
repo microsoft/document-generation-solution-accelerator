@@ -356,6 +356,18 @@ ALWAYS ensure:
     def get_image_generation_prompt(self) -> str:
         """Generate brand guidelines for image content generation."""
         return f"""
+## ⚠️ MANDATORY: ZERO TEXT IN IMAGE
+
+THE GENERATED IMAGE MUST NOT CONTAIN ANY TEXT WHATSOEVER:
+- ❌ NO product names (do not write "Snow Veil", "Cloud Drift", or any paint name)
+- ❌ NO color names (do not write "white", "blue", "gray", etc.)
+- ❌ NO words, letters, numbers, or typography of any kind
+- ❌ NO labels, captions, signage, or watermarks
+- ❌ NO logos or brand names
+- ✓ ONLY visual elements: paint swatches, color samples, textures, scenes
+
+This is a strict requirement. Text will be added separately by the application.
+
 ## Brand Visual Guidelines
 
 Create images that follow these guidelines:
@@ -367,17 +379,6 @@ Create images that follow these guidelines:
 - Clean composition with 30% negative space
 - No competitor products or logos
 - Diverse representation if people are shown
-
-## CRITICAL: No Text in Images
-
-DO NOT include any of the following in the generated image:
-- Text, words, letters, or numbers of any kind
-- Brand names, product names, or slogans
-- Logos, watermarks, or typography
-- Signage, labels, or captions
-- Any written content whatsoever
-
-The image should be purely visual. Text overlays will be added separately.
 
 ## Color Accuracy
 

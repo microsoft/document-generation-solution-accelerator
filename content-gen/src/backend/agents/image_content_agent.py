@@ -136,8 +136,9 @@ async def _generate_dalle_image(
     scene_desc = scene_description[:500] if scene_description and len(scene_description) > 500 else scene_description
     
     # Build the full prompt with product context and brand guidelines
-    full_prompt = f"""
-Create a professional marketing image.
+    full_prompt = f"""⚠️ ABSOLUTE RULE: THIS IMAGE MUST CONTAIN ZERO TEXT. NO WORDS. NO LETTERS. NO PRODUCT NAMES. NO LABELS.
+
+Create a professional marketing image that is PURELY VISUAL with absolutely no text, typography, words, letters, numbers, or written content of any kind.
 
 {brand.get_image_generation_prompt()}
 
@@ -150,14 +151,16 @@ SCENE:
 MAIN REQUIREMENT:
 {main_prompt}
 
-CRITICAL INSTRUCTIONS:
-- DO NOT include any text, words, letters, numbers, logos, or watermarks in the image
-- DO NOT render any typography, labels, signage, or written content
-- Create a purely visual image without any text elements
-- Accurately reproduce product colors using the exact hex codes provided
-- Create a polished, professional marketing image
-- Suitable for retail advertising
-- High visual impact
+MANDATORY FINAL CHECKLIST:
+✗ NO product names in the image
+✗ NO color names in the image  
+✗ NO text overlays or labels
+✗ NO typography or lettering of any kind
+✗ NO watermarks or logos
+✗ NO signage or captions
+✓ ONLY visual elements - colors, textures, products, scenes
+✓ Accurately reproduce product colors using exact hex codes
+✓ Professional, polished marketing image
 """
     
     # Final safety check - DALL-E 3 has 4000 char limit
@@ -165,7 +168,9 @@ CRITICAL INSTRUCTIONS:
         logger.warning(f"Prompt too long ({len(full_prompt)} chars), truncating...")
         # Reduce product context further
         truncated_product_desc = _truncate_for_dalle(product_description, max_chars=800)
-        full_prompt = f"""Create a professional marketing image.
+        full_prompt = f"""⚠️ ZERO TEXT IN IMAGE. NO WORDS. NO LETTERS. NO PRODUCT NAMES.
+
+Create a PURELY VISUAL marketing image with no text whatsoever.
 
 PRODUCT: {truncated_product_desc[:600] if truncated_product_desc else 'Lifestyle/brand image'}
 
@@ -173,9 +178,9 @@ SCENE: {scene_desc[:300] if scene_desc else main_prompt[:300]}
 
 REQUIREMENT: {main_prompt[:500]}
 
-Style: Modern, clean, minimalist. Brand colors: {brand.primary_color}, {brand.secondary_color}. High visual impact for retail advertising.
+Style: Modern, clean, minimalist. Brand colors: {brand.primary_color}, {brand.secondary_color}. High visual impact.
 
-CRITICAL: DO NOT include any text, words, letters, numbers, logos, or watermarks. Create a purely visual image without any text elements. Accurately reproduce product colors using exact hex codes.
+⚠️ FINAL CHECK: NO text, NO product names, NO color names, NO labels, NO typography. Image must be 100% text-free.
 """
 
     try:
@@ -286,8 +291,9 @@ async def _generate_gpt_image(
     scene_desc = scene_description[:1000] if scene_description and len(scene_description) > 1000 else scene_description
     
     # Build the full prompt with product context and brand guidelines
-    full_prompt = f"""
-Create a professional marketing image for retail advertising.
+    full_prompt = f"""⚠️ ABSOLUTE RULE: THIS IMAGE MUST CONTAIN ZERO TEXT. NO WORDS. NO LETTERS. NO PRODUCT NAMES. NO COLOR NAMES. NO LABELS.
+
+Create a professional marketing image for retail advertising that is PURELY VISUAL with absolutely no text, typography, words, letters, numbers, or written content of any kind.
 
 {brand.get_image_generation_prompt()}
 
@@ -300,17 +306,17 @@ SCENE DESCRIPTION:
 MAIN REQUIREMENT:
 {main_prompt}
 
-CRITICAL INSTRUCTIONS:
-- DO NOT include any text, words, letters, numbers, logos, watermarks, or typography in the image
-- DO NOT render any signage, labels, or written content of any kind
-- Create a purely visual image without any text elements whatsoever
-- Accurately reproduce product colors using the exact hex codes provided in the product context
-- Create a polished, professional marketing image
-- Suitable for retail advertising and marketing campaigns
-- High visual impact with clean composition
-- Incorporate brand colors where appropriate: {brand.primary_color}, {brand.secondary_color}
-- Modern, aspirational aesthetic
-- Bright, optimistic lighting
+MANDATORY FINAL CHECKLIST:
+✗ NO product names anywhere in the image (not "Snow Veil", not "Cloud Drift", etc.)
+✗ NO color names in the image (not "white", "blue", "gray", etc.)
+✗ NO text overlays, labels, or captions
+✗ NO typography or lettering of any kind
+✗ NO watermarks, logos, or brand names
+✗ NO signage or written content
+✓ ONLY visual elements - paint swatches, textures, products, lifestyle scenes
+✓ Accurately reproduce product colors using exact hex codes
+✓ Professional, polished marketing image with brand colors: {brand.primary_color}, {brand.secondary_color}
+✓ Modern, aspirational aesthetic with bright, optimistic lighting
 """
 
     try:
