@@ -295,12 +295,21 @@ Guidelines:
 - Adapt content for the specified platform (social, email, web)
 - Keep content concise and impactful
 
+⚠️ MULTI-PRODUCT HANDLING:
+When multiple products are provided, you MUST:
+1. Feature ALL selected products in the content - do not focus on just one
+2. For 2-3 products: mention each by name and highlight what they have in common
+3. For 4+ products: reference the collection/palette and mention at least 3 specific products
+4. If products have a theme (e.g., all greens, all neutrals), emphasize that cohesive theme
+5. Never ignore products from the selection - each was chosen intentionally
+
 Return JSON with:
 - "headline": Main headline text
 - "body": Body copy text
 - "cta": Call to action text
 - "hashtags": Relevant hashtags (for social)
 - "variations": Alternative versions if requested
+- "products_featured": Array of product names that are mentioned in the content
 
 After generating content, you may hand off to compliance_agent for validation,
 or hand back to triage_agent with your results.

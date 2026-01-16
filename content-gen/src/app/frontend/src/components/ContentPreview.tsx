@@ -69,21 +69,50 @@ export function ContentPreview({ content, onRegenerate }: ContentPreviewProps) {
       {/* Approval Status */}
       <div style={{ marginBottom: '16px' }}>
         {requires_modification ? (
-          <Badge
-            appearance="filled"
-            color="danger"
-            icon={<ErrorCircle24Regular />}
-          >
-            Requires Modification
-          </Badge>
+          <div style={{ 
+            display: 'flex', 
+            flexDirection: 'column', 
+            gap: '8px',
+            padding: '12px',
+            backgroundColor: 'rgba(209, 52, 56, 0.08)',
+            borderRadius: '8px',
+            border: '1px solid rgba(209, 52, 56, 0.3)'
+          }}>
+            <Badge
+              appearance="filled"
+              color="danger"
+              icon={<ErrorCircle24Regular />}
+            >
+              Requires Modification
+            </Badge>
+            <Text size={200} style={{ color: tokens.colorNeutralForeground1 }}>
+              <strong>Action needed:</strong> This content has compliance issues that must be addressed before use. 
+              Review the issues below and click <strong>"Regenerate"</strong> to create new content, 
+              or manually edit the text to resolve the flagged concerns.
+            </Text>
+          </div>
         ) : violations.length > 0 ? (
-          <Badge
-            appearance="filled"
-            color="warning"
-            icon={<Warning24Regular />}
-          >
-            Review Recommended
-          </Badge>
+          <div style={{ 
+            display: 'flex', 
+            flexDirection: 'column', 
+            gap: '8px',
+            padding: '12px',
+            backgroundColor: 'rgba(255, 185, 0, 0.08)',
+            borderRadius: '8px',
+            border: '1px solid rgba(255, 185, 0, 0.3)'
+          }}>
+            <Badge
+              appearance="filled"
+              color="warning"
+              icon={<Warning24Regular />}
+            >
+              Review Recommended
+            </Badge>
+            <Text size={200} style={{ color: tokens.colorNeutralForeground1 }}>
+              <strong>Optional review:</strong> Minor suggestions were identified. You may proceed with this content, 
+              but consider reviewing the guidelines below to improve quality.
+            </Text>
+          </div>
         ) : (
           <Badge
             appearance="filled"
