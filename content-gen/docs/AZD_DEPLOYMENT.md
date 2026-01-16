@@ -237,7 +237,7 @@ az container restart --name $ACI_NAME --resource-group $RG_NAME
 ### Update Only the Frontend
 
 ```bash
-cd src/frontend
+cd src/app/frontend
 npm install && npm run build
 
 cd ../frontend-server
@@ -336,7 +336,7 @@ Error: az webapp deploy failed
 
 **Solution**: Ensure the frontend builds successfully:
 ```bash
-cd src/frontend
+cd src/app/frontend
 npm install
 npm run build
 ```
