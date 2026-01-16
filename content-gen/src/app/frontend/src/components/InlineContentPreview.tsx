@@ -409,6 +409,36 @@ export function InlineContentPreview({
 
       <Divider style={{ margin: '16px 0' }} />
 
+      {/* User guidance callout for compliance status */}
+      {requires_modification ? (
+        <div style={{
+          padding: '12px 16px',
+          backgroundColor: '#fde7e9',
+          border: '1px solid #fecaca',
+          borderRadius: '8px',
+          marginBottom: '16px',
+        }}>
+          <Text size={200} style={{ color: '#b91c1c' }}>
+            <strong>Action needed:</strong> This content has compliance issues that must be addressed before use. 
+            Please review the details in the Compliance Guidelines section below and regenerate with modifications, 
+            or manually edit the content to resolve the flagged items.
+          </Text>
+        </div>
+      ) : violations.length > 0 ? (
+        <div style={{
+          padding: '12px 16px',
+          backgroundColor: '#fff8e6',
+          border: '1px solid #fde68a',
+          borderRadius: '8px',
+          marginBottom: '16px',
+        }}>
+          <Text size={200} style={{ color: '#92400e' }}>
+            <strong>Optional review:</strong> This content is approved but has minor suggestions for improvement. 
+            You can use it as-is or review the recommendations in the Compliance Guidelines section below.
+          </Text>
+        </div>
+      ) : null}
+
       {/* Footer with actions */}
       <div style={{
         display: 'flex',
