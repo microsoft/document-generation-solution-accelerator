@@ -15,8 +15,6 @@ import base64
 import logging
 import os
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
-
 from quart import Blueprint, request, jsonify
 from azure.storage.blob import ContentSettings
 

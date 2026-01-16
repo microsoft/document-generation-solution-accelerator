@@ -8,7 +8,7 @@ Provides async operations for:
 """
 
 import logging
-from typing import Any, List, Optional
+from typing import List, Optional
 from datetime import datetime, timezone
 
 from azure.cosmos.aio import CosmosClient, ContainerProxy

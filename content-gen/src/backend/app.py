@@ -11,7 +11,7 @@ import logging
 import os
 import uuid
 from datetime import datetime, timezone
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 
 from quart import Quart, request, jsonify, Response
 from quart_cors import cors
@@ -452,8 +452,6 @@ async def select_products():
 async def _run_generation_task(task_id: str, brief: CreativeBrief, products_data: list, 
                                 generate_images: bool, conversation_id: str, user_id: str):
     """Background task to run content generation."""
-    global _generation_tasks
-    
     try:
         logger.info(f"Starting background generation task {task_id}")
         _generation_tasks[task_id]["status"] = "running"
@@ -731,14 +729,12 @@ async def generate_content():
             
             # Send keepalive heartbeats every 15 seconds while generation is running
             heartbeat_count = 0
-            response = None
-            error = None
             
             while not generation_task.done():
                 # Check every 0.5 seconds (faster response to completion)
                 for _ in range(30):  # 30 * 0.5s = 15 seconds
                     if generation_task.done():
-                        logger.info(f"Task completed during heartbeat wait (iteration)")
+                        logger.info("Task completed during heartbeat wait (iteration)")
                         break
                     await asyncio.sleep(0.5)
                 
@@ -912,6 +908,16 @@ async def proxy_product_image(filename: str):
         
         blob_client = blob_service._product_images_container.get_blob_client(filename)
         
+        # Get blob properties for ETag/Last-Modified
+        properties = await blob_client.get_blob_properties()
+        etag = properties.etag.strip('"') if properties.etag else None
+        last_modified = properties.last_modified
+        
+        # Check If-None-Match header for cache validation
+        if_none_match = request.headers.get("If-None-Match")
+        if if_none_match and etag and if_none_match.strip('"') == etag:
+            return Response(status=304)  # Not Modified
+        
         # Download the blob
         download = await blob_client.download_blob()
         image_data = await download.readall()
@@ -919,12 +925,18 @@ async def proxy_product_image(filename: str):
         # Determine content type from filename
         content_type = "image/png" if filename.endswith(".png") else "image/jpeg"
         
+        headers = {
+            "Cache-Control": "public, max-age=300, must-revalidate",  # Cache 5 min, revalidate
+        }
+        if etag:
+            headers["ETag"] = f'"{etag}"'
+        if last_modified:
+            headers["Last-Modified"] = last_modified.strftime("%a, %d %b %Y %H:%M:%S GMT")
+        
         return Response(
             image_data,
             mimetype=content_type,
-            headers={
-                "Cache-Control": "public, max-age=86400",  # Cache for 24 hours
-            }
+            headers=headers
         )
     except Exception as e:
         logger.exception(f"Error proxying product image {filename}: {e}")
@@ -1175,7 +1187,7 @@ async def startup():
     logger.info("Starting Content Generation Solution Accelerator...")
     
     # Initialize orchestrator
-    orchestrator = get_orchestrator()
+    get_orchestrator()
     logger.info("Orchestrator initialized with Microsoft Agent Framework")
     
     # Try to initialize services - they may fail if CosmosDB/Blob storage is not accessible

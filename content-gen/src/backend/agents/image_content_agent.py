@@ -5,8 +5,6 @@ to create marketing images using either DALL-E 3, gpt-image-1, or gpt-image-1.5.
 """
 
 import logging
-import re
-from typing import Any
 
 from openai import AsyncAzureOpenAI
 from azure.identity.aio import DefaultAzureCredential, ManagedIdentityCredential

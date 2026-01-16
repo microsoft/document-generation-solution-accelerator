@@ -8,7 +8,6 @@ Provides async operations for:
 """
 
 import base64
-import io
 import logging
 from typing import Optional, Tuple
 from datetime import datetime, timezone

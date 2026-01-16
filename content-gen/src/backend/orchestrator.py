@@ -19,21 +19,18 @@ import base64
 import json
 import logging
 import re
-from typing import Any, AsyncIterator, Optional, Union, cast
+from typing import AsyncIterator, Optional, cast
 
 # Token endpoint for Azure Cognitive Services (used for Azure OpenAI)
 TOKEN_ENDPOINT = "https://cognitiveservices.azure.com/.default"
 
 from agent_framework import (
-    ChatAgent,
     ChatMessage,
     HandoffBuilder,
     HandoffAgentUserRequest,
     RequestInfoEvent,
-    WorkflowEvent,
     WorkflowOutputEvent,
     WorkflowStatusEvent,
-    WorkflowRunState,
 )
 from agent_framework.azure import AzureOpenAIChatClient
 from azure.identity import DefaultAzureCredential
@@ -46,13 +43,7 @@ except ImportError:
     FOUNDRY_AVAILABLE = False
     AIProjectClient = None
 
-from models import (
-    CreativeBrief,
-    ContentGenerationResponse,
-    ComplianceViolation,
-    ComplianceSeverity,
-    ComplianceResult,
-)
+from models import CreativeBrief
 from settings import app_settings
 
 logger = logging.getLogger(__name__)
@@ -978,9 +969,6 @@ Analyze this creative brief request and determine if all critical information is
         
         research_agent = self._agents["research"]
         
-        # Build context for the agent
-        current_skus = [p.get('sku', '') for p in (current_products or [])] if current_products else []
-        
         select_prompt = f"""
 You are helping a user select products for a marketing campaign.
 
@@ -1039,7 +1027,7 @@ Important:
             return {
                 "products": current_products or [],
                 "action": "error",
-                "message": f"I had trouble understanding that request. Please try again with something like 'select SnowVeil paint' or 'show me exterior paints'."
+                "message": "I had trouble understanding that request. Please try again with something like 'select SnowVeil paint' or 'show me exterior paints'."
             }
 
     async def _generate_foundry_image(self, image_prompt: str, results: dict) -> None:
