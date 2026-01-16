@@ -34,7 +34,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 SRC_DIR="$PROJECT_ROOT/src"
 BACKEND_DIR="$SRC_DIR/backend"
-FRONTEND_DIR="$SRC_DIR/frontend"
+FRONTEND_DIR="$SRC_DIR/app/frontend"
 
 # Default ports
 BACKEND_PORT=${BACKEND_PORT:-5000}
@@ -168,7 +168,7 @@ ensure_cosmosdb_role() {
     
     # Check if role already assigned
     local existing
-    existing=$(az cosmosdb sql role assignment list --resource-group "$resource_group" --account-name "$cosmos_account" --query "[?principalId=='$signed_user_id'].id" -o tsv 2>/dev/null)
+    existing=$(az cosmosdb sql role assignment list --resource-group "$resource_group" --account-name "$cosmos_account" --query "[?principalId=='$signed_user_id' && contains(roleDefinitionId, '$role_def_id')].id | [0]" -o tsv 2>/dev/null)
     
     if [ -n "$existing" ]; then
         print_success "Cosmos DB role already assigned."
@@ -180,6 +180,52 @@ ensure_cosmosdb_role() {
             exit 1
         fi
         print_success "Cosmos DB role assigned."
+    fi
+}
+
+ensure_storage_role() {
+    print_info "Checking Storage Blob Data Contributor role..."
+    
+    local storage_account=""
+    local resource_group=""
+    if [ -f ".env" ]; then
+        storage_account=$(grep "^AZURE_BLOB_ACCOUNT_NAME=" .env | cut -d'=' -f2- | tr -d '"' | tr -d "'" || echo "")
+        resource_group=$(grep "^RESOURCE_GROUP_NAME=" .env | cut -d'=' -f2- | tr -d '"' | tr -d "'" || echo "")
+    fi
+    
+    if [ -z "$storage_account" ] || [ -z "$resource_group" ]; then
+        print_error "AZURE_BLOB_ACCOUNT_NAME or RESOURCE_GROUP_NAME not found in .env"
+        exit 1
+    fi
+    
+    local signed_user_id
+    signed_user_id=$(az ad signed-in-user show --query id -o tsv 2>/dev/null)
+    if [ -z "$signed_user_id" ]; then
+        print_error "Could not get signed-in user ID."
+        exit 1
+    fi
+    
+    # Get storage account resource ID
+    local storage_resource_id
+    storage_resource_id=$(az storage account show --name "$storage_account" --resource-group "$resource_group" --query id -o tsv 2>/dev/null)
+    if [ -z "$storage_resource_id" ]; then
+        print_error "Could not get storage account resource ID."
+        exit 1
+    fi
+    
+    local role_name="Storage Blob Data Contributor"
+    local existing
+    existing=$(MSYS_NO_PATHCONV=1 az role assignment list --assignee "$signed_user_id" --role "$role_name" --scope "$storage_resource_id" --query "[0].id" -o tsv 2>/dev/null)
+    
+    if [ -n "$existing" ]; then
+        print_success "Storage Blob Data Contributor role already assigned."
+    else
+        print_info "Assigning Storage Blob Data Contributor role..."
+        if ! MSYS_NO_PATHCONV=1 az role assignment create --assignee "$signed_user_id" --role "$role_name" --scope "$storage_resource_id" --output none 2>/dev/null; then
+            print_error "Failed to assign Storage Blob Data Contributor role."
+            exit 1
+        fi
+        print_success "Storage Blob Data Contributor role assigned."
     fi
 }
 
@@ -323,6 +369,7 @@ start_backend() {
     ensure_azure_login
     ensure_azure_ai_user_role
     ensure_cosmosdb_role
+    ensure_storage_role
     
     # Activate virtual environment
     if [ -d ".venv" ]; then
@@ -410,6 +457,7 @@ start_all() {
     ensure_azure_login
     ensure_azure_ai_user_role
     ensure_cosmosdb_role
+    ensure_storage_role
     
     print_info "Starting backend and frontend in parallel..."
     print_info ""
