@@ -1,19 +1,16 @@
 import { useState, useRef, useEffect } from 'react';
 import {
-  Card,
-  Input,
   Button,
-  Spinner,
   Text,
   Badge,
   tokens,
   Tooltip,
 } from '@fluentui/react-components';
 import {
-  Send24Regular,
-  Bot24Regular,
-  Person24Regular,
+  Send20Regular,
   Stop24Regular,
+  Add20Regular,
+  Copy20Regular,
 } from '@fluentui/react-icons';
 import ReactMarkdown from 'react-markdown';
 import type { ChatMessage, CreativeBrief, Product, GeneratedContent } from '../types';
@@ -35,13 +32,17 @@ interface ChatPanelProps {
   confirmedBrief?: CreativeBrief | null;
   generatedContent?: GeneratedContent | null;
   selectedProducts?: Product[];
+  availableProducts?: Product[];
   onBriefConfirm?: () => void;
   onBriefCancel?: () => void;
   onGenerateContent?: () => void;
   onRegenerateContent?: () => void;
   onProductsStartOver?: () => void;
+  onProductSelect?: (product: Product) => void;
   // Feature flags
   imageGenerationEnabled?: boolean;
+  // New chat
+  onNewConversation?: () => void;
 }
 
 export function ChatPanel({ 
@@ -54,17 +55,22 @@ export function ChatPanel({
   confirmedBrief,
   generatedContent,
   selectedProducts = [],
+  availableProducts = [],
   onBriefConfirm,
   onBriefCancel,
   onGenerateContent,
   onRegenerateContent,
   onProductsStartOver,
+  onProductSelect,
   imageGenerationEnabled = true,
+  onNewConversation,
 }: ChatPanelProps) {
   const [inputValue, setInputValue] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const inputContainerRef = useRef<HTMLDivElement>(null);
 
-  // Scroll to bottom when messages change, content updates, or loading state changes
+  // Scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, pendingBrief, confirmedBrief, generatedContent, isLoading, generationStatus]);
@@ -89,17 +95,23 @@ export function ChatPanel({
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+    <div className="chat-container">
       {/* Messages Area */}
-      <div style={{ 
-        flex: 1, 
-        overflowY: 'auto', 
-        padding: 'clamp(12px, 2vw, 16px)',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 'clamp(12px, 2vw, 16px)',
-        minHeight: 0, /* Allow flex shrinking */
-      }}>
+      <div 
+        className="messages"
+        ref={messagesContainerRef}
+        style={{ 
+          flex: 1, 
+          overflowY: 'auto', 
+          overflowX: 'hidden',
+          padding: '8px 8px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '12px',
+          minHeight: 0,
+          position: 'relative',
+        }}
+      >
         {showWelcome ? (
           <WelcomeCard onSuggestionClick={handleSuggestionClick} />
         ) : (
@@ -132,9 +144,11 @@ export function ChatPanel({
             {showProductReview && (
               <ProductReview
                 products={selectedProducts}
+                availableProducts={availableProducts}
                 onConfirm={onGenerateContent}
                 onStartOver={onProductsStartOver || (() => {})}
                 isAwaitingResponse={isLoading}
+                onProductSelect={onProductSelect}
               />
             )}
             
@@ -149,27 +163,53 @@ export function ChatPanel({
               />
             )}
             
+            {/* Loading/Typing Indicator - Coral Style */}
             {isLoading && (
-              <div style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
+              <div className="typing-indicator" style={{
+                display: 'flex',
+                alignItems: 'center',
                 gap: '12px',
-                padding: '16px 20px',
+                padding: '12px 16px',
                 backgroundColor: tokens.colorNeutralBackground3,
-                borderRadius: '12px',
-                border: `1px solid ${tokens.colorNeutralStroke2}`,
+                borderRadius: '8px',
+                alignSelf: 'flex-start',
+                width: '100%',
               }}>
-                <Spinner size="small" />
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
-                  <Text weight="semibold" size={300}>
-                    {generationStatus || 'Generating response...'}
-                  </Text>
-                  {generationStatus && (
-                    <Text size={200} style={{ color: tokens.colorNeutralForeground3 }}>
-                      This may take up to a minute
-                    </Text>
-                  )}
+                <div className="thinking-dots">
+                  <span style={{
+                    display: 'inline-flex',
+                    gap: '4px',
+                    alignItems: 'center',
+                  }}>
+                    <span className="dot" style={{
+                      width: '8px',
+                      height: '8px',
+                      borderRadius: '50%',
+                      backgroundColor: tokens.colorBrandBackground,
+                      animation: 'pulse 1.4s infinite ease-in-out',
+                      animationDelay: '0s',
+                    }} />
+                    <span className="dot" style={{
+                      width: '8px',
+                      height: '8px',
+                      borderRadius: '50%',
+                      backgroundColor: tokens.colorBrandBackground,
+                      animation: 'pulse 1.4s infinite ease-in-out',
+                      animationDelay: '0.2s',
+                    }} />
+                    <span className="dot" style={{
+                      width: '8px',
+                      height: '8px',
+                      borderRadius: '50%',
+                      backgroundColor: tokens.colorBrandBackground,
+                      animation: 'pulse 1.4s infinite ease-in-out',
+                      animationDelay: '0.4s',
+                    }} />
+                  </span>
                 </div>
+                <Text size={300} style={{ color: tokens.colorNeutralForeground2 }}>
+                  {generationStatus || 'Thinking...'}
+                </Text>
                 {onStopGeneration && (
                   <Tooltip content="Stop generation" relationship="label">
                     <Button
@@ -180,6 +220,7 @@ export function ChatPanel({
                       style={{ 
                         color: tokens.colorPaletteRedForeground1,
                         minWidth: '32px',
+                        marginLeft: 'auto',
                       }}
                     >
                       Stop
@@ -193,77 +234,97 @@ export function ChatPanel({
         
         <div ref={messagesEndRef} />
       </div>
-      
-      {/* Input Area */}
-      <div style={{
-        padding: 'clamp(12px, 2vw, 16px) clamp(16px, 3vw, 24px) clamp(8px, 1.5vw, 12px)',
-        borderTop: `1px solid ${tokens.colorNeutralStroke2}`,
-        backgroundColor: tokens.colorNeutralBackground1,
-        flexShrink: 0,
-      }}>
-        <form 
-          onSubmit={handleSubmit}
-          style={{ 
+
+      {/* Input Area - Simple single-line like Figma */}
+      <div 
+        ref={inputContainerRef}
+        style={{
+          margin: '0 8px 8px 8px',
+          position: 'relative',
+        }}
+      >
+        {/* Input Box */}
+        <div 
+          style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '8px',
-            backgroundColor: tokens.colorNeutralBackground3,
-            borderRadius: '24px',
-            padding: 'clamp(6px, 1vw, 8px) clamp(8px, 1.5vw, 12px)',
-            border: `1px solid ${tokens.colorNeutralStroke1}`,
+            padding: '8px 12px',
+            borderRadius: '4px',
+            backgroundColor: tokens.colorNeutralBackground1,
+            border: `1px solid ${tokens.colorNeutralStroke2}`,
           }}
         >
-{/* Attach file button disabled
-          <Tooltip content="Attach file" relationship="label">
-            <Button
-              appearance="subtle"
-              icon={<Add24Regular />}
-              shape="circular"
-              size="small"
-              disabled={isLoading}
-              style={{ 
-                minWidth: '32px',
-                color: tokens.colorNeutralForeground3,
-              }}
-            />
-          </Tooltip>
-*/}
-          <Input
-            style={{ 
-              flex: 1,
-              border: 'none',
-              backgroundColor: 'transparent',
-              minWidth: 0, /* Allow input to shrink */
-            }}
-            appearance="underline"
-            placeholder="Type a message"
+          <input
+            type="text"
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSubmit(e);
+              }
+            }}
+            placeholder="Type a message"
             disabled={isLoading}
-          />
-          <Button
-            appearance="subtle"
-            icon={<Send24Regular />}
-            shape="circular"
-            size="small"
-            type="submit"
-            disabled={!inputValue.trim() || isLoading}
-            style={{ 
-              minWidth: '32px',
-              color: inputValue.trim() ? tokens.colorBrandForeground1 : tokens.colorNeutralForeground4,
+            style={{
+              flex: 1,
+              border: 'none',
+              outline: 'none',
+              backgroundColor: 'transparent',
+              fontFamily: 'var(--fontFamilyBase)',
+              fontSize: '14px',
+              color: tokens.colorNeutralForeground1,
             }}
           />
-        </form>
+          
+          {/* Icons on the right */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0px' }}>
+            <Tooltip content="New chat" relationship="label">
+              <Button
+                appearance="subtle"
+                icon={<Add20Regular />}
+                size="small"
+                onClick={onNewConversation}
+                disabled={isLoading}
+                style={{ 
+                  minWidth: '32px',
+                  height: '32px',
+                  color: tokens.colorNeutralForeground3,
+                }}
+              />
+            </Tooltip>
+            
+            {/* Vertical divider */}
+            <div style={{
+              width: '1px',
+              height: '20px',
+              backgroundColor: tokens.colorNeutralStroke2,
+              margin: '0 4px',
+            }} />
+            
+            <Button
+              appearance="subtle"
+              icon={<Send20Regular />}
+              size="small"
+              onClick={handleSubmit}
+              disabled={!inputValue.trim() || isLoading}
+              style={{ 
+                minWidth: '32px',
+                height: '32px',
+                color: inputValue.trim() ? tokens.colorBrandForeground1 : tokens.colorNeutralForeground4,
+              }}
+            />
+          </div>
+        </div>
         
-        {/* Disclaimer */}
+        {/* Disclaimer - Outside the input box */}
         <Text 
           size={100} 
           style={{ 
             display: 'block',
-            textAlign: 'center',
             marginTop: '8px',
             color: tokens.colorNeutralForeground4,
-            fontSize: 'clamp(10px, 1.2vw, 12px)',
+            fontSize: '12px',
           }}
         >
           AI generated content may be incorrect. Check for mistakes.
@@ -273,59 +334,103 @@ export function ChatPanel({
   );
 }
 
+// Copy function for messages
+const handleCopy = (text: string) => {
+  navigator.clipboard.writeText(text).catch((err) => {
+    console.error('Failed to copy text:', err);
+  });
+};
+
 function MessageBubble({ message }: { message: ChatMessage }) {
   const isUser = message.role === 'user';
+  const [copied, setCopied] = useState(false);
+
+  const onCopy = () => {
+    handleCopy(message.content);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
   
   return (
-    <div style={{ 
-      display: 'flex',
-      flexDirection: isUser ? 'row-reverse' : 'row',
-      gap: 'clamp(6px, 1vw, 8px)',
-      alignItems: 'flex-start'
-    }}>
-      <div style={{ 
-        width: 'clamp(28px, 4vw, 32px)',
-        height: 'clamp(28px, 4vw, 32px)',
-        minWidth: '28px',
-        minHeight: '28px',
-        borderRadius: '50%',
-        backgroundColor: isUser ? tokens.colorBrandBackground : tokens.colorNeutralBackground3,
+    <div 
+      className={`message ${isUser ? 'user' : 'assistant'}`}
+      style={{ 
+        display: 'inline-block',
+        wordWrap: 'break-word',
+        wordBreak: 'break-word',
+        boxSizing: 'border-box',
+        ...(isUser ? {
+          backgroundColor: tokens.colorBrandBackground2,
+          color: tokens.colorNeutralForeground1,
+          alignSelf: 'flex-end',
+          padding: '12px 16px',
+          borderRadius: '8px',
+          maxWidth: '80%',
+        } : {
+          backgroundColor: tokens.colorNeutralBackground3,
+          color: tokens.colorNeutralForeground1,
+          alignSelf: 'flex-start',
+          margin: '16px 0 0 0',
+          padding: '12px 16px',
+          borderRadius: '8px',
+          width: '100%',
+        }),
+      }}
+    >
+      {/* Agent badge for assistant messages */}
+      {!isUser && message.agent && (
+        <Badge appearance="outline" size="small" style={{ marginBottom: '8px' }}>
+          {message.agent}
+        </Badge>
+      )}
+      
+      {/* Message content with markdown */}
+      <div className="message-content" style={{ 
         display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexShrink: 0
+        flexDirection: 'column',
+        whiteSpace: 'pre-wrap',
+        width: '100%',
       }}>
-        {isUser ? (
-          <Person24Regular style={{ fontSize: 'clamp(14px, 2vw, 16px)', color: 'white' }} />
-        ) : (
-          <Bot24Regular style={{ fontSize: 'clamp(14px, 2vw, 16px)' }} />
+        <ReactMarkdown>
+          {message.content}
+        </ReactMarkdown>
+
+        {/* Footer for assistant messages - Coral style */}
+        {!isUser && (
+          <div className="assistant-footer" style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginTop: '12px',
+          }}>
+            <Text size={100} style={{ 
+              color: tokens.colorNeutralForeground4,
+              fontSize: '11px',
+            }}>
+              AI-generated content may be incorrect
+            </Text>
+            
+            <div className="assistant-actions" style={{
+              display: 'flex',
+              gap: '4px',
+            }}>
+              <Tooltip content={copied ? 'Copied!' : 'Copy'} relationship="label">
+                <Button
+                  appearance="subtle"
+                  icon={<Copy20Regular />}
+                  size="small"
+                  onClick={onCopy}
+                  style={{ 
+                    minWidth: '28px', 
+                    height: '28px',
+                    color: tokens.colorNeutralForeground3,
+                  }}
+                />
+              </Tooltip>
+            </div>
+          </div>
         )}
       </div>
-      
-      <Card style={{ 
-        maxWidth: 'min(70%, calc(100% - 50px))',
-        backgroundColor: isUser ? tokens.colorBrandBackground2 : tokens.colorNeutralBackground1,
-        minWidth: 0, /* Allow card to shrink */
-      }}>
-        {message.agent && (
-          <Badge appearance="outline" size="small" style={{ marginBottom: '8px' }}>
-            {message.agent}
-          </Badge>
-        )}
-        <div style={{ fontSize: 'clamp(13px, 1.8vw, 14px)', wordBreak: 'break-word' }}>
-          <ReactMarkdown>{message.content}</ReactMarkdown>
-        </div>
-        <Text 
-          size={100} 
-          style={{ 
-            color: tokens.colorNeutralForeground3,
-            marginTop: '8px',
-            fontSize: 'clamp(10px, 1.2vw, 12px)',
-          }}
-        >
-          {new Date(message.timestamp).toLocaleTimeString()}
-        </Text>
-      </Card>
     </div>
   );
 }

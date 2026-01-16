@@ -1,15 +1,11 @@
 import {
-  Card,
   Button,
   Text,
-  Badge,
   tokens,
 } from '@fluentui/react-components';
 import {
-  Bot24Regular,
-  ArrowReset24Regular,
-  Box24Regular,
-  Sparkle24Regular,
+  Sparkle20Regular,
+  Box20Regular,
 } from '@fluentui/react-icons';
 import type { Product } from '../types';
 
@@ -18,219 +14,203 @@ interface ProductReviewProps {
   onConfirm: () => void;
   onStartOver: () => void;
   isAwaitingResponse?: boolean;
+  availableProducts?: Product[];
+  onProductSelect?: (product: Product) => void;
 }
 
 export function ProductReview({
   products,
   onConfirm,
-  onStartOver,
+  onStartOver: _onStartOver,
   isAwaitingResponse = false,
+  availableProducts = [],
+  onProductSelect,
 }: ProductReviewProps) {
-  const hasProducts = products.length > 0;
+  const displayProducts = availableProducts.length > 0 ? availableProducts : products;
+  const selectedProductIds = new Set(products.map(p => p.sku || p.product_name));
+
+  const isProductSelected = (product: Product): boolean => {
+    return selectedProductIds.has(product.sku || product.product_name);
+  };
+
+  const handleProductClick = (product: Product) => {
+    if (onProductSelect) {
+      onProductSelect(product);
+    }
+  };
 
   return (
-    <div style={{ 
-      display: 'flex',
-      gap: 'clamp(6px, 1vw, 8px)',
-      alignItems: 'flex-start',
-      maxWidth: '100%'
+    <div className="message assistant" style={{ 
+      width: '100%',
+      alignSelf: 'flex-start',
+      backgroundColor: tokens.colorNeutralBackground3,
+      padding: '12px 16px',
+      borderRadius: '8px',
+      margin: '16px 0 0 0',
     }}>
-      {/* Bot Avatar */}
-      <div style={{ 
-        width: 'clamp(28px, 4vw, 32px)',
-        height: 'clamp(28px, 4vw, 32px)',
-        minWidth: '28px',
-        minHeight: '28px',
-        borderRadius: '50%',
-        backgroundColor: tokens.colorNeutralBackground3,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexShrink: 0
-      }}>
-        <Bot24Regular style={{ fontSize: 'clamp(14px, 2vw, 16px)' }} />
-      </div>
-      
-      <Card style={{ 
-        flex: 1,
-        maxWidth: 'calc(100% - 40px)',
-        backgroundColor: tokens.colorNeutralBackground1,
-        minWidth: 0,
-      }}>
-        <Badge appearance="outline" size="small" style={{ marginBottom: '8px' }}>
-          ProductAgent
-        </Badge>
-        
-        <Text 
-          weight="semibold" 
-          size={300} 
-          block 
-          style={{ 
-            marginBottom: '8px',
-            fontSize: 'clamp(13px, 1.8vw, 15px)',
-          }}
-        >
-          {hasProducts 
-            ? `Selected Products (${products.length})`
-            : 'No Products Selected Yet'
-          }
+      <div style={{ marginBottom: '16px' }}>
+        <Text size={300} style={{ color: tokens.colorNeutralForeground1 }}>
+          Here is the list of available paints:
         </Text>
-        
-        {/* Selected Products Display */}
-        {hasProducts ? (
-          <div style={{ 
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 'clamp(6px, 1vw, 8px)',
-            marginBottom: 'clamp(12px, 2vw, 16px)',
-          }}>
-            {products.map((product, index) => (
-              <div
-                key={product.sku || index}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 'clamp(8px, 1.5vw, 12px)',
-                  padding: 'clamp(8px, 1.5vw, 12px)',
-                  backgroundColor: tokens.colorBrandBackground2,
-                  borderRadius: '8px',
-                  border: `1px solid ${tokens.colorBrandStroke1}`,
-                }}
-              >
-                {product.image_url ? (
-                  <img
-                    src={product.image_url}
-                    alt={product.product_name}
-                    style={{
-                      width: 'clamp(40px, 6vw, 50px)',
-                      height: 'clamp(40px, 6vw, 50px)',
-                      objectFit: 'cover',
-                      borderRadius: '6px',
-                      flexShrink: 0,
-                    }}
-                  />
-                ) : (
-                  <div style={{
-                    width: 'clamp(40px, 6vw, 50px)',
-                    height: 'clamp(40px, 6vw, 50px)',
-                    borderRadius: '6px',
-                    backgroundColor: tokens.colorNeutralBackground3,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0,
-                  }}>
-                    <Box24Regular />
-                  </div>
-                )}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <Text 
-                    weight="semibold" 
-                    size={200} 
-                    block
-                    style={{
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                      fontSize: 'clamp(12px, 1.6vw, 14px)',
-                    }}
-                  >
-                    {product.product_name}
-                  </Text>
-                  <Text 
-                    size={100}
-                    style={{ 
-                      color: tokens.colorNeutralForeground3,
-                      fontSize: 'clamp(10px, 1.2vw, 12px)',
-                    }}
-                  >
-                    {product.category || product.tags} {product.price ? `• $${product.price.toFixed(2)}` : ''}
-                  </Text>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div style={{
-            padding: 'clamp(16px, 3vw, 24px)',
-            textAlign: 'center',
-            backgroundColor: tokens.colorNeutralBackground2,
-            borderRadius: '8px',
-            marginBottom: 'clamp(12px, 2vw, 16px)',
-          }}>
-            <Box24Regular style={{ fontSize: '32px', color: tokens.colorNeutralForeground3, marginBottom: '8px' }} />
-            <Text size={200} style={{ color: tokens.colorNeutralForeground3 }}>
-              Tell me which products you'd like to feature
-            </Text>
-          </div>
-        )}
-        
-        {/* Conversational Prompts */}
+      </div>
+
+      {displayProducts.length > 0 ? (
+        <div className="product-grid" style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(2, 1fr)',
+          gap: '16px',
+          marginBottom: '16px',
+          maxHeight: '500px',
+          overflowY: 'auto',
+        }}>
+          {displayProducts.map((product, index) => (
+            <ProductCardGrid
+              key={product.sku || index}
+              product={product}
+              isSelected={isProductSelected(product)}
+              onClick={() => handleProductClick(product)}
+            />
+          ))}
+        </div>
+      ) : (
         <div style={{
-          padding: 'clamp(8px, 1.5vw, 12px)',
+          padding: '24px',
+          textAlign: 'center',
           backgroundColor: tokens.colorNeutralBackground2,
           borderRadius: '8px',
-          marginBottom: 'clamp(12px, 2vw, 16px)',
+          marginBottom: '16px',
         }}>
-          <Text 
-            size={200} 
-            style={{ 
-              color: tokens.colorNeutralForeground2,
-              lineHeight: '1.5',
-              fontSize: 'clamp(11px, 1.4vw, 13px)',
-            }}
-          >
-            {hasProducts ? (
-              <>
-                <strong>Looking good!</strong> You can continue to refine your selection:
-                <ul style={{ margin: '8px 0 0 0', paddingLeft: '16px' }}>
-                  <li>"Add the Blue Ash paint to the selection"</li>
-                  <li>"Remove the second product"</li>
-                  <li>"Show me more blue paints"</li>
-                </ul>
-                <div style={{ marginTop: '8px' }}>
-                  When you're satisfied, click <strong>Generate Content</strong> to create your marketing materials.
-                </div>
-              </>
-            ) : (
-              <>
-                <strong>Let's find the right products!</strong> Try saying:
-                <ul style={{ margin: '8px 0 0 0', paddingLeft: '16px' }}>
-                  <li>"Show me what paints are available"</li>
-                  <li>"Find products with blue tones"</li>
-                  <li>"Select Snow Veil and Silver Shore"</li>
-                </ul>
-              </>
-            )}
+          <Text size={200} style={{ color: tokens.colorNeutralForeground3 }}>
+            No products available.
           </Text>
         </div>
-        
-        {/* Action Buttons */}
+      )}
+
+      {displayProducts.length > 0 && (
         <div style={{ 
           display: 'flex',
-          gap: 'clamp(6px, 1vw, 8px)',
+          gap: '8px',
           flexWrap: 'wrap',
+          marginTop: '16px',
         }}>
           <Button
             appearance="primary"
-            icon={<Sparkle24Regular />}
+            icon={<Sparkle20Regular />}
             onClick={onConfirm}
-            disabled={isAwaitingResponse || !hasProducts}
+            disabled={isAwaitingResponse}
             size="small"
           >
             Generate Content
           </Button>
-          <Button
-            appearance="subtle"
-            icon={<ArrowReset24Regular />}
-            onClick={onStartOver}
-            disabled={isAwaitingResponse}
-            size="small"
-          >
-            Start Over
-          </Button>
         </div>
-      </Card>
+      )}
+
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginTop: '12px',
+        paddingTop: '8px',
+      }}>
+        <Text size={100} style={{ color: tokens.colorNeutralForeground4 }}>
+          AI-generated content may be incorrect
+        </Text>
+      </div>
+    </div>
+  );
+}
+
+interface ProductCardGridProps {
+  product: Product;
+  isSelected: boolean;
+  onClick: () => void;
+}
+
+function ProductCardGrid({ product, isSelected, onClick }: ProductCardGridProps) {
+  return (
+    <div 
+      className={`product-card ${isSelected ? 'selected' : ''}`}
+      onClick={onClick}
+      style={{
+        display: 'flex',
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: '16px',
+        padding: '16px',
+        borderRadius: '8px',
+        border: isSelected ? `2px solid ${tokens.colorBrandStroke1}` : `1px dashed ${tokens.colorNeutralStroke2}`,
+        backgroundColor: isSelected ? tokens.colorBrandBackground2 : tokens.colorNeutralBackground1,
+        cursor: 'pointer',
+        transition: 'all 0.15s ease-in-out',
+      }}
+    >
+      {product.image_url ? (
+        <img
+          src={product.image_url}
+          alt={product.product_name}
+          style={{
+            width: '80px',
+            height: '80px',
+            objectFit: 'cover',
+            borderRadius: '8px',
+            border: `1px solid ${tokens.colorNeutralStroke2}`,
+            flexShrink: 0,
+          }}
+        />
+      ) : (
+        <div 
+          style={{
+            width: '80px',
+            height: '80px',
+            borderRadius: '8px',
+            backgroundColor: tokens.colorNeutralBackground3,
+            border: `1px solid ${tokens.colorNeutralStroke2}`,
+            flexShrink: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Box20Regular style={{ color: tokens.colorNeutralForeground3, fontSize: '24px' }} />
+        </div>
+      )}
+      
+      <div className="product-info" style={{ flex: 1, minWidth: 0 }}>
+        <Text 
+          weight="semibold" 
+          size={400}
+          style={{ 
+            display: 'block',
+            color: tokens.colorNeutralForeground1,
+            marginBottom: '4px',
+          }}
+        >
+          {product.product_name}
+        </Text>
+        <Text 
+          size={200}
+          style={{ 
+            display: 'block',
+            color: tokens.colorNeutralForeground3,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            marginBottom: '4px',
+          }}
+        >
+          {product.tags || product.description || 'soft white, airy, minimal, fresh'}
+        </Text>
+        <Text 
+          weight="semibold" 
+          size={300}
+          style={{ 
+            display: 'block',
+            color: tokens.colorNeutralForeground1,
+          }}
+        >
+          ${product.price?.toFixed(2) || '59.95'} USD
+        </Text>
+      </div>
     </div>
   );
 }

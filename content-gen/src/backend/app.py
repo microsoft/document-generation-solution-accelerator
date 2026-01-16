@@ -49,14 +49,14 @@ def get_authenticated_user():
     Get the authenticated user from EasyAuth headers.
     
     In production (with App Service Auth), the X-Ms-Client-Principal-Id header
-    contains the user's ID. In development mode, returns empty/None values.
+    contains the user's ID. In development mode, returns "anonymous".
     """
     user_principal_id = request.headers.get("X-Ms-Client-Principal-Id", "")
     user_name = request.headers.get("X-Ms-Client-Principal-Name", "")
     auth_provider = request.headers.get("X-Ms-Client-Principal-Idp", "")
     
     return {
-        "user_principal_id": user_principal_id or "",
+        "user_principal_id": user_principal_id or "anonymous",
         "user_name": user_name or "",
         "auth_provider": auth_provider or "",
         "is_authenticated": bool(user_principal_id)
@@ -216,7 +216,33 @@ async def parse_brief():
         logger.warning(f"Failed to save brief message to CosmosDB: {e}")
     
     orchestrator = get_orchestrator()
-    parsed_brief, clarifying_questions = await orchestrator.parse_brief(brief_text)
+    parsed_brief, clarifying_questions, rai_blocked = await orchestrator.parse_brief(brief_text)
+    
+    # Check if request was blocked due to harmful content
+    if rai_blocked:
+        # Save the refusal as assistant response
+        try:
+            cosmos_service = await get_cosmos_service()
+            await cosmos_service.add_message_to_conversation(
+                conversation_id=conversation_id,
+                user_id=user_id,
+                message={
+                    "role": "assistant",
+                    "content": clarifying_questions,  # This is the refusal message
+                    "agent": "ContentSafety",
+                    "timestamp": datetime.now(timezone.utc).isoformat()
+                }
+            )
+        except Exception as e:
+            logger.warning(f"Failed to save RAI response to CosmosDB: {e}")
+        
+        return jsonify({
+            "rai_blocked": True,
+            "requires_clarification": False,
+            "requires_confirmation": False,
+            "conversation_id": conversation_id,
+            "message": clarifying_questions
+        })
     
     # Check if we need clarifying questions
     if clarifying_questions:
@@ -1051,14 +1077,13 @@ async def list_conversations():
     List conversations for a user.
     
     Uses authenticated user from EasyAuth headers. In development mode
-    (when not authenticated), returns conversations where user_id is empty/null.
+    (when not authenticated), uses "anonymous" as user_id.
     
     Query params:
         limit: Max number of results (default 20)
     """
-    # Get authenticated user from headers
     auth_user = get_authenticated_user()
-    user_id = auth_user["user_principal_id"]  # Empty string if not authenticated
+    user_id = auth_user["user_principal_id"]
     
     limit = int(request.args.get("limit", 20))
     

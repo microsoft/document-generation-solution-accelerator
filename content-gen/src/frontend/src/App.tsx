@@ -50,6 +50,7 @@ function App() {
   
   // Product selection
   const [selectedProducts, setSelectedProducts] = useState<Product[]>([]);
+  const [availableProducts, setAvailableProducts] = useState<Product[]>([]);
   
   // Generated content
   const [generatedContent, setGeneratedContent] = useState<GeneratedContent | null>(null);
@@ -86,13 +87,11 @@ function App() {
         const response = await fetch('/api/user');
         if (response.ok) {
           const user: UserInfo = await response.json();
-          // Use user_principal_id if authenticated, otherwise empty string for dev mode
-          setUserId(user.user_principal_id || '');
+          setUserId(user.user_principal_id || 'anonymous');
         }
       } catch (err) {
         console.error('Error fetching user:', err);
-        // Default to empty string for development mode
-        setUserId('');
+        setUserId('anonymous');
       }
     };
     fetchUser();
@@ -100,13 +99,11 @@ function App() {
 
   // Handle selecting a conversation from history
   const handleSelectConversation = useCallback(async (selectedConversationId: string) => {
-    setIsLoading(true);
     try {
       const response = await fetch(`/api/conversations/${selectedConversationId}?user_id=${encodeURIComponent(userId)}`);
       if (response.ok) {
         const data = await response.json();
         setConversationId(selectedConversationId);
-        // Map messages to ChatMessage format
         const loadedMessages: ChatMessage[] = (data.messages || []).map((msg: { role: string; content: string; timestamp?: string; agent?: string }, index: number) => ({
           id: `${selectedConversationId}-${index}`,
           role: msg.role as 'user' | 'assistant',
@@ -118,24 +115,18 @@ function App() {
         setPendingBrief(null);
         setConfirmedBrief(data.brief || null);
         
-        // Restore generated content if it exists
         if (data.generated_content) {
           const gc = data.generated_content;
-          // Parse text_content if it's a string
           let textContent = gc.text_content;
           if (typeof textContent === 'string') {
             try {
               textContent = JSON.parse(textContent);
             } catch {
-              // Keep as string if not valid JSON
             }
           }
           
-          // Build image URL: convert old blob URLs to proxy URLs, or use existing proxy URL
           let imageUrl: string | undefined = gc.image_url;
           if (imageUrl && imageUrl.includes('blob.core.windows.net')) {
-            // Convert old blob URL to proxy URL
-            // blob URL format: https://account.blob.core.windows.net/container/conv_id/filename.png
             const parts = imageUrl.split('/');
             const filename = parts[parts.length - 1];
             const convId = parts[parts.length - 2];
@@ -159,14 +150,12 @@ function App() {
             } : undefined,
             violations: gc.violations || [],
             requires_modification: gc.requires_modification || false,
-            // Restore any generation errors
             error: gc.error,
             image_error: gc.image_error,
             text_error: gc.text_error,
           };
           setGeneratedContent(restoredContent);
           
-          // Restore selected products if they exist
           if (gc.selected_products && Array.isArray(gc.selected_products)) {
             setSelectedProducts(gc.selected_products);
           } else {
@@ -179,8 +168,6 @@ function App() {
       }
     } catch (error) {
       console.error('Error loading conversation:', error);
-    } finally {
-      setIsLoading(false);
     }
   }, [userId]);
 
@@ -226,7 +213,9 @@ function App() {
           
           setGenerationStatus('Updating creative brief...');
           const parsed = await parseBrief(refinementPrompt, conversationId, userId, signal);
-          setPendingBrief(parsed.brief);
+          if (parsed.brief) {
+            setPendingBrief(parsed.brief);
+          }
           setGenerationStatus('');
           
           const assistantMessage: ChatMessage = {
@@ -300,10 +289,24 @@ function App() {
           setGenerationStatus('Analyzing creative brief...');
           const parsed = await parseBrief(content, conversationId, userId, signal);
           
-          // Check if clarification is needed
-          if (parsed.requires_clarification && parsed.clarifying_questions) {
+          // Check if request was blocked due to harmful content
+          if (parsed.rai_blocked) {
+            // Show the refusal message without any brief UI
+            setGenerationStatus('');
+            
+            const assistantMessage: ChatMessage = {
+              id: uuidv4(),
+              role: 'assistant',
+              content: parsed.message,
+              agent: 'ContentSafety',
+              timestamp: new Date().toISOString(),
+            };
+            setMessages(prev => [...prev, assistantMessage]);
+          } else if (parsed.requires_clarification && parsed.clarifying_questions) {
             // Set partial brief for display but show clarifying questions
-            setPendingBrief(parsed.brief);
+            if (parsed.brief) {
+              setPendingBrief(parsed.brief);
+            }
             setGenerationStatus('');
             
             const assistantMessage: ChatMessage = {
@@ -316,7 +319,9 @@ function App() {
             setMessages(prev => [...prev, assistantMessage]);
           } else {
             // Brief is complete, show for confirmation
-            setPendingBrief(parsed.brief);
+            if (parsed.brief) {
+              setPendingBrief(parsed.brief);
+            }
             setGenerationStatus('');
             
             const assistantMessage: ChatMessage = {
@@ -406,10 +411,16 @@ function App() {
       setConfirmedBrief(pendingBrief);
       setPendingBrief(null);
       
+      const productsResponse = await fetch('/api/products');
+      if (productsResponse.ok) {
+        const productsData = await productsResponse.json();
+        setAvailableProducts(productsData.products || []);
+      }
+      
       const assistantMessage: ChatMessage = {
         id: uuidv4(),
         role: 'assistant',
-        content: "Great! Your creative brief has been confirmed. Now let's select products to feature in your campaign. Tell me what products you'd like to include - you can describe them by name, category, or characteristics.",
+        content: "Great! Your creative brief has been confirmed. Here are the available products for your campaign. Select the ones you'd like to feature, or tell me what you're looking for.",
         agent: 'ProductAgent',
         timestamp: new Date().toISOString(),
       };
@@ -440,6 +451,17 @@ function App() {
       timestamp: new Date().toISOString(),
     };
     setMessages(prev => [...prev, assistantMessage]);
+  }, []);
+
+  const handleProductSelect = useCallback((product: Product) => {
+    setSelectedProducts(prev => {
+      const isSelected = prev.some(p => (p.sku || p.product_name) === (product.sku || product.product_name));
+      if (isSelected) {
+        return prev.filter(p => (p.sku || p.product_name) !== (product.sku || product.product_name));
+      } else {
+        return [...prev, product];
+      }
+    });
   }, []);
 
   const handleStopGeneration = useCallback(() => {
@@ -635,12 +657,15 @@ function App() {
             confirmedBrief={confirmedBrief}
             generatedContent={generatedContent}
             selectedProducts={selectedProducts}
+            availableProducts={availableProducts}
             onBriefConfirm={handleBriefConfirm}
             onBriefCancel={handleBriefCancel}
             onGenerateContent={handleGenerateContent}
             onRegenerateContent={handleGenerateContent}
             onProductsStartOver={handleProductsStartOver}
+            onProductSelect={handleProductSelect}
             imageGenerationEnabled={imageGenerationEnabled}
+            onNewConversation={handleNewConversation}
           />
         </div>
         

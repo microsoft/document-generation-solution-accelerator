@@ -21,6 +21,7 @@ export interface Product {
   price: number;
   sku: string;
   image_url?: string;
+  hex_value?: string; // Color hex code for paint products
   // Legacy fields for backward compatibility
   category?: string;
   sub_category?: string;
@@ -92,10 +93,11 @@ export interface BrandGuidelines {
 }
 
 export interface ParsedBriefResponse {
-  brief: CreativeBrief;
+  brief?: CreativeBrief;
   requires_confirmation: boolean;
   requires_clarification?: boolean;
   clarifying_questions?: string;
+  rai_blocked?: boolean;
   message: string;
   conversation_id?: string;
 }

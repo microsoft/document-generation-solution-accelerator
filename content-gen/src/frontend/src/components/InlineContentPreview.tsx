@@ -1,22 +1,21 @@
 import { useState, useEffect } from 'react';
 import {
-  Card,
   Button,
   Text,
   Badge,
   Divider,
   tokens,
+  Tooltip,
 } from '@fluentui/react-components';
 import {
-  ArrowSync24Regular,
-  CheckmarkCircle24Regular,
-  Warning24Regular,
-  Info24Regular,
-  ErrorCircle24Regular,
-  Copy24Regular,
-  ArrowDownload24Regular,
-  Bot24Regular,
-  ShieldError24Regular,
+  ArrowSync20Regular,
+  CheckmarkCircle20Regular,
+  Warning20Regular,
+  Info20Regular,
+  ErrorCircle20Regular,
+  Copy20Regular,
+  ArrowDownload20Regular,
+  ShieldError20Regular,
 } from '@fluentui/react-icons';
 import type { GeneratedContent, ComplianceViolation, Product } from '../types';
 
@@ -26,6 +25,7 @@ interface InlineContentPreviewProps {
   isLoading?: boolean;
   selectedProduct?: Product;
   imageGenerationEnabled?: boolean;
+  onActionChipClick?: (action: string) => void;
 }
 
 // Custom hook for responsive breakpoints
@@ -41,48 +41,43 @@ function useWindowSize() {
   return windowWidth;
 }
 
-export function InlineContentPreview({ content, onRegenerate, isLoading, selectedProduct, imageGenerationEnabled = true }: InlineContentPreviewProps) {
+export function InlineContentPreview({ 
+  content, 
+  onRegenerate, 
+  isLoading, 
+  selectedProduct, 
+  imageGenerationEnabled = true,
+  onActionChipClick,
+}: InlineContentPreviewProps) {
   const { text_content, image_content, violations, requires_modification, error, image_error, text_error } = content;
   const [copied, setCopied] = useState(false);
   const windowWidth = useWindowSize();
   
-  // Responsive breakpoints
   const isSmall = windowWidth < 768;
-  const isMedium = windowWidth < 1024;
 
   // Helper to detect content filter errors
   const isContentFilterError = (errorMessage?: string): boolean => {
     if (!errorMessage) return false;
     const filterPatterns = [
-      'content_filter',
-      'ContentFilter',
-      'content management policy',
-      'ResponsibleAI',
-      'responsible_ai_policy',
-      'content filtering',
-      'filtered',
-      'safety system',
-      'self_harm',
-      'sexual',
-      'violence',
-      'hate',
+      'content_filter', 'ContentFilter', 'content management policy',
+      'ResponsibleAI', 'responsible_ai_policy', 'content filtering',
+      'filtered', 'safety system', 'self_harm', 'sexual', 'violence', 'hate',
     ];
     return filterPatterns.some(pattern => 
       errorMessage.toLowerCase().includes(pattern.toLowerCase())
     );
   };
 
-  // Get user-friendly error message
   const getErrorMessage = (errorMessage?: string): { title: string; description: string } => {
     if (isContentFilterError(errorMessage)) {
       return {
         title: 'Content Filtered',
-        description: 'Your request was blocked by Azure\'s content safety filters. Please try modifying your creative brief to avoid potentially sensitive content, or contact your administrator to adjust content filter settings.',
+        description: 'Your request was blocked by content safety filters. Please try modifying your creative brief.',
       };
     }
     return {
       title: 'Generation Failed',
-      description: errorMessage || 'An error occurred while generating content. Please try again.',
+      description: errorMessage || 'An error occurred. Please try again.',
     };
   };
 
@@ -102,57 +97,40 @@ export function InlineContentPreview({ content, onRegenerate, isLoading, selecte
     if (!image_content?.image_url) return;
 
     try {
-      // Create canvas to composite image with text overlay
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
-      // Load the image
       const img = new Image();
-      img.crossOrigin = 'anonymous'; // Enable CORS for blob storage images
+      img.crossOrigin = 'anonymous';
       
       img.onload = () => {
-        // Set canvas size to match image
         canvas.width = img.width;
         canvas.height = img.height;
-
-        // Draw the image
         ctx.drawImage(img, 0, 0);
 
-        // Add text overlay if headline exists
         if (text_content?.headline) {
           const padding = Math.max(16, img.width * 0.03);
           const maxTextWidth = img.width - (padding * 2);
-
-          // Draw headline text
           const headlineText = selectedProduct?.product_name || text_content.headline;
           const headlineFontSize = Math.max(20, Math.min(48, img.width * 0.05));
-          ctx.font = `600 ${headlineFontSize}px Georgia, serif`;
           
-          // Text shadow effect
+          ctx.font = `600 ${headlineFontSize}px Georgia, serif`;
           ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
           ctx.fillText(headlineText, padding + 2, padding + headlineFontSize + 2, maxTextWidth);
-          
-          // Main text
           ctx.fillStyle = 'white';
           ctx.fillText(headlineText, padding, padding + headlineFontSize, maxTextWidth);
 
-          // Draw subtitle/CTA text
           if (text_content.cta_text) {
             const subtitleFontSize = Math.max(13, Math.min(24, img.width * 0.025));
             ctx.font = `400 ${subtitleFontSize}px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif`;
-            
-            // Text shadow
             ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
             ctx.fillText(text_content.cta_text, padding + 2, padding + headlineFontSize + subtitleFontSize + 10, maxTextWidth);
-            
-            // Main text
             ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
             ctx.fillText(text_content.cta_text, padding, padding + headlineFontSize + subtitleFontSize + 8, maxTextWidth);
           }
         }
 
-        // Convert canvas to blob and download
         canvas.toBlob((blob) => {
           if (blob) {
             const url = URL.createObjectURL(blob);
@@ -166,7 +144,6 @@ export function InlineContentPreview({ content, onRegenerate, isLoading, selecte
       };
 
       img.onerror = () => {
-        // Fallback: download original image if canvas approach fails
         if (image_content?.image_url) {
           const link = document.createElement('a');
           link.href = image_content.image_url;
@@ -176,8 +153,7 @@ export function InlineContentPreview({ content, onRegenerate, isLoading, selecte
       };
 
       img.src = image_content.image_url;
-    } catch (error) {
-      // Fallback: download original image
+    } catch {
       if (image_content?.image_url) {
         const link = document.createElement('a');
         link.href = image_content.image_url;
@@ -187,415 +163,293 @@ export function InlineContentPreview({ content, onRegenerate, isLoading, selecte
     }
   };
 
+  // Get product display name
+  const getProductDisplayName = () => {
+    if (selectedProduct) {
+      return selectedProduct.product_name;
+    }
+    return text_content?.headline || 'Your Content';
+  };
+
   return (
-    <div style={{ 
-      display: 'flex',
-      gap: 'clamp(6px, 1vw, 8px)',
-      alignItems: 'flex-start',
-      maxWidth: '100%'
+    <div className="message assistant" style={{ 
+      width: '100%',
+      alignSelf: 'flex-start',
+      backgroundColor: tokens.colorNeutralBackground3,
+      padding: '12px 16px',
+      borderRadius: '8px',
+      margin: '16px 0 0 0',
     }}>
-      {/* Bot Avatar */}
-      <div style={{ 
-        width: 'clamp(28px, 4vw, 32px)',
-        height: 'clamp(28px, 4vw, 32px)',
-        minWidth: '28px',
-        minHeight: '28px',
-        borderRadius: '50%',
-        backgroundColor: tokens.colorNeutralBackground3,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexShrink: 0
-      }}>
-        <Bot24Regular style={{ fontSize: 'clamp(14px, 2vw, 16px)' }} />
-      </div>
-      
-      <Card style={{ 
-        flex: 1,
-        maxWidth: 'calc(100% - 40px)',
-        backgroundColor: tokens.colorNeutralBackground1,
-        padding: 'clamp(12px, 2.5vw, 20px)',
-        minWidth: 0, /* Allow card to shrink */
-      }}>
-        {/* Header */}
-        <div style={{ 
-          display: 'flex', 
-          flexDirection: isSmall ? 'column' : 'row',
-          justifyContent: 'space-between', 
-          alignItems: isSmall ? 'flex-start' : 'flex-start', 
-          marginBottom: 'clamp(12px, 2vw, 16px)',
-          gap: isSmall ? '12px' : '8px',
+      {/* Selection confirmation */}
+      {selectedProduct && (
+        <Text size={200} style={{ 
+          color: tokens.colorNeutralForeground3, 
+          display: 'block',
+          marginBottom: '8px',
         }}>
-          <div style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: 'clamp(8px, 1.5vw, 12px)',
-            flexWrap: 'wrap',
-          }}>
-            <Badge appearance="outline" size="small">
-              ContentAgent
-            </Badge>
-            {/* Approval Status */}
-            {requires_modification ? (
-              <Badge appearance="filled" color="danger" icon={<ErrorCircle24Regular />}>
-                Requires Modification
-              </Badge>
-            ) : violations.length > 0 ? (
-              <Badge appearance="filled" color="warning" icon={<Warning24Regular />}>
-                Review Recommended
-              </Badge>
-            ) : (
-              <Badge appearance="filled" color="success" icon={<CheckmarkCircle24Regular />}>
-                Approved
-              </Badge>
-            )}
-          </div>
-          <Button
-            appearance="subtle"
-            icon={<ArrowSync24Regular />}
-            onClick={onRegenerate}
-            size="small"
-            disabled={isLoading}
-          >
-            {isSmall ? '' : 'Regenerate'}
-          </Button>
+          You selected "{selectedProduct.product_name}". Here's what I've created – let me know if you need anything changed.
+        </Text>
+      )}
+
+      {/* Sparkle Headline - Figma style */}
+      {text_content?.headline && (
+        <Text 
+          weight="semibold" 
+          size={400}
+          style={{ 
+            display: 'block',
+            marginBottom: '16px',
+            color: tokens.colorNeutralForeground1,
+            fontSize: '18px',
+          }}
+        >
+          ✨ Discover the serene elegance of {getProductDisplayName()}.
+        </Text>
+      )}
+
+      {/* Body Copy */}
+      {text_content?.body && (
+        <Text 
+          size={300}
+          style={{ 
+            display: 'block',
+            marginBottom: '16px',
+            lineHeight: '1.6',
+            color: tokens.colorNeutralForeground2,
+          }}
+        >
+          {text_content.body}
+        </Text>
+      )}
+
+      {/* Hashtags */}
+      {text_content?.tagline && (
+        <Text 
+          size={200}
+          style={{ 
+            display: 'block',
+            marginBottom: '16px',
+            lineHeight: '1.8',
+            color: tokens.colorBrandForeground1,
+          }}
+        >
+          {text_content.tagline}
+        </Text>
+      )}
+
+      {/* Violations Banner */}
+      {violations.length > 0 && (
+        <div style={{ marginBottom: '16px' }}>
+          {violations.map((violation, index) => (
+            <ViolationCard key={index} violation={violation} />
+          ))}
         </div>
-        
-        {/* Violations */}
-        {violations.length > 0 && (
-          <div style={{ marginBottom: 'clamp(12px, 2vw, 16px)' }}>
-            {violations.map((violation, index) => (
-              <ViolationCard key={index} violation={violation} />
-            ))}
+      )}
+
+      {/* Error Banner */}
+      {(error || text_error) && !violations.some(v => v.message.toLowerCase().includes('filter')) && (
+        <div style={{ 
+          padding: '12px 16px', 
+          backgroundColor: isContentFilterError(error || text_error) ? '#fef3f2' : '#fef9ee',
+          border: `1px solid ${isContentFilterError(error || text_error) ? '#fecaca' : '#fde68a'}`,
+          borderRadius: '8px',
+          marginBottom: '16px',
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: '12px'
+        }}>
+          <ShieldError20Regular style={{ 
+            color: isContentFilterError(error || text_error) ? '#dc2626' : '#d97706',
+            flexShrink: 0,
+            marginTop: '2px',
+          }} />
+          <div>
+            <Text weight="semibold" size={300} block style={{ 
+              color: isContentFilterError(error || text_error) ? '#b91c1c' : '#92400e',
+              marginBottom: '4px',
+            }}>
+              {getErrorMessage(error || text_error).title}
+            </Text>
+            <Text size={200} style={{ color: tokens.colorNeutralForeground3 }}>
+              {getErrorMessage(error || text_error).description}
+            </Text>
           </div>
-        )}
-        
-        {/* Content Filter / Generation Error Banner */}
-        {(error || text_error) && !violations.some(v => v.message.toLowerCase().includes('filter')) && (
-          <div style={{ 
-            padding: 'clamp(12px, 2vw, 16px)', 
-            backgroundColor: isContentFilterError(error || text_error) ? '#fef3f2' : '#fef9ee',
-            border: `1px solid ${isContentFilterError(error || text_error) ? '#fecaca' : '#fde68a'}`,
-            borderRadius: '8px',
-            marginBottom: 'clamp(12px, 2vw, 16px)',
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: '12px'
-          }}>
-            <ShieldError24Regular style={{ 
-              color: isContentFilterError(error || text_error) ? '#dc2626' : '#d97706',
-              flexShrink: 0,
-              marginTop: '2px',
-            }} />
-            <div>
-              <Text weight="semibold" size={300} block style={{ 
-                color: isContentFilterError(error || text_error) ? '#b91c1c' : '#92400e',
-                marginBottom: '4px',
-              }}>
-                {getErrorMessage(error || text_error).title}
-              </Text>
-              <Text size={200} style={{ color: tokens.colorNeutralForeground3, lineHeight: '1.5' }}>
-                {getErrorMessage(error || text_error).description}
-              </Text>
-            </div>
-          </div>
-        )}
-        
-        {/* Product number header */}
-        {selectedProduct && (
-          <Text 
-            weight="bold" 
-            size={500} 
-            block 
-            style={{ 
-              marginBottom: 'clamp(12px, 2vw, 16px)',
-              fontSize: 'clamp(16px, 2.5vw, 20px)',
+        </div>
+      )}
+
+      {/* Image Preview - with product overlay */}
+      {imageGenerationEnabled && image_content?.image_url && (
+        <div style={{ 
+          position: 'relative',
+          borderRadius: '8px',
+          overflow: 'hidden',
+          marginBottom: '16px',
+          maxWidth: isSmall ? '100%' : '500px',
+        }}>
+          <img
+            src={image_content.image_url}
+            alt={image_content.alt_text || 'Generated marketing image'}
+            style={{
+              width: '100%',
+              height: 'auto',
+              display: 'block',
             }}
-          >
-            1. {selectedProduct.product_name}
-          </Text>
-        )}
-        
-        {/* Main Content Grid: Product Card + Images (if enabled) */}
-        <div style={{ 
-          display: 'grid',
-          gridTemplateColumns: isSmall 
-            ? '1fr' 
-            : !imageGenerationEnabled
-              ? (selectedProduct ? 'minmax(150px, 200px) 1fr' : '1fr')
-              : isMedium 
-                ? (selectedProduct ? '1fr 1fr' : '1fr 1fr')
-                : (selectedProduct ? 'minmax(150px, 200px) 1fr 1fr' : '1fr 1fr'),
-          gap: 'clamp(12px, 2vw, 16px)',
-          marginBottom: 'clamp(16px, 2.5vw, 20px)',
-        }}>
-          {/* Product Card */}
-          {selectedProduct && (
-            <div style={{ 
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '8px',
-              gridColumn: isSmall ? '1' : 'auto',
-            }}>
-              <Text size={200} style={{ color: tokens.colorNeutralForeground3 }}>
-                {selectedProduct.product_name}
-              </Text>
-              
-              {/* Color Swatch / Product Image */}
-              <div style={{
-                width: '100%',
-                aspectRatio: '1.5',
-                maxHeight: isSmall ? '120px' : '150px',
-                backgroundColor: '#EEEFEA',
-                borderRadius: '4px',
-                border: `1px solid ${tokens.colorNeutralStroke1}`,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                overflow: 'hidden',
-              }}>
-                {selectedProduct.image_url ? (
-                  <img 
-                    src={selectedProduct.image_url} 
-                    alt={selectedProduct.product_name}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                  />
-                ) : null}
-              </div>
-              
-              <Text weight="semibold" size={300} style={{ fontSize: 'clamp(13px, 1.8vw, 15px)' }}>
-                {selectedProduct.product_name}
-              </Text>
-              <Text size={200} style={{ color: tokens.colorNeutralForeground3, fontSize: 'clamp(11px, 1.5vw, 13px)' }}>
-                {selectedProduct.tags || selectedProduct.description}
-              </Text>
-              
-              <Text size={200} weight="semibold" style={{ color: tokens.colorNeutralForeground1 }}>
-                ${selectedProduct.price?.toFixed(2) || '59.95'} USD
-              </Text>
-            </div>
-          )}
+          />
           
-          {/* Generated Image 1 - with overlay text OR error message (only if image generation enabled) */}
-          {imageGenerationEnabled && (image_content?.image_url ? (
-            <div style={{ 
-              position: 'relative',
-              borderRadius: '8px',
-              overflow: 'hidden',
-              aspectRatio: '1',
-              minHeight: isSmall ? '200px' : 'auto',
-            }}>
-              <img
-                src={image_content.image_url}
-                alt={image_content.alt_text || 'Generated marketing image'}
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'cover',
-                }}
-              />
-              {/* Text overlay */}
-              {text_content?.headline && (
-                <div style={{
-                  position: 'absolute',
-                  top: 'clamp(8px, 2vw, 16px)',
-                  left: 'clamp(8px, 2vw, 16px)',
-                  right: 'clamp(8px, 2vw, 16px)',
-                  color: 'white',
-                  textShadow: '0 2px 4px rgba(0,0,0,0.3)',
-                }}>
-                  <Text 
-                    size={500} 
-                    weight="semibold" 
-                    style={{ 
-                      color: 'white', 
-                      display: 'block',
-                      fontFamily: 'Georgia, serif',
-                      fontSize: 'clamp(14px, 2.5vw, 20px)',
-                    }}
-                  >
-                    {selectedProduct?.product_name || text_content.headline}
-                  </Text>
-                  <Text size={200} style={{ color: 'rgba(255,255,255,0.9)', fontSize: 'clamp(11px, 1.5vw, 13px)' }}>
-                    {text_content.cta_text || 'A Modern Choice'}
-                  </Text>
-                </div>
-              )}
-              {/* Download button */}
-              <Button
-                appearance="subtle"
-                icon={<ArrowDownload24Regular />}
-                size="small"
-                onClick={handleDownloadImage}
-                style={{
-                  position: 'absolute',
-                  bottom: '8px',
-                  right: '8px',
-                  backgroundColor: 'rgba(255,255,255,0.9)',
-                  minWidth: '32px',
-                }}
-              />
-            </div>
-          ) : (image_error || error) ? (
-            /* Show content filter or generation error */
-            <div style={{ 
-              borderRadius: '8px',
-              overflow: 'hidden',
-              aspectRatio: '1',
-              minHeight: isSmall ? '200px' : 'auto',
-              backgroundColor: isContentFilterError(image_error || error) ? '#fef3f2' : '#fef9ee',
-              border: `1px solid ${isContentFilterError(image_error || error) ? '#fecaca' : '#fde68a'}`,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: 'clamp(16px, 3vw, 24px)',
-              textAlign: 'center',
-            }}>
-              <ShieldError24Regular style={{ 
-                fontSize: '48px', 
-                color: isContentFilterError(image_error || error) ? '#dc2626' : '#d97706',
-                marginBottom: '12px',
-              }} />
-              <Text weight="semibold" size={400} style={{ 
-                color: isContentFilterError(image_error || error) ? '#b91c1c' : '#92400e',
-                marginBottom: '8px',
-              }}>
-                {getErrorMessage(image_error || error).title}
-              </Text>
-              <Text size={200} style={{ 
-                color: tokens.colorNeutralForeground3,
-                maxWidth: '280px',
-                lineHeight: '1.5',
-              }}>
-                {getErrorMessage(image_error || error).description}
-              </Text>
-            </div>
-          ) : null)}
-          
-          {/* Generated Image 2 / Additional Image placeholder / Error state (only if image generation enabled) */}
-          {imageGenerationEnabled && !isSmall && (
-            <div style={{ 
-              borderRadius: '8px',
-              overflow: 'hidden',
-              aspectRatio: '1',
-              backgroundColor: (image_error || error) && !image_content?.image_url 
-                ? (isContentFilterError(image_error || error) ? '#fef3f2' : '#fef9ee')
-                : tokens.colorNeutralBackground3,
-              border: (image_error || error) && !image_content?.image_url
-                ? `1px solid ${isContentFilterError(image_error || error) ? '#fecaca' : '#fde68a'}`
-                : 'none',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: (image_error || error) && !image_content?.image_url ? 'clamp(16px, 3vw, 24px)' : '0',
-              textAlign: 'center',
-            }}>
-              {image_content?.image_url ? (
-                <img
-                  src={image_content.image_url}
-                  alt="Secondary marketing image"
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'cover',
-                    filter: 'brightness(1.05)',
-                  }}
-                />
-              ) : (image_error || error) ? (
-                /* Show abbreviated error for second image slot */
-                <>
-                  <ShieldError24Regular style={{ 
-                    fontSize: '32px', 
-                    color: isContentFilterError(image_error || error) ? '#dc2626' : '#d97706',
-                    marginBottom: '8px',
-                  }} />
-                  <Text size={200} weight="semibold" style={{ 
-                    color: isContentFilterError(image_error || error) ? '#b91c1c' : '#92400e',
-                  }}>
-                    {getErrorMessage(image_error || error).title}
-                  </Text>
-                  <Text size={100} style={{ color: tokens.colorNeutralForeground3, marginTop: '4px' }}>
-                    Click Regenerate to try again
-                  </Text>
-                </>
-              ) : (
-                <Text size={200} style={{ color: tokens.colorNeutralForeground3 }}>
-                  Additional image
-                </Text>
-              )}
-            </div>
-          )}
-        </div>
-        
-        <Divider style={{ margin: 'clamp(12px, 2vw, 16px) 0' }} />
-        
-        {/* Marketing Copy Section */}
-        {text_content && (
-          <div style={{ position: 'relative' }}>
-            {/* Copy button */}
-            <Button
-              appearance="subtle"
-              icon={<Copy24Regular />}
-              size="small"
-              onClick={handleCopyText}
-              style={{
-                position: 'absolute',
-                top: '0',
-                right: '0',
+          {/* Text overlay on image */}
+          <div style={{
+            position: 'absolute',
+            top: '16px',
+            left: '16px',
+            right: '16px',
+            color: 'white',
+            textShadow: '0 2px 4px rgba(0,0,0,0.4)',
+          }}>
+            <Text 
+              size={500} 
+              weight="semibold" 
+              style={{ 
+                color: 'white', 
+                display: 'block',
+                fontFamily: 'Georgia, serif',
+                fontSize: isSmall ? '16px' : '24px',
               }}
             >
-              {copied ? 'Copied!' : (isSmall ? '' : 'Copy')}
-            </Button>
-            
-            {/* Headline with sparkles */}
-            {text_content.headline && (
-              <Text 
-                size={400} 
-                weight="semibold" 
-                block 
-                style={{ 
-                  marginBottom: 'clamp(8px, 1.5vw, 12px)', 
-                  paddingRight: 'clamp(60px, 10vw, 80px)',
-                  fontSize: 'clamp(14px, 2vw, 18px)',
-                }}
-              >
-                ✨ {text_content.headline} ✨
-              </Text>
-            )}
-            
-            {/* Body text */}
-            {text_content.body && (
-              <Text 
-                size={300} 
-                block 
-                style={{ 
-                  marginBottom: 'clamp(12px, 2vw, 16px)', 
-                  lineHeight: '1.6',
-                  fontSize: 'clamp(13px, 1.8vw, 15px)',
-                }}
-              >
-                {text_content.body}
-              </Text>
-            )}
-            
-            {/* Hashtags */}
-            {text_content.tagline && (
-              <Text 
-                size={200} 
-                style={{ 
-                  color: tokens.colorBrandForeground1, 
-                  lineHeight: '1.8',
-                  fontSize: 'clamp(11px, 1.5vw, 13px)',
-                }}
-              >
-                {text_content.tagline}
-              </Text>
-            )}
+              {selectedProduct?.product_name || text_content?.headline || 'Snow Veil'}
+            </Text>
+            <Text size={200} style={{ 
+              color: 'rgba(255,255,255,0.9)',
+              fontStyle: 'italic',
+            }}>
+              A Crisp White for Modern Interiors
+            </Text>
           </div>
-        )}
-      </Card>
+          
+          {/* Download button */}
+          <Tooltip content="Download image" relationship="label">
+            <Button
+              appearance="subtle"
+              icon={<ArrowDownload20Regular />}
+              size="small"
+              onClick={handleDownloadImage}
+              style={{
+                position: 'absolute',
+                bottom: '8px',
+                right: '8px',
+                backgroundColor: 'rgba(255,255,255,0.9)',
+                minWidth: '32px',
+              }}
+            />
+          </Tooltip>
+        </div>
+      )}
+
+      {/* Image Error State */}
+      {imageGenerationEnabled && !image_content?.image_url && (image_error || error) && (
+        <div style={{ 
+          borderRadius: '8px',
+          padding: '32px',
+          backgroundColor: isContentFilterError(image_error || error) ? '#fef3f2' : '#fef9ee',
+          border: `1px solid ${isContentFilterError(image_error || error) ? '#fecaca' : '#fde68a'}`,
+          marginBottom: '16px',
+          textAlign: 'center',
+        }}>
+          <ShieldError20Regular style={{ 
+            fontSize: '32px', 
+            color: isContentFilterError(image_error || error) ? '#dc2626' : '#d97706',
+            marginBottom: '8px',
+          }} />
+          <Text weight="semibold" size={300} block style={{ 
+            color: isContentFilterError(image_error || error) ? '#b91c1c' : '#92400e',
+          }}>
+            {getErrorMessage(image_error || error).title}
+          </Text>
+          <Text size={200} style={{ color: tokens.colorNeutralForeground3, marginTop: '4px' }}>
+            Click Regenerate to try again
+          </Text>
+        </div>
+      )}
+
+      {/* Action Chip - for quick follow-up requests */}
+      {image_content?.image_url && (
+        <div 
+          className="action-chip"
+          onClick={() => onActionChipClick?.('Create an other image with same paint color, but a modern kitchen area, with no text on it')}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '10px 16px',
+            borderRadius: '20px',
+            backgroundColor: tokens.colorBrandBackground2,
+            color: tokens.colorBrandForeground1,
+            fontSize: '13px',
+            cursor: 'pointer',
+            border: `1px solid ${tokens.colorBrandStroke1}`,
+            transition: 'all 0.15s ease-in-out',
+            marginBottom: '16px',
+          }}
+        >
+          Create an other image with same paint color, but a modern kitchen area, with no text on it
+        </div>
+      )}
+
+      <Divider style={{ margin: '16px 0' }} />
+
+      {/* Footer with actions */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+      }}>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          {/* Approval Status Badge */}
+          {requires_modification ? (
+            <Badge appearance="filled" color="danger" size="small" icon={<ErrorCircle20Regular />}>
+              Requires Modification
+            </Badge>
+          ) : violations.length > 0 ? (
+            <Badge appearance="filled" color="warning" size="small" icon={<Warning20Regular />}>
+              Review Recommended
+            </Badge>
+          ) : (
+            <Badge appearance="filled" color="success" size="small" icon={<CheckmarkCircle20Regular />}>
+              Approved
+            </Badge>
+          )}
+        </div>
+
+        <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+          <Tooltip content={copied ? 'Copied!' : 'Copy text'} relationship="label">
+            <Button
+              appearance="subtle"
+              icon={<Copy20Regular />}
+              size="small"
+              onClick={handleCopyText}
+              style={{ minWidth: '32px', color: tokens.colorNeutralForeground3 }}
+            />
+          </Tooltip>
+          <Tooltip content="Regenerate" relationship="label">
+            <Button
+              appearance="subtle"
+              icon={<ArrowSync20Regular />}
+              size="small"
+              onClick={onRegenerate}
+              disabled={isLoading}
+              style={{ minWidth: '32px', color: tokens.colorNeutralForeground3 }}
+            />
+          </Tooltip>
+        </div>
+      </div>
+
+      {/* AI disclaimer */}
+      <Text size={100} style={{ 
+        color: tokens.colorNeutralForeground4,
+        display: 'block',
+        marginTop: '8px',
+      }}>
+        AI-generated content may be incorrect
+      </Text>
     </div>
   );
 }
@@ -605,17 +459,17 @@ function ViolationCard({ violation }: { violation: ComplianceViolation }) {
     switch (violation.severity) {
       case 'error':
         return {
-          icon: <ErrorCircle24Regular style={{ color: '#d13438', fontSize: '16px' }} />,
+          icon: <ErrorCircle20Regular style={{ color: '#d13438' }} />,
           bg: '#fde7e9',
         };
       case 'warning':
         return {
-          icon: <Warning24Regular style={{ color: '#ffb900', fontSize: '16px' }} />,
+          icon: <Warning20Regular style={{ color: '#ffb900' }} />,
           bg: '#fff4ce',
         };
       case 'info':
         return {
-          icon: <Info24Regular style={{ color: '#0078d4', fontSize: '16px' }} />,
+          icon: <Info20Regular style={{ color: '#0078d4' }} />,
           bg: '#deecf9',
         };
     }
@@ -625,7 +479,7 @@ function ViolationCard({ violation }: { violation: ComplianceViolation }) {
 
   return (
     <div style={{ 
-      padding: '8px', 
+      padding: '8px 12px', 
       backgroundColor: bg, 
       borderRadius: '4px',
       marginBottom: '4px',
