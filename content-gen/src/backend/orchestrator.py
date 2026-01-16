@@ -618,15 +618,19 @@ class ContentGenerationOrchestrator:
                 elif isinstance(event, RequestInfoEvent):
                     # Workflow is requesting user input
                     if isinstance(event.data, HandoffAgentUserRequest):
-                        # Extract conversation history
+                        # Extract conversation history from agent_response.messages (updated API)
+                        messages = event.data.agent_response.messages if hasattr(event.data, 'agent_response') and event.data.agent_response else []
+                        if not isinstance(messages, list):
+                            messages = [messages] if messages else []
+                        
                         conversation_text = "\n".join([
                             f"{msg.author_name or msg.role.value}: {msg.text}"
-                            for msg in event.data.conversation
+                            for msg in messages
                         ])
                         
                         # Get the last message content
-                        last_msg_content = event.data.conversation[-1].text if event.data.conversation else ""
-                        last_msg_agent = event.data.conversation[-1].author_name if event.data.conversation else "unknown"
+                        last_msg_content = messages[-1].text if messages else (event.data.agent_response.text if hasattr(event.data, 'agent_response') and event.data.agent_response else "")
+                        last_msg_agent = messages[-1].author_name if messages and hasattr(messages[-1], 'author_name') else "unknown"
                         
                         yield {
                             "type": "agent_response",
@@ -715,9 +719,14 @@ class ContentGenerationOrchestrator:
                 
                 elif isinstance(event, RequestInfoEvent):
                     if isinstance(event.data, HandoffAgentUserRequest):
+                        # Get messages from agent_response (updated API)
+                        messages = event.data.agent_response.messages if hasattr(event.data, 'agent_response') and event.data.agent_response else []
+                        if not isinstance(messages, list):
+                            messages = [messages] if messages else []
+                        
                         # Get the last message content
-                        last_msg_content = event.data.conversation[-1].text if event.data.conversation else ""
-                        last_msg_agent = event.data.conversation[-1].author_name if event.data.conversation else "unknown"
+                        last_msg_content = messages[-1].text if messages else (event.data.agent_response.text if hasattr(event.data, 'agent_response') and event.data.agent_response else "")
+                        last_msg_agent = messages[-1].author_name if messages and hasattr(messages[-1], 'author_name') else "unknown"
                         
                         yield {
                             "type": "agent_response",
