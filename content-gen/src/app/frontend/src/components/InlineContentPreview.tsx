@@ -6,6 +6,10 @@ import {
   Divider,
   tokens,
   Tooltip,
+  Accordion,
+  AccordionItem,
+  AccordionHeader,
+  AccordionPanel,
 } from '@fluentui/react-components';
 import {
   ArrowSync20Regular,
@@ -237,15 +241,6 @@ export function InlineContentPreview({
         </Text>
       )}
 
-      {/* Violations Banner */}
-      {violations.length > 0 && (
-        <div style={{ marginBottom: '16px' }}>
-          {violations.map((violation, index) => (
-            <ViolationCard key={index} violation={violation} />
-          ))}
-        </div>
-      )}
-
       {/* Error Banner */}
       {(error || text_error) && !violations.some(v => v.message.toLowerCase().includes('filter')) && (
         <div style={{ 
@@ -450,6 +445,49 @@ export function InlineContentPreview({
       }}>
         AI-generated content may be incorrect
       </Text>
+
+      {/* Collapsible Compliance Section */}
+      {violations.length > 0 && (
+        <Accordion 
+          collapsible 
+          style={{ 
+            marginTop: '16px',
+            borderTop: `1px solid ${tokens.colorNeutralStroke2}`,
+            paddingTop: '8px',
+          }}
+        >
+          <AccordionItem value="compliance">
+            <AccordionHeader
+              expandIconPosition="end"
+              style={{
+                padding: '8px 0',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {requires_modification ? (
+                  <ErrorCircle20Regular style={{ color: '#d13438' }} />
+                ) : violations.some(v => v.severity === 'error') ? (
+                  <ErrorCircle20Regular style={{ color: '#d13438' }} />
+                ) : violations.some(v => v.severity === 'warning') ? (
+                  <Warning20Regular style={{ color: '#ffb900' }} />
+                ) : (
+                  <Info20Regular style={{ color: '#0078d4' }} />
+                )}
+                <Text weight="semibold" size={200}>
+                  Compliance Guidelines ({violations.length} {violations.length === 1 ? 'item' : 'items'})
+                </Text>
+              </div>
+            </AccordionHeader>
+            <AccordionPanel>
+              <div style={{ paddingTop: '8px' }}>
+                {violations.map((violation, index) => (
+                  <ViolationCard key={index} violation={violation} />
+                ))}
+              </div>
+            </AccordionPanel>
+          </AccordionItem>
+        </Accordion>
+      )}
     </div>
   );
 }

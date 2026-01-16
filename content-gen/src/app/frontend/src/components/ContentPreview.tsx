@@ -7,6 +7,10 @@ import {
   Badge,
   Divider,
   tokens,
+  Accordion,
+  AccordionItem,
+  AccordionHeader,
+  AccordionPanel,
 } from '@fluentui/react-components';
 import {
   ArrowSync24Regular,
@@ -91,18 +95,6 @@ export function ContentPreview({ content, onRegenerate }: ContentPreviewProps) {
         )}
       </div>
       
-      {/* Violations */}
-      {violations.length > 0 && (
-        <div style={{ marginBottom: '16px' }}>
-          <Text weight="semibold" size={200} style={{ marginBottom: '8px', display: 'block' }}>
-            Compliance Issues
-          </Text>
-          {violations.map((violation, index) => (
-            <ViolationCard key={index} violation={violation} />
-          ))}
-        </div>
-      )}
-      
       <Divider style={{ margin: '16px 0' }} />
       
       {/* Text Content */}
@@ -183,6 +175,44 @@ export function ContentPreview({ content, onRegenerate }: ContentPreviewProps) {
             </Text>
           )}
         </div>
+      )}
+
+      {/* Collapsible Compliance Section */}
+      {violations.length > 0 && (
+        <Accordion 
+          collapsible 
+          style={{ 
+            marginTop: '16px',
+            borderTop: `1px solid ${tokens.colorNeutralStroke2}`,
+            paddingTop: '8px',
+          }}
+        >
+          <AccordionItem value="compliance">
+            <AccordionHeader expandIconPosition="end">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {requires_modification ? (
+                  <ErrorCircle24Regular style={{ color: '#d13438' }} />
+                ) : violations.some(v => v.severity === 'error') ? (
+                  <ErrorCircle24Regular style={{ color: '#d13438' }} />
+                ) : violations.some(v => v.severity === 'warning') ? (
+                  <Warning24Regular style={{ color: '#ffb900' }} />
+                ) : (
+                  <Info24Regular style={{ color: '#0078d4' }} />
+                )}
+                <Text weight="semibold" size={200}>
+                  Compliance Guidelines ({violations.length} {violations.length === 1 ? 'issue' : 'issues'})
+                </Text>
+              </div>
+            </AccordionHeader>
+            <AccordionPanel>
+              <div style={{ paddingTop: '8px' }}>
+                {violations.map((violation, index) => (
+                  <ViolationCard key={index} violation={violation} />
+                ))}
+              </div>
+            </AccordionPanel>
+          </AccordionItem>
+        </Accordion>
       )}
     </Card>
   );
