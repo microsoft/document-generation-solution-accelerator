@@ -38,9 +38,9 @@ interface SuggestionCard {
 
 const suggestions: SuggestionCard[] = [
   {
-    title: 'Generate ad copy and image ideas for a Facebook campaign promoting Paint for Home Décor.',
+    title: 'Generate ad copy and image ideas for a social media campaign promoting Paint for Home Décor.',
     description: 'Generate compelling copy for your next campaign',
-    prompt: 'Generate ad copy and image ideas for a Facebook campaign promoting Paint for Home Décor.',
+    prompt: 'Generate ad copy and image ideas for a social media campaign promoting Paint for Home Décor.',
   },
   {
     title: 'Summarize my creative brief and suggest mood, audience, and image style for the campaign.',

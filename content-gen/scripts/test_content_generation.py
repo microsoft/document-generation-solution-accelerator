@@ -35,11 +35,11 @@ Campaign Details:
 - Target Audience: Tech-savvy professionals, 25-45 years old
 - Campaign Theme: "Gift of Sound" - perfect holiday gift for music lovers
 - Tone: Warm, festive, but sophisticated
-- Channels: Social media (Instagram, Facebook), Email newsletter
+- Channels: Social media, Email newsletter
 - Key Messages: Premium sound quality, noise cancellation, perfect gift
 
 Deliverables Needed:
-1. Social media post (Instagram) with headline and body copy
+1. Social media post with headline and body copy
 2. Email subject line and preview text
 3. Product hero image concept description
 """
@@ -53,12 +53,12 @@ Campaign Details:
 - Target Audience: Health-conscious individuals, yoga enthusiasts, 20-40 years old
 - Campaign Theme: "Elevate Your Practice" - premium eco-friendly yoga experience
 - Tone: Calm, inspiring, wellness-focused
-- Channels: Instagram, Pinterest, Wellness blogs
+- Channels: Social media, Wellness blogs
 - Key Messages: Eco-friendly materials, superior grip, alignment markers
 
 Deliverables Needed:
-1. Instagram carousel post copy (3 slides)
-2. Pinterest pin description
+1. Social media carousel post copy (3 slides)
+2. Social media pin description
 3. Lifestyle image concept for the mat in use
 """
     },

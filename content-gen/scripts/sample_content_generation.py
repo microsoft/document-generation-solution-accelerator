@@ -50,7 +50,7 @@ def create_sample_brief() -> CreativeBrief:
         target_audience="Homeowners aged 30-55, interested in DIY home improvement and interior design",
         key_message="Transform your home this spring with our fresh, on-trend paint colors that bring warmth and style to any room",
         tone_and_style="Inspiring, approachable, and aspirational. Use warm, inviting language that speaks to the joy of home improvement",
-        deliverable="Social media carousel post (3-5 images) with captions for Instagram and Facebook",
+        deliverable="Social media carousel post (3-5 images) with captions for social media",
         timelines="Launch by March 15th for spring campaign",
         visual_guidelines="Bright, airy rooms with natural lighting. Show before/after transformations. Feature paint swatches in context. Modern, clean aesthetic",
         cta="Shop the Spring Collection - Visit our website for color inspiration",
