@@ -8,8 +8,8 @@ on:
       - demo
     paths:
       - 'content-gen/src/backend/**'
-      - 'content-gen/src/frontend/**'
-      - 'content-gen/src/frontend-server/**'
+      - 'content-gen/src/app/frontend/**'
+      - 'content-gen/src/app/frontend-server/**'
       - '.github/workflows/docker-build.yml'
   pull_request:
     types:
@@ -23,8 +23,8 @@ on:
       - demo
     paths:
       - 'content-gen/src/backend/**'
-      - 'content-gen/src/frontend/**'
-      - 'content-gen/src/frontend-server/**'
+      - 'content-gen/src/app/frontend/**'
+      - 'content-gen/src/app/frontend-server/**'
       - '.github/workflows/docker-build.yml'
   workflow_dispatch:
 
@@ -76,8 +76,8 @@ jobs:
       - name: Build and Push Docker Image for Frontend Server
         uses: docker/build-push-action@v6
         with:
-          context: ./content-gen/src
-          file: ./content-gen/src/WebApp.Dockerfile
+          context: ./content-gen/src/app
+          file: ./content-gen/src/app/WebApp.Dockerfile
           push: ${{ github.ref_name == 'main' || github.ref_name == 'dev' || github.ref_name == 'demo'  || github.ref_name == 'dependabotchanges'  }}
           tags: |
             ${{ secrets.ACR_LOGIN_SERVER || 'acrlogin.azurecr.io' }}/content-gen-app:${{ steps.determine_tag.outputs.tagname }}

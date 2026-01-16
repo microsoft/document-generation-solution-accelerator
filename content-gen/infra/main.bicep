@@ -1006,3 +1006,15 @@ output CONTAINER_INSTANCE_FQDN string = enablePrivateNetworking ? '' : container
 
 @description('Contains ACR Name')
 output ACR_NAME string = acrResourceName
+
+@description('Contains flag for Azure AI Foundry usage')
+output USE_FOUNDRY bool = useFoundryMode ? true : false
+
+@description('Contains Azure AI Project Endpoint')
+output AZURE_AI_PROJECT_ENDPOINT string = aiFoundryAiProjectEndpoint
+
+@description('Contains Azure AI Model Deployment Name')
+output AZURE_AI_MODEL_DEPLOYMENT_NAME string = gptModelName
+
+@description('Contains Azure AI Image Model Deployment Name (empty if none selected)')
+output AZURE_AI_IMAGE_MODEL_DEPLOYMENT string = imageModelConfig[imageModelChoice].name

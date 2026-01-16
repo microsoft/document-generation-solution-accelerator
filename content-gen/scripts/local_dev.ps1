@@ -31,7 +31,7 @@ $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ProjectRoot = Split-Path -Parent $ScriptDir
 $SrcDir = Join-Path $ProjectRoot "src"
 $BackendDir = Join-Path $SrcDir "backend"
-$FrontendDir = Join-Path $SrcDir "frontend"
+$FrontendDir = Join-Path $SrcDir "app\frontend"
 
 # Default ports
 $BackendPort = if ($env:BACKEND_PORT) { $env:BACKEND_PORT } else { "5000" }
@@ -174,7 +174,7 @@ function Ensure-CosmosDBRole {
     $roleDefId = "00000000-0000-0000-0000-000000000002"
     
     # Check if role already assigned
-    $existing = az cosmosdb sql role assignment list --resource-group $resourceGroup --account-name $cosmosAccount --query "[?principalId=='$signedUserId'].id" -o tsv 2>$null
+    $existing = az cosmosdb sql role assignment list --resource-group $resourceGroup --account-name $cosmosAccount --query "[?principalId=='$signedUserId' && contains(roleDefinitionId, '$roleDefId')].id | [0]" -o tsv 2>$null
     
     if ($existing) {
         Write-Success "Cosmos DB role already assigned."
@@ -186,6 +186,53 @@ function Ensure-CosmosDBRole {
             exit 1
         }
         Write-Success "Cosmos DB role assigned."
+    }
+}
+
+function Ensure-StorageRole {
+    Write-Info "Checking Storage Blob Data Contributor role..."
+    
+    # Get env vars
+    $storageAccount = $null
+    $resourceGroup = $null
+    if (Test-Path ".env") {
+        Get-Content ".env" | ForEach-Object {
+            if ($_ -match "^AZURE_BLOB_ACCOUNT_NAME=(.*)$") { $storageAccount = $matches[1].Trim('"').Trim("'") }
+            if ($_ -match "^RESOURCE_GROUP_NAME=(.*)$") { $resourceGroup = $matches[1].Trim('"').Trim("'") }
+        }
+    }
+    
+    if (-not $storageAccount -or -not $resourceGroup) {
+        Write-Error "AZURE_BLOB_ACCOUNT_NAME or RESOURCE_GROUP_NAME not found in .env"
+        exit 1
+    }
+    
+    $signedUserId = az ad signed-in-user show --query id -o tsv 2>$null
+    if (-not $signedUserId) {
+        Write-Error "Could not get signed-in user ID."
+        exit 1
+    }
+    
+    # Get storage account resource ID
+    $storageResourceId = az storage account show --name $storageAccount --resource-group $resourceGroup --query id -o tsv 2>$null
+    if (-not $storageResourceId) {
+        Write-Error "Could not get storage account resource ID."
+        exit 1
+    }
+    
+    $roleId = "Storage Blob Data Contributor"
+    $existing = az role assignment list --assignee $signedUserId --role $roleId --scope $storageResourceId --query "[0].id" -o tsv 2>$null
+    
+    if ($existing) {
+        Write-Success "Storage Blob Data Contributor role already assigned."
+    } else {
+        Write-Info "Assigning Storage Blob Data Contributor role..."
+        az role assignment create --assignee $signedUserId --role $roleId --scope $storageResourceId --output none 2>$null
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error "Failed to assign Storage Blob Data Contributor role."
+            exit 1
+        }
+        Write-Success "Storage Blob Data Contributor role assigned."
     }
 }
 
@@ -339,6 +386,7 @@ function Start-Backend {
     Ensure-AzureLogin
     Ensure-AzureAIUserRole
     Ensure-CosmosDBRole
+    Ensure-StorageRole
     
     # Activate virtual environment
     if (Test-Path ".venv") {
@@ -434,6 +482,7 @@ function Start-All {
     Ensure-AzureLogin
     Ensure-AzureAIUserRole
     Ensure-CosmosDBRole
+    Ensure-StorageRole
     
     Write-Info "Starting backend and frontend in parallel..."
     Write-Info ""
