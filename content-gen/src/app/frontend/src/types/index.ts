@@ -31,19 +31,11 @@ export interface Product {
   image_description?: string;
 }
 
-export type ComplianceSeverity = 'error' | 'warning' | 'info';
-
 export interface ComplianceViolation {
-  severity: ComplianceSeverity;
+  severity: 'error' | 'warning' | 'info';
   message: string;
   suggestion: string;
   field: string;
-}
-
-export interface ContentResponse {
-  content: Record<string, unknown>;
-  violations: ComplianceViolation[];
-  requires_modification: boolean;
 }
 
 export interface ChatMessage {

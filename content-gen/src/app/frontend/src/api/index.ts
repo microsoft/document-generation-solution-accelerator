@@ -6,9 +6,7 @@ import type {
   CreativeBrief,
   Product,
   AgentResponse,
-  BrandGuidelines,
   ParsedBriefResponse,
-  Conversation,
   AppConfig,
 } from '../types';
 
@@ -288,101 +286,4 @@ export async function* streamGenerateContent(
   }
   
   throw new Error('Generation timed out after 10 minutes');
-}
-
-/**
- * Get products from the catalog
- */
-export async function getProducts(params?: {
-  category?: string;
-  sub_category?: string;
-  search?: string;
-  limit?: number;
-}): Promise<{ products: Product[]; count: number }> {
-  const searchParams = new URLSearchParams();
-  if (params?.category) searchParams.set('category', params.category);
-  if (params?.sub_category) searchParams.set('sub_category', params.sub_category);
-  if (params?.search) searchParams.set('search', params.search);
-  if (params?.limit) searchParams.set('limit', params.limit.toString());
-
-  const response = await fetch(`${API_BASE}/products?${searchParams}`);
-
-  if (!response.ok) {
-    throw new Error(`Failed to get products: ${response.statusText}`);
-  }
-
-  return response.json();
-}
-
-/**
- * Upload a product image
- */
-export async function uploadProductImage(
-  sku: string,
-  file: File
-): Promise<{ image_url: string; image_description: string }> {
-  const formData = new FormData();
-  formData.append('image', file);
-
-  const response = await fetch(`${API_BASE}/products/${sku}/image`, {
-    method: 'POST',
-    body: formData,
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to upload image: ${response.statusText}`);
-  }
-
-  return response.json();
-}
-
-/**
- * Get brand guidelines
- */
-export async function getBrandGuidelines(): Promise<BrandGuidelines> {
-  const response = await fetch(`${API_BASE}/brand-guidelines`);
-
-  if (!response.ok) {
-    throw new Error(`Failed to get brand guidelines: ${response.statusText}`);
-  }
-
-  return response.json();
-}
-
-/**
- * Get user conversations
- */
-export async function getConversations(
-  userId: string,
-  limit?: number
-): Promise<{ conversations: Conversation[]; count: number }> {
-  const searchParams = new URLSearchParams();
-  searchParams.set('user_id', userId);
-  if (limit) searchParams.set('limit', limit.toString());
-
-  const response = await fetch(`${API_BASE}/conversations?${searchParams}`);
-
-  if (!response.ok) {
-    throw new Error(`Failed to get conversations: ${response.statusText}`);
-  }
-
-  return response.json();
-}
-
-/**
- * Get a specific conversation
- */
-export async function getConversation(
-  conversationId: string,
-  userId: string
-): Promise<Conversation> {
-  const response = await fetch(
-    `${API_BASE}/conversations/${conversationId}?user_id=${userId}`
-  );
-
-  if (!response.ok) {
-    throw new Error(`Failed to get conversation: ${response.statusText}`);
-  }
-
-  return response.json();
 }
