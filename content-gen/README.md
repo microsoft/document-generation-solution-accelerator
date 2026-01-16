@@ -142,7 +142,7 @@ pip install -r requirements.txt
 python app.py
 
 # Frontend
-cd src/app/frontend
+cd src/frontend
 npm install
 npm run dev
 ```
