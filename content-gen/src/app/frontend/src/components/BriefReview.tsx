@@ -21,6 +21,19 @@ const briefFields: { key: keyof CreativeBrief; label: string; prefix?: string }[
   { key: 'cta', label: 'Call to Action', prefix: '• ' },
 ];
 
+// Mapping of field keys to user-friendly labels for the 9 key areas
+const fieldLabels: Record<keyof CreativeBrief, string> = {
+  overview: 'Overview',
+  objectives: 'Objectives',
+  target_audience: 'Target Audience',
+  key_message: 'Key Message',
+  tone_and_style: 'Tone and Style',
+  deliverable: 'Deliverable',
+  timelines: 'Timelines',
+  visual_guidelines: 'Visual Guidelines',
+  cta: 'Call to Action',
+};
+
 export function BriefReview({
   brief,
   onConfirm,
@@ -32,6 +45,7 @@ export function BriefReview({
     'tone_and_style', 'deliverable', 'timelines', 'visual_guidelines', 'cta'
   ];
   const populatedFields = allFields.filter(key => brief[key]?.trim()).length;
+  const missingFields = allFields.filter(key => !brief[key]?.trim());
 
   return (
     <div className="message assistant" style={{ 
@@ -274,6 +288,8 @@ export function BriefReview({
           {populatedFields < 5 ? (
             <>
               I've captured <strong>{populatedFields}</strong> of 9 key areas. Would you like to add more details? 
+              You are missing: <strong>{missingFields.map(f => fieldLabels[f]).join(', ')}</strong>.
+              <br /><br />
               You can tell me things like:
               <ul style={{ margin: '8px 0 0 0', paddingLeft: '20px' }}>
                 <li>"The target audience should be homeowners aged 35-55"</li>
