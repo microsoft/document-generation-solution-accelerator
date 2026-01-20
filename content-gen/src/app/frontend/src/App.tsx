@@ -545,15 +545,7 @@ function App() {
             setGeneratedContent(content);
             setGenerationStatus('');
             
-            // Add a message to chat showing content was generated
-            const assistantMessage: ChatMessage = {
-              id: uuidv4(),
-              role: 'assistant',
-              content: `Content generated successfully! ${textContent?.headline ? `Headline: "${textContent.headline}"` : ''}`,
-              agent: 'ContentAgent',
-              timestamp: new Date().toISOString(),
-            };
-            setMessages(prev => [...prev, assistantMessage]);
+            // Content is displayed via InlineContentPreview - no need for a separate chat message
           } catch (parseError) {
             console.error('Error parsing generated content:', parseError);
           }

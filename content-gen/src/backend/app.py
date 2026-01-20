@@ -496,15 +496,13 @@ async def _run_generation_task(task_id: str, brief: CreativeBrief, products_data
         # Save to CosmosDB
         try:
             cosmos_service = await get_cosmos_service()
-            text_content = response.get("text_content", {})
-            headline = text_content.get("headline", "") if isinstance(text_content, dict) else ""
             
             await cosmos_service.add_message_to_conversation(
                 conversation_id=conversation_id,
                 user_id=user_id,
                 message={
                     "role": "assistant",
-                    "content": f"Content generated successfully!{' Headline: ' + headline if headline else ''}",
+                    "content": "Content generated successfully.",
                     "agent": "ContentAgent",
                     "timestamp": datetime.now(timezone.utc).isoformat()
                 }
@@ -806,8 +804,6 @@ async def generate_content():
             # Save generated content to conversation
             try:
                 cosmos_service = await get_cosmos_service()
-                text_content = response.get("text_content", {})
-                headline = text_content.get("headline", "") if isinstance(text_content, dict) else ""
                 
                 # Save the message
                 await cosmos_service.add_message_to_conversation(
@@ -815,7 +811,7 @@ async def generate_content():
                     user_id=user_id,
                     message={
                         "role": "assistant",
-                        "content": f"Content generated successfully!{' Headline: ' + headline if headline else ''}",
+                        "content": "Content generated successfully.",
                         "agent": "ContentAgent",
                         "timestamp": datetime.now(timezone.utc).isoformat()
                     }
