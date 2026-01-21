@@ -1,15 +1,29 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Button,
   Text,
   Spinner,
   tokens,
   Link,
+  Menu,
+  MenuTrigger,
+  MenuPopover,
+  MenuList,
+  MenuItem,
+  Input,
+  Dialog,
+  DialogSurface,
+  DialogTitle,
+  DialogBody,
+  DialogActions,
+  DialogContent,
 } from '@fluentui/react-components';
 import {
   Chat24Regular,
   MoreHorizontal20Regular,
   Compose20Regular,
+  Delete20Regular,
+  Edit20Regular,
 } from '@fluentui/react-icons';
 
 interface ConversationSummary {
@@ -26,7 +40,6 @@ interface ChatHistoryProps {
   onSelectConversation: (conversationId: string) => void;
   onNewConversation: () => void;
   refreshTrigger?: number; // Increment to trigger refresh
-  isGenerating?: boolean; // True when content generation is in progress
 }
 
 export function ChatHistory({ 
@@ -34,14 +47,53 @@ export function ChatHistory({
   currentMessages = [],
   onSelectConversation,
   onNewConversation,
-  refreshTrigger = 0,
-  isGenerating = false
+  refreshTrigger = 0
 }: ChatHistoryProps) {
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
   const INITIAL_COUNT = 5;
+
+  const handleDeleteConversation = useCallback(async (conversationId: string) => {
+    try {
+      const response = await fetch(`/api/conversations/${conversationId}`, {
+        method: 'DELETE',
+      });
+      if (response.ok) {
+        setConversations(prev => prev.filter(c => c.id !== conversationId));
+        if (conversationId === currentConversationId) {
+          onNewConversation();
+        }
+      } else {
+        console.error('Failed to delete conversation');
+      }
+    } catch (err) {
+      console.error('Error deleting conversation:', err);
+    }
+  }, [currentConversationId, onNewConversation]);
+
+  const handleRenameConversation = useCallback(async (conversationId: string, newTitle: string) => {
+    try {
+      const response = await fetch(`/api/conversations/${conversationId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ title: newTitle }),
+      });
+      
+      if (response.ok) {
+        setConversations(prev => prev.map(c => 
+          c.id === conversationId ? { ...c, title: newTitle } : c
+        ));
+      } else {
+        console.error('Failed to rename conversation');
+      }
+    } catch (err) {
+      console.error('Error renaming conversation:', err);
+    }
+  }, []);
 
   const loadConversations = useCallback(async () => {
     setIsLoading(true);
@@ -182,14 +234,15 @@ export function ChatHistory({
           </div>
         ) : (
           <>
-            {visibleConversations.map((conversation, index) => (
+            {visibleConversations.map((conversation) => (
               <ConversationItem
                 key={conversation.id}
                 conversation={conversation}
                 isActive={conversation.id === currentConversationId}
                 onSelect={() => onSelectConversation(conversation.id)}
-                showMenu={index === 0}
-                disabled={isGenerating}
+                onDelete={handleDeleteConversation}
+                onRename={handleRenameConversation}
+                onRefresh={loadConversations}
               />
             ))}
           </>
@@ -211,27 +264,23 @@ export function ChatHistory({
         }}>
           {hasMore && (
             <Link
-              onClick={isGenerating ? undefined : () => setShowAll(!showAll)}
+              onClick={() => setShowAll(!showAll)}
               style={{
                 fontSize: '13px',
-                color: isGenerating ? tokens.colorNeutralForegroundDisabled : tokens.colorBrandForeground1,
-                cursor: isGenerating ? 'not-allowed' : 'pointer',
-                pointerEvents: isGenerating ? 'none' : 'auto',
+                color: tokens.colorBrandForeground1,
               }}
             >
               {showAll ? 'Show less' : 'See all'}
             </Link>
           )}
           <Link
-            onClick={isGenerating ? undefined : onNewConversation}
+            onClick={onNewConversation}
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: '8px',
               fontSize: '13px',
-              color: isGenerating ? tokens.colorNeutralForegroundDisabled : tokens.colorNeutralForeground1,
-              cursor: isGenerating ? 'not-allowed' : 'pointer',
-              pointerEvents: isGenerating ? 'none' : 'auto',
+              color: tokens.colorNeutralForeground1,
             }}
           >
             <Compose20Regular />
@@ -247,76 +296,189 @@ interface ConversationItemProps {
   conversation: ConversationSummary;
   isActive: boolean;
   onSelect: () => void;
-  showMenu?: boolean;
-  disabled?: boolean;
+  onDelete: (conversationId: string) => void;
+  onRename: (conversationId: string, newTitle: string) => void;
+  onRefresh: () => void;
 }
 
 function ConversationItem({ 
   conversation, 
   isActive,
-  onSelect, 
-  showMenu = false,
-  disabled = false,
+  onSelect,
+  onDelete,
+  onRename,
+  onRefresh,
 }: ConversationItemProps) {
-  const [isHovered, setIsHovered] = useState(false);
-  
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [renameValue, setRenameValue] = useState(conversation.title || '');
+  const renameInputRef = useRef<HTMLInputElement>(null);
+
+  const handleRenameClick = () => {
+    setRenameValue(conversation.title || '');
+    setIsRenameDialogOpen(true);
+    setIsMenuOpen(false);
+  };
+
+  const handleRenameConfirm = async () => {
+    const trimmedValue = renameValue.trim();
+    if (trimmedValue && trimmedValue !== conversation.title) {
+      await onRename(conversation.id, trimmedValue);
+      onRefresh();
+    }
+    setIsRenameDialogOpen(false);
+  };
+
+  const handleDeleteClick = () => {
+    setIsDeleteDialogOpen(true);
+    setIsMenuOpen(false);
+  };
+
+  const handleDeleteConfirm = async () => {
+    await onDelete(conversation.id);
+    setIsDeleteDialogOpen(false);
+  };
+
+  useEffect(() => {
+    if (isRenameDialogOpen && renameInputRef.current) {
+      renameInputRef.current.focus();
+      renameInputRef.current.select();
+    }
+  }, [isRenameDialogOpen]);
+
   return (
-    <div
-      onClick={disabled ? undefined : onSelect}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      style={{
-        padding: '8px',
-        cursor: disabled ? 'not-allowed' : 'pointer',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: '8px',
-        backgroundColor: isActive 
-          ? tokens.colorNeutralBackground1 
-          : 'transparent',
-        border: isActive 
-          ? `1px solid ${tokens.colorNeutralStroke2}` 
-          : '1px solid transparent',
-        borderRadius: '6px',
-        marginLeft: '-8px',
-        marginRight: '-8px',
-        transition: 'background-color 0.15s, border-color 0.15s',
-        opacity: disabled ? 0.5 : 1,
-        pointerEvents: disabled ? 'none' : 'auto',
-      }}
-    >
-      <Text 
-        size={200}
-        weight={isActive ? 'semibold' : 'regular'}
-        style={{ 
-          overflow: 'hidden', 
-          textOverflow: 'ellipsis', 
-          whiteSpace: 'nowrap',
-          flex: 1,
-          fontSize: '13px',
-          color: tokens.colorNeutralForeground1,
+    <>
+      <div
+        onClick={onSelect}
+        style={{
+          padding: '8px',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '8px',
+          backgroundColor: isActive 
+            ? tokens.colorNeutralBackground1 
+            : 'transparent',
+          border: isActive 
+            ? `1px solid ${tokens.colorNeutralStroke2}` 
+            : '1px solid transparent',
+          borderRadius: '6px',
+          marginLeft: '-8px',
+          marginRight: '-8px',
+          transition: 'background-color 0.15s, border-color 0.15s',
         }}
       >
-        {conversation.title || 'Untitled'}
-      </Text>
-      
-      {(showMenu || isHovered) && (
-        <Button
-          appearance="subtle"
-          icon={<MoreHorizontal20Regular />}
-          size="small"
-          onClick={(e) => {
-            e.stopPropagation();
-          }}
+        <Text 
+          size={200}
+          weight={isActive ? 'semibold' : 'regular'}
           style={{ 
-            minWidth: '24px', 
-            height: '24px',
-            padding: '2px',
-            color: tokens.colorNeutralForeground3,
+            overflow: 'hidden', 
+            textOverflow: 'ellipsis', 
+            whiteSpace: 'nowrap',
+            flex: 1,
+            fontSize: '13px',
+            color: tokens.colorNeutralForeground1,
           }}
-        />
-      )}
-    </div>
+        >
+          {conversation.title || 'Untitled'}
+        </Text>
+        
+        <Menu open={isMenuOpen} onOpenChange={(_, data) => setIsMenuOpen(data.open)}>
+          <MenuTrigger disableButtonEnhancement>
+            <Button
+              appearance="subtle"
+              icon={<MoreHorizontal20Regular />}
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation();
+              }}
+              style={{ 
+                minWidth: '24px', 
+                height: '24px',
+                padding: '2px',
+                color: tokens.colorNeutralForeground3,
+              }}
+            />
+          </MenuTrigger>
+          <MenuPopover>
+            <MenuList>
+              <MenuItem 
+                icon={<Edit20Regular />}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleRenameClick();
+                }}
+              >
+                Rename
+              </MenuItem>
+              <MenuItem 
+                icon={<Delete20Regular />}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDeleteClick();
+                }}
+              >
+                Delete
+              </MenuItem>
+            </MenuList>
+          </MenuPopover>
+        </Menu>
+      </div>
+
+      <Dialog open={isRenameDialogOpen} onOpenChange={(_, data) => setIsRenameDialogOpen(data.open)}>
+        <DialogSurface>
+          <DialogTitle>Rename conversation</DialogTitle>
+          <DialogBody>
+            <DialogContent>
+              <Input
+                ref={renameInputRef}
+                value={renameValue}
+                onChange={(e) => setRenameValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleRenameConfirm();
+                  } else if (e.key === 'Escape') {
+                    setIsRenameDialogOpen(false);
+                  }
+                }}
+                placeholder="Enter conversation name"
+                style={{ width: '100%' }}
+              />
+            </DialogContent>
+          </DialogBody>
+          <DialogActions style={{ marginTop: '8px', paddingTop: '8px', paddingBottom: '8px' }}>
+            <Button appearance="secondary" onClick={() => setIsRenameDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button appearance="primary" onClick={handleRenameConfirm}>
+              Rename
+            </Button>
+          </DialogActions>
+        </DialogSurface>
+      </Dialog>
+
+      <Dialog open={isDeleteDialogOpen} onOpenChange={(_, data) => setIsDeleteDialogOpen(data.open)}>
+        <DialogSurface>
+          <DialogTitle>Delete conversation</DialogTitle>
+          <DialogBody>
+            <DialogContent>
+              <Text>
+                Are you sure you want to delete "{conversation.title || 'Untitled'}"? This action cannot be undone.
+              </Text>
+            </DialogContent>
+          </DialogBody>
+          <DialogActions>
+            <Button appearance="secondary" onClick={() => setIsDeleteDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button appearance="primary" onClick={handleDeleteConfirm}>
+              Delete
+            </Button>
+          </DialogActions>
+        </DialogSurface>
+      </Dialog>
+    </>
   );
 }

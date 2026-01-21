@@ -712,7 +712,7 @@ module cosmosDB 'br/public:avm/res/document-db/database-account:0.18.0' = {
           {
             name: cosmosDBConversationsContainer
             paths: [
-              '/userId'
+              '/user_id'
             ]
           }
           {

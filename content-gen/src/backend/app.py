@@ -1142,6 +1142,38 @@ async def delete_conversation(conversation_id: str):
         return jsonify({"error": "Failed to delete conversation"}), 500
 
 
+@app.route("/api/conversations/<conversation_id>", methods=["PUT"])
+async def update_conversation(conversation_id: str):
+    """
+    Update a conversation (rename).
+    
+    Uses authenticated user from EasyAuth headers.
+    
+    Request body:
+    {
+        "title": "New conversation title"
+    }
+    """
+    auth_user = get_authenticated_user()
+    user_id = auth_user["user_principal_id"]
+    
+    data = await request.get_json()
+    new_title = data.get("title", "").strip()
+    
+    if not new_title:
+        return jsonify({"error": "Title is required"}), 400
+    
+    try:
+        cosmos_service = await get_cosmos_service()
+        result = await cosmos_service.rename_conversation(conversation_id, user_id, new_title)
+        if result:
+            return jsonify({"success": True, "message": "Conversation renamed", "title": new_title})
+        return jsonify({"error": "Conversation not found"}), 404
+    except Exception as e:
+        logger.warning(f"Failed to rename conversation: {e}")
+        return jsonify({"error": "Failed to rename conversation"}), 500
+
+
 # ==================== Brand Guidelines Endpoints ====================
 
 @app.route("/api/brand-guidelines", methods=["GET"])

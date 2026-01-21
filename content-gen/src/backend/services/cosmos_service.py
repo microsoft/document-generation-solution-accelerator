@@ -340,7 +340,7 @@ class CosmosDBService:
         
         item = {
             "id": conversation_id,
-            "user_id": user_id,
+            "user_id": user_id,          # Partition key field (matches container definition /user_id)
             "messages": messages,
             "brief": brief.model_dump() if brief else None,
             "metadata": metadata or {},
@@ -378,7 +378,7 @@ class CosmosDBService:
         else:
             conversation = {
                 "id": conversation_id,
-                "user_id": user_id,
+                "user_id": user_id,          # Partition key field
                 "messages": [],
                 "generated_content": generated_content,
                 "updated_at": datetime.now(timezone.utc).isoformat()
@@ -414,7 +414,7 @@ class CosmosDBService:
         else:
             conversation = {
                 "id": conversation_id,
-                "user_id": user_id,
+                "user_id": user_id,          # Partition key field
                 "messages": [message],
                 "updated_at": datetime.now(timezone.utc).isoformat()
             }
@@ -443,7 +443,7 @@ class CosmosDBService:
         # This handles legacy data before "anonymous" was used as the default
         if user_id == "anonymous":
             query = """
-                SELECT TOP @limit c.id, c.user_id, c.updated_at, c.messages, c.brief
+                SELECT TOP @limit c.id, c.user_id, c.updated_at, c.messages, c.brief, c.metadata
                 FROM c 
                 WHERE c.user_id = @user_id 
                    OR c.user_id = "" 
@@ -456,9 +456,8 @@ class CosmosDBService:
                 {"name": "@limit", "value": limit}
             ]
         else:
-            # For authenticated users, only show their conversations
             query = """
-                SELECT TOP @limit c.id, c.user_id, c.updated_at, c.messages, c.brief
+                SELECT TOP @limit c.id, c.user_id, c.updated_at, c.messages, c.brief, c.metadata
                 FROM c 
                 WHERE c.user_id = @user_id
                 ORDER BY c.updated_at DESC
@@ -475,16 +474,21 @@ class CosmosDBService:
         ):
             messages = item.get("messages", [])
             brief = item.get("brief", {})
+            metadata = item.get("metadata", {})
             
-            # Extract title from brief overview or first user message
-            title = "Untitled Conversation"
-            if brief and brief.get("overview"):
+            custom_title = metadata.get("custom_title") if metadata else None
+            if custom_title:
+                title = custom_title
+            elif brief and brief.get("overview"):
                 title = brief["overview"][:50]
             elif messages:
+                title = "Untitled Conversation"
                 for msg in messages:
                     if msg.get("role") == "user":
                         title = msg.get("content", "")[:50]
                         break
+            else:
+                title = "Untitled Conversation"
             
             # Get last message preview
             last_message = ""
@@ -519,31 +523,47 @@ class CosmosDBService:
         """
         await self.initialize()
         
+        # Delete the conversation using user_id as partition key
         try:
-            # First try to delete with provided user_id
             await self._conversations_container.delete_item(
                 item=conversation_id,
                 partition_key=user_id
             )
+            logger.info(f"Deleted conversation {conversation_id}")
             return True
-        except Exception:
-            pass
-        
-        # Fallback: find the conversation first to get the correct partition key
-        try:
-            conversation = await self.get_conversation(conversation_id, user_id)
-            if conversation:
-                actual_user_id = conversation.get("user_id", "")
-                await self._conversations_container.delete_item(
-                    item=conversation_id,
-                    partition_key=actual_user_id
-                )
-                return True
         except Exception as e:
             logger.warning(f"Failed to delete conversation {conversation_id}: {e}")
             raise
+    
+    async def rename_conversation(
+        self,
+        conversation_id: str,
+        user_id: str,
+        new_title: str
+    ) -> Optional[dict]:
+        """
+        Rename a conversation by setting a custom title in metadata.
         
-        return False
+        Args:
+            conversation_id: Unique conversation identifier
+            user_id: User ID for partition key
+            new_title: New title for the conversation
+        
+        Returns:
+            Updated conversation document or None if not found
+        """
+        await self.initialize()
+        
+        conversation = await self.get_conversation(conversation_id, user_id)
+        if not conversation:
+            return None
+        
+        conversation["metadata"] = conversation.get("metadata", {})
+        conversation["metadata"]["custom_title"] = new_title
+        # Don't update updated_at - renaming shouldn't change sort order
+        
+        result = await self._conversations_container.upsert_item(conversation)
+        return result
 
 
 # Singleton instance
