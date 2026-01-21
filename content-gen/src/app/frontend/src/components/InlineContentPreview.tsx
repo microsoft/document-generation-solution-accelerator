@@ -29,7 +29,6 @@ interface InlineContentPreviewProps {
   isLoading?: boolean;
   selectedProduct?: Product;
   imageGenerationEnabled?: boolean;
-  onActionChipClick?: (action: string) => void;
 }
 
 // Custom hook for responsive breakpoints
@@ -51,7 +50,6 @@ export function InlineContentPreview({
   isLoading, 
   selectedProduct, 
   imageGenerationEnabled = true,
-  onActionChipClick,
 }: InlineContentPreviewProps) {
   const { text_content, image_content, violations, requires_modification, error, image_error, text_error } = content;
   const [copied, setCopied] = useState(false);
