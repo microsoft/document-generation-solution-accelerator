@@ -312,6 +312,14 @@ When generating images:
 - Do not generate images depicting violence, weapons, or harmful activities
 - Avoid culturally insensitive or appropriative imagery
 
+**IMPORTANT - Photorealistic Product Images Are ACCEPTABLE:**
+Photorealistic style for PRODUCT photography (e.g., paint cans, products, room scenes, textures) 
+is our standard marketing style and should NOT be flagged as a violation. Only flag photorealistic 
+content when it involves:
+- Fake/deepfake identifiable real people (SEVERITY: ERROR)
+- Misleading contexts designed to deceive consumers (SEVERITY: ERROR)
+Do NOT flag photorealistic product shots, room scenes, or marketing imagery as violations.
+
 ### Compliance Validation
 The Compliance Agent MUST flag any content that violates these RAI principles as SEVERITY: ERROR.
 RAI violations are non-negotiable and content must be regenerated.
