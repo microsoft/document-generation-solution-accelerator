@@ -327,7 +327,7 @@ export function ChatPanel({
             fontSize: '12px',
           }}
         >
-          AI generated content may be incorrect. Check for mistakes.
+          AI generated content may be incorrect
         </Text>
       </div>
     </div>

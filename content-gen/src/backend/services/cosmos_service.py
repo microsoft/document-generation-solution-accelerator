@@ -340,7 +340,8 @@ class CosmosDBService:
         
         item = {
             "id": conversation_id,
-            "user_id": user_id,          # Partition key field (matches container definition /user_id)
+            "userId": user_id,            # Partition key field (matches container definition /userId)
+            "user_id": user_id,           # Keep for backward compatibility
             "messages": messages,
             "brief": brief.model_dump() if brief else None,
             "metadata": metadata or {},
@@ -373,12 +374,16 @@ class CosmosDBService:
         conversation = await self.get_conversation(conversation_id, user_id)
         
         if conversation:
+            # Ensure userId is set (for partition key) - migrate old documents
+            if not conversation.get("userId"):
+                conversation["userId"] = conversation.get("user_id") or user_id
             conversation["generated_content"] = generated_content
             conversation["updated_at"] = datetime.now(timezone.utc).isoformat()
         else:
             conversation = {
                 "id": conversation_id,
-                "user_id": user_id,          # Partition key field
+                "userId": user_id,            # Partition key field
+                "user_id": user_id,           # Keep for backward compatibility
                 "messages": [],
                 "generated_content": generated_content,
                 "updated_at": datetime.now(timezone.utc).isoformat()
@@ -409,12 +414,16 @@ class CosmosDBService:
         conversation = await self.get_conversation(conversation_id, user_id)
         
         if conversation:
+            # Ensure userId is set (for partition key) - migrate old documents
+            if not conversation.get("userId"):
+                conversation["userId"] = conversation.get("user_id") or user_id
             conversation["messages"].append(message)
             conversation["updated_at"] = datetime.now(timezone.utc).isoformat()
         else:
             conversation = {
                 "id": conversation_id,
-                "user_id": user_id,          # Partition key field
+                "userId": user_id,            # Partition key field
+                "user_id": user_id,          # Keep for backward compatibility
                 "messages": [message],
                 "updated_at": datetime.now(timezone.utc).isoformat()
             }
@@ -443,9 +452,10 @@ class CosmosDBService:
         # This handles legacy data before "anonymous" was used as the default
         if user_id == "anonymous":
             query = """
-                SELECT TOP @limit c.id, c.user_id, c.updated_at, c.messages, c.brief, c.metadata
+                SELECT TOP @limit c.id, c.userId, c.user_id, c.updated_at, c.messages, c.brief, c.metadata
                 FROM c 
-                WHERE c.user_id = @user_id 
+                WHERE c.userId = @user_id
+                   OR c.user_id = @user_id 
                    OR c.user_id = "" 
                    OR c.user_id = null 
                    OR NOT IS_DEFINED(c.user_id)
@@ -457,9 +467,9 @@ class CosmosDBService:
             ]
         else:
             query = """
-                SELECT TOP @limit c.id, c.user_id, c.updated_at, c.messages, c.brief, c.metadata
+                SELECT TOP @limit c.id, c.userId, c.user_id, c.updated_at, c.messages, c.brief, c.metadata
                 FROM c 
-                WHERE c.user_id = @user_id
+                WHERE c.userId = @user_id OR c.user_id = @user_id
                 ORDER BY c.updated_at DESC
             """
             params = [
@@ -523,13 +533,21 @@ class CosmosDBService:
         """
         await self.initialize()
         
-        # Delete the conversation using user_id as partition key
+        # Get the conversation to find its partition key value
+        conversation = await self.get_conversation(conversation_id, user_id)
+        if not conversation:
+            # Already doesn't exist, consider it deleted
+            return True
+        
+        # Use userId (camelCase) as partition key, fallback to user_id for old documents
+        partition_key = conversation.get("userId") or conversation.get("user_id") or user_id
+        
         try:
             await self._conversations_container.delete_item(
                 item=conversation_id,
-                partition_key=user_id
+                partition_key=partition_key
             )
-            logger.info(f"Deleted conversation {conversation_id}")
+            logger.info(f"Deleted conversation {conversation_id} with partition key: {partition_key}")
             return True
         except Exception as e:
             logger.warning(f"Failed to delete conversation {conversation_id}: {e}")
@@ -560,6 +578,9 @@ class CosmosDBService:
         
         conversation["metadata"] = conversation.get("metadata", {})
         conversation["metadata"]["custom_title"] = new_title
+        # Ensure userId is set (for partition key) - migrate old documents
+        if not conversation.get("userId"):
+            conversation["userId"] = conversation.get("user_id") or user_id
         # Don't update updated_at - renaming shouldn't change sort order
         
         result = await self._conversations_container.upsert_item(conversation)
