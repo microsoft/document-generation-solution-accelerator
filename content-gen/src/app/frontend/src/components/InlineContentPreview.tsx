@@ -383,30 +383,6 @@ export function InlineContentPreview({
         </div>
       )}
 
-      {/* Action Chip - for quick follow-up requests */}
-      {image_content?.image_url && (
-        <div 
-          className="action-chip"
-          onClick={() => onActionChipClick?.('Create an other image with same paint color, but a modern kitchen area, with no text on it')}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '10px 16px',
-            borderRadius: '20px',
-            backgroundColor: tokens.colorBrandBackground2,
-            color: tokens.colorBrandForeground1,
-            fontSize: '13px',
-            cursor: 'pointer',
-            border: `1px solid ${tokens.colorBrandStroke1}`,
-            transition: 'all 0.15s ease-in-out',
-            marginBottom: '16px',
-          }}
-        >
-          Create an other image with same paint color, but a modern kitchen area, with no text on it
-        </div>
-      )}
-
       <Divider style={{ margin: '16px 0' }} />
 
       {/* User guidance callout for compliance status */}

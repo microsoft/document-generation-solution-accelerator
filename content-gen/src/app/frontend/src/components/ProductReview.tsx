@@ -97,11 +97,16 @@ export function ProductReview({
             appearance="primary"
             icon={<Sparkle20Regular />}
             onClick={onConfirm}
-            disabled={isAwaitingResponse}
+            disabled={isAwaitingResponse || products.length === 0}
             size="small"
           >
             Generate Content
           </Button>
+          {products.length === 0 && (
+            <Text size={200} style={{ color: tokens.colorNeutralForeground3, alignSelf: 'center' }}>
+              Select a product to continue
+            </Text>
+          )}
         </div>
       )}
 

@@ -26,6 +26,7 @@ interface ChatHistoryProps {
   onSelectConversation: (conversationId: string) => void;
   onNewConversation: () => void;
   refreshTrigger?: number; // Increment to trigger refresh
+  isGenerating?: boolean; // True when content generation is in progress
 }
 
 export function ChatHistory({ 
@@ -33,7 +34,8 @@ export function ChatHistory({
   currentMessages = [],
   onSelectConversation,
   onNewConversation,
-  refreshTrigger = 0
+  refreshTrigger = 0,
+  isGenerating = false
 }: ChatHistoryProps) {
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -218,13 +220,15 @@ export function ChatHistory({
             </Link>
           )}
           <Link
-            onClick={onNewConversation}
+            onClick={isGenerating ? undefined : onNewConversation}
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: '8px',
               fontSize: '13px',
-              color: tokens.colorNeutralForeground1,
+              color: isGenerating ? tokens.colorNeutralForegroundDisabled : tokens.colorNeutralForeground1,
+              cursor: isGenerating ? 'not-allowed' : 'pointer',
+              pointerEvents: isGenerating ? 'none' : 'auto',
             }}
           >
             <Compose20Regular />

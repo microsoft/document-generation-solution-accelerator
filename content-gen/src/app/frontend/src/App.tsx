@@ -457,9 +457,11 @@ function App() {
     setSelectedProducts(prev => {
       const isSelected = prev.some(p => (p.sku || p.product_name) === (product.sku || product.product_name));
       if (isSelected) {
-        return prev.filter(p => (p.sku || p.product_name) !== (product.sku || product.product_name));
+        // Deselect - but user must have at least one selected to proceed
+        return [];
       } else {
-        return [...prev, product];
+        // Single selection mode - replace any existing selection
+        return [product];
       }
     });
   }, []);
@@ -670,6 +672,7 @@ function App() {
             onSelectConversation={handleSelectConversation}
             onNewConversation={handleNewConversation}
               refreshTrigger={historyRefreshTrigger}
+              isGenerating={isLoading}
             />
           </div>
         )}
