@@ -189,6 +189,7 @@ export function ChatHistory({
                 isActive={conversation.id === currentConversationId}
                 onSelect={() => onSelectConversation(conversation.id)}
                 showMenu={index === 0}
+                disabled={isGenerating}
               />
             ))}
           </>
@@ -210,10 +211,12 @@ export function ChatHistory({
         }}>
           {hasMore && (
             <Link
-              onClick={() => setShowAll(!showAll)}
+              onClick={isGenerating ? undefined : () => setShowAll(!showAll)}
               style={{
                 fontSize: '13px',
-                color: tokens.colorBrandForeground1,
+                color: isGenerating ? tokens.colorNeutralForegroundDisabled : tokens.colorBrandForeground1,
+                cursor: isGenerating ? 'not-allowed' : 'pointer',
+                pointerEvents: isGenerating ? 'none' : 'auto',
               }}
             >
               {showAll ? 'Show less' : 'See all'}
@@ -245,6 +248,7 @@ interface ConversationItemProps {
   isActive: boolean;
   onSelect: () => void;
   showMenu?: boolean;
+  disabled?: boolean;
 }
 
 function ConversationItem({ 
@@ -252,17 +256,18 @@ function ConversationItem({
   isActive,
   onSelect, 
   showMenu = false,
+  disabled = false,
 }: ConversationItemProps) {
   const [isHovered, setIsHovered] = useState(false);
   
   return (
     <div
-      onClick={onSelect}
+      onClick={disabled ? undefined : onSelect}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       style={{
         padding: '8px',
-        cursor: 'pointer',
+        cursor: disabled ? 'not-allowed' : 'pointer',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -277,6 +282,8 @@ function ConversationItem({
         marginLeft: '-8px',
         marginRight: '-8px',
         transition: 'background-color 0.15s, border-color 0.15s',
+        opacity: disabled ? 0.5 : 1,
+        pointerEvents: disabled ? 'none' : 'auto',
       }}
     >
       <Text 
