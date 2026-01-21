@@ -47,6 +47,7 @@ function App() {
   // Brief confirmation flow
   const [pendingBrief, setPendingBrief] = useState<CreativeBrief | null>(null);
   const [confirmedBrief, setConfirmedBrief] = useState<CreativeBrief | null>(null);
+  const [awaitingClarification, setAwaitingClarification] = useState<boolean>(false);
   
   // Product selection
   const [selectedProducts, setSelectedProducts] = useState<Product[]>([]);
@@ -113,6 +114,7 @@ function App() {
         }));
         setMessages(loadedMessages);
         setPendingBrief(null);
+        setAwaitingClarification(false);
         setConfirmedBrief(data.brief || null);
         
         if (data.generated_content) {
@@ -176,6 +178,7 @@ function App() {
     setConversationId(uuidv4());
     setMessages([]);
     setPendingBrief(null);
+    setAwaitingClarification(false);
     setConfirmedBrief(null);
     setGeneratedContent(null);
     setSelectedProducts([]);
@@ -202,11 +205,12 @@ function App() {
       
       // If we have a pending brief and user is providing feedback, update the brief
       if (pendingBrief && !confirmedBrief) {
-        // User is refining the brief conversationally
+        // User is refining the brief or providing clarification
         const refinementKeywords = ['change', 'update', 'modify', 'add', 'remove', 'delete', 'set', 'make', 'should be'];
         const isRefinement = refinementKeywords.some(kw => content.toLowerCase().includes(kw));
         
-        if (isRefinement) {
+        // If awaiting clarification, treat ANY response as a brief update
+        if (isRefinement || awaitingClarification) {
           // Send the refinement request to update the brief
           // Combine original brief context with the refinement request
           const refinementPrompt = `Current creative brief:\n${JSON.stringify(pendingBrief, null, 2)}\n\nUser requested change: ${content}\n\nPlease update the brief accordingly and return the complete updated brief.`;
@@ -216,16 +220,34 @@ function App() {
           if (parsed.brief) {
             setPendingBrief(parsed.brief);
           }
-          setGenerationStatus('');
           
-          const assistantMessage: ChatMessage = {
-            id: uuidv4(),
-            role: 'assistant',
-            content: "I've updated the brief based on your feedback. Please review the changes above. Let me know if you'd like any other modifications, or click **Confirm Brief** when you're satisfied.",
-            agent: 'PlanningAgent',
-            timestamp: new Date().toISOString(),
-          };
-          setMessages(prev => [...prev, assistantMessage]);
+          // Check if we still need more clarification
+          if (parsed.requires_clarification && parsed.clarifying_questions) {
+            setAwaitingClarification(true);
+            setGenerationStatus('');
+            
+            const assistantMessage: ChatMessage = {
+              id: uuidv4(),
+              role: 'assistant',
+              content: parsed.clarifying_questions,
+              agent: 'PlanningAgent',
+              timestamp: new Date().toISOString(),
+            };
+            setMessages(prev => [...prev, assistantMessage]);
+          } else {
+            // Brief is now complete
+            setAwaitingClarification(false);
+            setGenerationStatus('');
+            
+            const assistantMessage: ChatMessage = {
+              id: uuidv4(),
+              role: 'assistant',
+              content: "I've updated the brief based on your feedback. Please review the changes above. Let me know if you'd like any other modifications, or click **Confirm Brief** when you're satisfied.",
+              agent: 'PlanningAgent',
+              timestamp: new Date().toISOString(),
+            };
+            setMessages(prev => [...prev, assistantMessage]);
+          }
         } else {
           // General question or comment while brief is pending
           let fullContent = '';
@@ -307,6 +329,7 @@ function App() {
             if (parsed.brief) {
               setPendingBrief(parsed.brief);
             }
+            setAwaitingClarification(true);
             setGenerationStatus('');
             
             const assistantMessage: ChatMessage = {
@@ -322,6 +345,7 @@ function App() {
             if (parsed.brief) {
               setPendingBrief(parsed.brief);
             }
+            setAwaitingClarification(false);
             setGenerationStatus('');
             
             const assistantMessage: ChatMessage = {
@@ -410,6 +434,7 @@ function App() {
       await confirmBrief(pendingBrief, conversationId, userId);
       setConfirmedBrief(pendingBrief);
       setPendingBrief(null);
+      setAwaitingClarification(false);
       
       const productsResponse = await fetch('/api/products');
       if (productsResponse.ok) {
@@ -432,6 +457,7 @@ function App() {
 
   const handleBriefCancel = useCallback(() => {
     setPendingBrief(null);
+    setAwaitingClarification(false);
     const assistantMessage: ChatMessage = {
       id: uuidv4(),
       role: 'assistant',
