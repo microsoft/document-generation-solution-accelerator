@@ -253,9 +253,15 @@ class _BrandGuidelinesSettings(BaseSettings):
 ### Content Restrictions
 - Prohibited words: {', '.join(self.prohibited_words) if self.prohibited_words else 'None specified'}
 - Required disclosures: {', '.join(self.required_disclosures) if self.required_disclosures else 'None required'}
-- Maximum headline length: {self.max_headline_length} characters
-- Maximum body length: {self.max_body_length} characters
+- Maximum headline length: approximately {self.max_headline_length} characters (headline field only)
+- Maximum body length: approximately {self.max_body_length} characters (body field only, NOT including headline or tagline)
 - CTA required: {'Yes' if self.require_cta else 'No'}
+
+**IMPORTANT: Character Limit Guidelines**
+- Character limits apply to INDIVIDUAL fields: headline, body, and tagline are counted SEPARATELY
+- The body limit ({self.max_body_length} chars) applies ONLY to the body/description text, not the combined content
+- Do NOT flag character limit issues as ERROR - use WARNING severity since exact counting may vary
+- When in doubt about length, do NOT flag it as a violation - focus on content quality instead
 
 ### Visual Guidelines
 - Primary brand color: {self.primary_color}
@@ -335,8 +341,9 @@ Write content that embodies these characteristics:
 - Voice: {self.voice}
 
 ### Writing Rules
-- Keep headlines under {self.max_headline_length} characters
-- Keep body copy under {self.max_body_length} characters
+- Keep headlines under approximately {self.max_headline_length} characters
+- Keep body copy (description) under approximately {self.max_body_length} characters
+- Note: Character limits are approximate guidelines - focus on concise, impactful writing
 - {'Always include a clear call-to-action' if self.require_cta else 'CTA is optional'}
 - NEVER use these words: {', '.join(self.prohibited_words) if self.prohibited_words else 'No restrictions'}
 - Include these disclosures when applicable: {', '.join(self.required_disclosures) if self.required_disclosures else 'None required'}
