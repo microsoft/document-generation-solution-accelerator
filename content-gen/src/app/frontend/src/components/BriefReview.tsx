@@ -12,15 +12,6 @@ interface BriefReviewProps {
   isAwaitingResponse?: boolean;
 }
 
-const briefFields: { key: keyof CreativeBrief; label: string; prefix?: string }[] = [
-  { key: 'objectives', label: 'Objective', prefix: '• ' },
-  { key: 'target_audience', label: 'Audience', prefix: '• ' },
-  { key: 'key_message', label: 'Key Message', prefix: '• ' },
-  { key: 'tone_and_style', label: 'Tone & Style', prefix: '• ' },
-  { key: 'timelines', label: 'Timelines', prefix: '• ' },
-  { key: 'cta', label: 'Call to Action', prefix: '• ' },
-];
-
 // Mapping of field keys to user-friendly labels for the 9 key areas
 const fieldLabels: Record<keyof CreativeBrief, string> = {
   overview: 'Overview',
@@ -47,6 +38,22 @@ export function BriefReview({
   const populatedFields = allFields.filter(key => brief[key]?.trim()).length;
   const missingFields = allFields.filter(key => !brief[key]?.trim());
 
+  // Define the order and labels for display in the card
+  const displayOrder: { key: keyof CreativeBrief; label: string }[] = [
+    { key: 'overview', label: 'Campaign Objective' },
+    { key: 'objectives', label: 'Objectives' },
+    { key: 'target_audience', label: 'Target Audience' },
+    { key: 'key_message', label: 'Key Message' },
+    { key: 'tone_and_style', label: 'Tone & Style' },
+    { key: 'visual_guidelines', label: 'Visual Guidelines' },
+    { key: 'deliverable', label: 'Deliverables' },
+    { key: 'timelines', label: 'Timelines' },
+    { key: 'cta', label: 'Call to Action' },
+  ];
+
+  // Filter to only populated fields
+  const populatedDisplayFields = displayOrder.filter(({ key }) => brief[key]?.trim());
+
   return (
     <div className="message assistant" style={{ 
       width: '100%',
@@ -68,46 +75,8 @@ export function BriefReview({
         Thanks—here's my understanding:
       </Text>
       
-      {/* Brief Fields - Bullet point list like Figma */}
-      <div style={{ 
-        display: 'flex', 
-        flexDirection: 'column', 
-        gap: '8px',
-        marginBottom: '16px',
-      }}>
-        {briefFields.map(({ key, label, prefix }) => {
-          const value = brief[key];
-          if (!value?.trim()) return null;
-          
-          return (
-            <div key={key} style={{ 
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: '4px',
-            }}>
-              <Text size={200} style={{ color: tokens.colorNeutralForeground1 }}>
-                {prefix}
-              </Text>
-              <div>
-                <Text 
-                  weight="semibold" 
-                  size={200}
-                  style={{ color: tokens.colorNeutralForeground1 }}
-                >
-                  {label}:
-                </Text>
-                {' '}
-                <Text size={200} style={{ color: tokens.colorNeutralForeground2 }}>
-                  {value}
-                </Text>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Additional content fields in a bordered card - like Figma */}
-      {(brief.overview || brief.key_message || brief.visual_guidelines || brief.timelines || brief.cta) && (
+      {/* All Brief Fields in a single bordered card */}
+      {populatedDisplayFields.length > 0 && (
         <div style={{
           padding: '16px',
           backgroundColor: tokens.colorNeutralBackground2,
@@ -115,9 +84,8 @@ export function BriefReview({
           marginBottom: '16px',
           border: `1px solid ${tokens.colorNeutralStroke2}`,
         }}>
-          {/* Campaign Objective section */}
-          {brief.overview && (
-            <div style={{ marginBottom: '12px' }}>
+          {populatedDisplayFields.map(({ key, label }, index) => (
+            <div key={key} style={{ marginBottom: index < populatedDisplayFields.length - 1 ? '12px' : '0' }}>
               <Text 
                 weight="semibold" 
                 size={300}
@@ -127,153 +95,13 @@ export function BriefReview({
                   marginBottom: '4px',
                 }}
               >
-                Campaign Objective
+                {label}
               </Text>
               <Text size={200} style={{ color: tokens.colorNeutralForeground2, lineHeight: '1.5' }}>
-                {brief.overview}
+                {brief[key]}
               </Text>
             </div>
-          )}
-
-          {/* Audience section */}
-          {brief.target_audience && (
-            <div style={{ marginBottom: '12px' }}>
-              <Text 
-                weight="semibold" 
-                size={300}
-                style={{ 
-                  color: tokens.colorNeutralForeground1,
-                  display: 'block',
-                  marginBottom: '4px',
-                }}
-              >
-                Audience
-              </Text>
-              <Text size={200} style={{ color: tokens.colorNeutralForeground2, lineHeight: '1.5' }}>
-                {brief.target_audience}
-              </Text>
-            </div>
-          )}
-
-          {/* Key Message section */}
-          {brief.key_message && (
-            <div style={{ marginBottom: '12px' }}>
-              <Text 
-                weight="semibold" 
-                size={300}
-                style={{ 
-                  color: tokens.colorNeutralForeground1,
-                  display: 'block',
-                  marginBottom: '4px',
-                }}
-              >
-                Key Message
-              </Text>
-              <Text size={200} style={{ color: tokens.colorNeutralForeground2, lineHeight: '1.5' }}>
-                {brief.key_message}
-              </Text>
-            </div>
-          )}
-
-          {/* Visual guidelines / Creation instructions */}
-          {brief.visual_guidelines && (
-            <div style={{ marginBottom: '12px' }}>
-              <Text 
-                weight="semibold" 
-                size={300}
-                style={{ 
-                  color: tokens.colorNeutralForeground1,
-                  display: 'block',
-                  marginBottom: '4px',
-                }}
-              >
-                Visual Guidelines
-              </Text>
-              <Text size={200} style={{ color: tokens.colorNeutralForeground2, lineHeight: '1.5' }}>
-                {brief.visual_guidelines}
-              </Text>
-            </div>
-          )}
-
-          {/* Tone & Style section */}
-          {brief.tone_and_style && (
-            <div style={{ marginBottom: '12px' }}>
-              <Text 
-                weight="semibold" 
-                size={300}
-                style={{ 
-                  color: tokens.colorNeutralForeground1,
-                  display: 'block',
-                  marginBottom: '4px',
-                }}
-              >
-                Tone & Style:
-              </Text>
-              <Text size={200} style={{ color: tokens.colorNeutralForeground2, lineHeight: '1.5' }}>
-                {brief.tone_and_style}
-              </Text>
-            </div>
-          )}
-
-          {/* Deliverables section */}
-          {brief.deliverable && (
-            <div style={{ marginBottom: brief.timelines || brief.cta ? '12px' : '0' }}>
-              <Text 
-                weight="semibold" 
-                size={300}
-                style={{ 
-                  color: tokens.colorNeutralForeground1,
-                  display: 'block',
-                  marginBottom: '4px',
-                }}
-              >
-                Deliverables
-              </Text>
-              <Text size={200} style={{ color: tokens.colorNeutralForeground2, lineHeight: '1.5' }}>
-                {brief.deliverable}
-              </Text>
-            </div>
-          )}
-
-          {/* Timelines section */}
-          {brief.timelines && (
-            <div style={{ marginBottom: brief.cta ? '12px' : '0' }}>
-              <Text 
-                weight="semibold" 
-                size={300}
-                style={{ 
-                  color: tokens.colorNeutralForeground1,
-                  display: 'block',
-                  marginBottom: '4px',
-                }}
-              >
-                Timelines
-              </Text>
-              <Text size={200} style={{ color: tokens.colorNeutralForeground2, lineHeight: '1.5' }}>
-                {brief.timelines}
-              </Text>
-            </div>
-          )}
-
-          {/* Call to Action section */}
-          {brief.cta && (
-            <div>
-              <Text 
-                weight="semibold" 
-                size={300}
-                style={{ 
-                  color: tokens.colorNeutralForeground1,
-                  display: 'block',
-                  marginBottom: '4px',
-                }}
-              >
-                Call to Action
-              </Text>
-              <Text size={200} style={{ color: tokens.colorNeutralForeground2, lineHeight: '1.5' }}>
-                {brief.cta}
-              </Text>
-            </div>
-          )}
+          ))}
         </div>
       )}
 
