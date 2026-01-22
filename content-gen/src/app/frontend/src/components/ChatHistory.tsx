@@ -40,6 +40,7 @@ interface ChatHistoryProps {
   onSelectConversation: (conversationId: string) => void;
   onNewConversation: () => void;
   refreshTrigger?: number; // Increment to trigger refresh
+  isGenerating?: boolean; // True when content generation is in progress
 }
 
 export function ChatHistory({ 
@@ -47,7 +48,8 @@ export function ChatHistory({
   currentMessages = [],
   onSelectConversation,
   onNewConversation,
-  refreshTrigger = 0
+  refreshTrigger = 0,
+  isGenerating = false
 }: ChatHistoryProps) {
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -243,6 +245,7 @@ export function ChatHistory({
                 onDelete={handleDeleteConversation}
                 onRename={handleRenameConversation}
                 onRefresh={loadConversations}
+                disabled={isGenerating}
               />
             ))}
           </>
@@ -264,23 +267,27 @@ export function ChatHistory({
         }}>
           {hasMore && (
             <Link
-              onClick={() => setShowAll(!showAll)}
+              onClick={isGenerating ? undefined : () => setShowAll(!showAll)}
               style={{
                 fontSize: '13px',
-                color: tokens.colorBrandForeground1,
+                color: isGenerating ? tokens.colorNeutralForegroundDisabled : tokens.colorBrandForeground1,
+                cursor: isGenerating ? 'not-allowed' : 'pointer',
+                pointerEvents: isGenerating ? 'none' : 'auto',
               }}
             >
               {showAll ? 'Show less' : 'See all'}
             </Link>
           )}
           <Link
-            onClick={onNewConversation}
+            onClick={isGenerating ? undefined : onNewConversation}
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: '8px',
               fontSize: '13px',
-              color: tokens.colorNeutralForeground1,
+              color: isGenerating ? tokens.colorNeutralForegroundDisabled : tokens.colorNeutralForeground1,
+              cursor: isGenerating ? 'not-allowed' : 'pointer',
+              pointerEvents: isGenerating ? 'none' : 'auto',
             }}
           >
             <Compose20Regular />
@@ -299,6 +306,7 @@ interface ConversationItemProps {
   onDelete: (conversationId: string) => void;
   onRename: (conversationId: string, newTitle: string) => void;
   onRefresh: () => void;
+  disabled?: boolean;
 }
 
 function ConversationItem({ 
@@ -308,6 +316,7 @@ function ConversationItem({
   onDelete,
   onRename,
   onRefresh,
+  disabled = false,
 }: ConversationItemProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
@@ -350,10 +359,10 @@ function ConversationItem({
   return (
     <>
       <div
-        onClick={onSelect}
+        onClick={disabled ? undefined : onSelect}
         style={{
           padding: '8px',
-          cursor: 'pointer',
+          cursor: disabled ? 'not-allowed' : 'pointer',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -368,6 +377,8 @@ function ConversationItem({
           marginLeft: '-8px',
           marginRight: '-8px',
           transition: 'background-color 0.15s, border-color 0.15s',
+          opacity: disabled ? 0.5 : 1,
+          pointerEvents: disabled ? 'none' : 'auto',
         }}
       >
         <Text 
