@@ -24,7 +24,7 @@
     "dompurify": "^3.3.1",
     "file-saver": "^2.0.5",
     "lodash": "^4.17.21",
-    "lodash-es": "^4.17.22",
+    "lodash-es": "^4.17.23",
     "plotly.js": "^3.3.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
