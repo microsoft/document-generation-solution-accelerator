@@ -15,6 +15,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { ChatPanel } from './components/ChatPanel';
 import { ChatHistory } from './components/ChatHistory';
 import type { ChatMessage, CreativeBrief, Product, GeneratedContent } from './types';
+import ContosoLogo from './styles/images/contoso.svg';
 
 interface UserInfo {
   user_principal_id: string;
@@ -23,16 +24,6 @@ interface UserInfo {
   is_authenticated: boolean;
 }
 
-// Contoso logo SVG component
-function ContosoLogo() {
-  return (
-    <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M14 0L28 14L14 28L0 14L14 0Z" fill="#0078D4"/>
-      <path d="M14 4L24 14L14 24L4 14L14 4Z" fill="#50E6FF"/>
-      <path d="M14 8L20 14L14 20L8 14L14 8Z" fill="white"/>
-    </svg>
-  );
-}
 
 function App() {
   const [conversationId, setConversationId] = useState<string>(() => uuidv4());
@@ -640,7 +631,7 @@ function App() {
         flexShrink: 0,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 'clamp(8px, 1.5vw, 10px)' }}>
-          <ContosoLogo />
+          <img src={ContosoLogo} alt="Contoso" width="28" height="28" />
           <Text weight="semibold" size={500} style={{ color: tokens.colorNeutralForeground1, fontSize: 'clamp(16px, 2.5vw, 20px)' }}>
             Contoso
           </Text>
