@@ -1,307 +1,225 @@
-# Content Generation Solution Accelerator - Deployment Guide
+# Deployment Guide
 
-This guide explains how to deploy and configure the Content Generation Solution Accelerator using Microsoft Agent Framework.
+## **Pre-requisites**
 
-## Architecture Overview
+To deploy this solution, ensure you have access to an [Azure subscription](https://azure.microsoft.com/free/) with the necessary permissions to create **resource groups, resources, app registrations, and assign roles at the resource group level**. This should include Contributor role at the subscription level and Role Based Access Control (RBAC) permissions at the subscription and/or resource group level.
 
-The solution consists of:
+Check the [Azure Products by Region](https://azure.microsoft.com/en-us/explore/global-infrastructure/products-by-region/?products=all&regions=all) page and select a **region** where the following services are available:
 
-- **Backend**: Python 3.11 + Quart + Hypercorn running in Azure Container Instance (ACI) with VNet integration
-- **Frontend**: React + Vite + TypeScript + Fluent UI running on Azure App Service with Node.js proxy
-- **AI Services**: 
-  - Azure OpenAI (GPT model for text generation)
-  - Azure OpenAI (DALL-E 3 for image generation - can be separate resource)
-- **Data Services**:
-  - Azure Cosmos DB (products catalog, conversations)
-  - Azure Blob Storage (product images, generated images)
-- **Networking**: 
-  - Private VNet for backend container
-  - App Service with VNet integration for frontend-to-backend communication
-  - Private DNS zone for internal name resolution
+- [Azure AI Foundry](https://learn.microsoft.com/en-us/azure/ai-foundry)
+- [GPT Model Capacity](https://learn.microsoft.com/en-us/azure/ai-services/openai/concepts/models)
+- [DALL-E 3 Model Capacity](https://learn.microsoft.com/en-us/azure/ai-services/openai/concepts/models#dall-e-models)
+- [Azure App Service](https://learn.microsoft.com/en-us/azure/app-service/)
+- [Azure Container Registry](https://learn.microsoft.com/en-us/azure/container-registry/)
+- [Azure Container Instance](https://learn.microsoft.com/en-us/azure/container-instances/)
+- [Azure Cosmos DB](https://learn.microsoft.com/en-us/azure/cosmos-db/)
+- [Azure Blob Storage](https://learn.microsoft.com/en-us/azure/storage/blobs/)
 
-## Prerequisites
+Here are some example regions where the services are available: East US, East US2, Australia East, UK South, France Central.
 
-1. **Azure Subscription** with sufficient quotas for:
-   - Azure OpenAI (GPT-4 or GPT-5 model)
-   - Azure OpenAI (DALL-E 3 model)
-   - Azure Container Instance
-   - Azure App Service (Basic tier or higher recommended)
+### **Important Note for PowerShell Users**
 
-2. **CLI Tools**:
-   - Azure CLI (`az`) version 2.50 or later
-   - Docker (optional - ACR can build containers)
-   - Node.js 18+ (for frontend development)
-   - Python 3.11+ (for local testing)
+If you encounter issues running PowerShell scripts due to the policy of not being digitally signed, you can temporarily adjust the `ExecutionPolicy` by running the following command in an elevated PowerShell session:
 
-3. **Access Rights**:
-   - Owner or Contributor on the resource group
-   - Ability to create role assignments (User Access Administrator)
-
-## Deployment Steps
-
-### Step 1: Provision Azure Resources
-
-If you haven't created the base infrastructure yet, create these resources:
-
-```bash
-# Set variables
-RESOURCE_GROUP="rg-contentgen-yourname"
-LOCATION="eastus"
-ACR_NAME="acrcontentgenyourname"
-STORAGE_NAME="storagecontentgenyourname"
-COSMOS_NAME="cosmosdb-contentgen-yourname"
-VNET_NAME="vnet-contentgen-yourname"
-
-# Create resource group
-az group create --name $RESOURCE_GROUP --location $LOCATION
-
-# Create VNet with subnets
-az network vnet create \
-    --resource-group $RESOURCE_GROUP \
-    --name $VNET_NAME \
-    --address-prefix 10.0.0.0/16
-
-az network vnet subnet create \
-    --resource-group $RESOURCE_GROUP \
-    --vnet-name $VNET_NAME \
-    --name subnet-aci \
-    --address-prefix 10.0.4.0/24 \
-    --delegations Microsoft.ContainerInstance/containerGroups
-
-az network vnet subnet create \
-    --resource-group $RESOURCE_GROUP \
-    --vnet-name $VNET_NAME \
-    --name subnet-appservice \
-    --address-prefix 10.0.1.0/24 \
-    --delegations Microsoft.Web/serverFarms
-
-# Create Container Registry
-az acr create \
-    --resource-group $RESOURCE_GROUP \
-    --name $ACR_NAME \
-    --sku Basic \
-    --admin-enabled true
-
-# Create Storage Account
-az storage account create \
-    --resource-group $RESOURCE_GROUP \
-    --name $STORAGE_NAME \
-    --sku Standard_LRS \
-    --kind StorageV2
-
-# Create blob containers
-az storage container create \
-    --account-name $STORAGE_NAME \
-    --name product-images
-
-az storage container create \
-    --account-name $STORAGE_NAME \
-    --name generated-images
-
-# Create Cosmos DB
-az cosmosdb create \
-    --resource-group $RESOURCE_GROUP \
-    --name $COSMOS_NAME \
-    --kind GlobalDocumentDB \
-    --default-consistency-level Session
-
-az cosmosdb sql database create \
-    --account-name $COSMOS_NAME \
-    --resource-group $RESOURCE_GROUP \
-    --name content-generation
-
-az cosmosdb sql container create \
-    --account-name $COSMOS_NAME \
-    --resource-group $RESOURCE_GROUP \
-    --database-name content-generation \
-    --name products \
-    --partition-key-path "/category"
-
-az cosmosdb sql container create \
-    --account-name $COSMOS_NAME \
-    --resource-group $RESOURCE_GROUP \
-    --database-name content-generation \
-    --name conversations \
-    --partition-key-path "/user_id"
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 ```
 
-### Step 2: Build and Deploy Backend Container
+This will allow the scripts to run for the current session without permanently changing your system's policy.
 
-```bash
-cd content-gen/src
+## Deployment Options & Steps
 
-# Login to ACR
-az acr login --name $ACR_NAME
+Pick from the options below to see step-by-step instructions for GitHub Codespaces, VS Code Dev Containers, and Local Environments.
 
-# Build using ACR tasks
-az acr build \
-    --registry $ACR_NAME \
-    --image contentgen-backend:latest \
-    --file WebApp.Dockerfile \
-    .
-```
+| [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/microsoft/content-generation-solution-accelerator) | [![Open in Dev Containers](https://img.shields.io/static/v1?style=for-the-badge&label=Dev%20Containers&message=Open&color=blue&logo=visualstudiocode)](https://vscode.dev/redirect?url=vscode://ms-vscode-remote.remote-containers/cloneInVolume?url=https://github.com/microsoft/content-generation-solution-accelerator) | 
+|---|---|
 
-### Step 3: Deploy Azure Container Instance
+<details>
+  <summary><b>Deploy in GitHub Codespaces</b></summary>
 
-```bash
-# Get ACR credentials
-ACR_USERNAME=$(az acr credential show --name $ACR_NAME --query "username" -o tsv)
-ACR_PASSWORD=$(az acr credential show --name $ACR_NAME --query "passwords[0].value" -o tsv)
+### GitHub Codespaces
 
-# Get VNet subnet ID
-SUBNET_ID=$(az network vnet subnet show \
-    --resource-group $RESOURCE_GROUP \
-    --vnet-name $VNET_NAME \
-    --name subnet-aci \
-    --query "id" -o tsv)
+You can run this solution using GitHub Codespaces. The button will open a web-based VS Code instance in your browser:
 
-# Create ACI with system-assigned managed identity
-az container create \
-    --resource-group $RESOURCE_GROUP \
-    --name aci-contentgen-backend \
-    --image "$ACR_NAME.azurecr.io/contentgen-backend:latest" \
-    --registry-login-server "$ACR_NAME.azurecr.io" \
-    --registry-username "$ACR_USERNAME" \
-    --registry-password "$ACR_PASSWORD" \
-    --cpu 2 \
-    --memory 4 \
-    --ports 8000 \
-    --ip-address Private \
-    --subnet "$SUBNET_ID" \
-    --assign-identity \
-    --environment-variables \
-        AZURE_OPENAI_ENDPOINT="<your-gpt-endpoint>" \
-        AZURE_OPENAI_DEPLOYMENT_NAME="<your-gpt-deployment>" \
-        AZURE_OPENAI_DALLE_ENDPOINT="<your-dalle-endpoint>" \
-        AZURE_OPENAI_DALLE_DEPLOYMENT="dall-e-3" \
-        COSMOS_ENDPOINT="https://$COSMOS_NAME.documents.azure.com:443/" \
-        COSMOS_DATABASE="content-generation" \
-        AZURE_STORAGE_ACCOUNT_NAME="$STORAGE_NAME" \
-        AZURE_STORAGE_CONTAINER="product-images" \
-        AZURE_STORAGE_GENERATED_CONTAINER="generated-images"
-```
+1. Open the solution accelerator (this may take several minutes):
 
-### Step 4: Assign RBAC Roles
+    [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/microsoft/content-generation-solution-accelerator)
 
-Run the RBAC assignment script:
+2. Accept the default values on the create Codespaces page.
+3. Open a terminal window if it is not already open.
+4. Continue with the [deploying steps](#deploying-with-azd).
 
-```bash
-./scripts/assign_rbac_roles.sh
-```
+</details>
 
-Or manually assign roles:
+<details>
+  <summary><b>Deploy in VS Code</b></summary>
 
-```bash
-# Get the managed identity principal ID
-PRINCIPAL_ID=$(az container show -g $RESOURCE_GROUP -n aci-contentgen-backend --query "identity.principalId" -o tsv)
+### VS Code Dev Containers
 
-# Azure OpenAI - GPT
-GPT_RESOURCE_ID=$(az cognitiveservices account show --name <gpt-resource> --resource-group <gpt-rg> --query "id" -o tsv)
-az role assignment create --assignee $PRINCIPAL_ID --role "Cognitive Services OpenAI User" --scope $GPT_RESOURCE_ID
+You can run this solution in VS Code Dev Containers, which will open the project in your local VS Code using the [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers):
 
-# Azure OpenAI - DALL-E (if separate resource)
-DALLE_RESOURCE_ID=$(az cognitiveservices account show --name <dalle-resource> --resource-group <dalle-rg> --query "id" -o tsv)
-az role assignment create --assignee $PRINCIPAL_ID --role "Cognitive Services OpenAI User" --scope $DALLE_RESOURCE_ID
+1. Start Docker Desktop (install it if not already installed).
+2. Open the project:
 
-# Cosmos DB - Data plane access
-az cosmosdb sql role assignment create \
-    --account-name $COSMOS_NAME \
-    --resource-group $RESOURCE_GROUP \
-    --scope "/" \
-    --principal-id $PRINCIPAL_ID \
-    --role-definition-id "00000000-0000-0000-0000-000000000002"
+    [![Open in Dev Containers](https://img.shields.io/static/v1?style=for-the-badge&label=Dev%20Containers&message=Open&color=blue&logo=visualstudiocode)](https://vscode.dev/redirect?url=vscode://ms-vscode-remote.remote-containers/cloneInVolume?url=https://github.com/microsoft/content-generation-solution-accelerator)
 
-# Cosmos DB - Account metadata
-COSMOS_RESOURCE_ID=$(az cosmosdb show --name $COSMOS_NAME --resource-group $RESOURCE_GROUP --query "id" -o tsv)
-az role assignment create --assignee $PRINCIPAL_ID --role "Cosmos DB Account Reader Role" --scope $COSMOS_RESOURCE_ID
+3. In the VS Code window that opens, once the project files show up (this may take several minutes), open a terminal window.
+4. Continue with the [deploying steps](#deploying-with-azd).
 
-# Blob Storage
-STORAGE_RESOURCE_ID=$(az storage account show --name $STORAGE_NAME --resource-group $RESOURCE_GROUP --query "id" -o tsv)
-az role assignment create --assignee $PRINCIPAL_ID --role "Storage Blob Data Contributor" --scope $STORAGE_RESOURCE_ID
-```
+</details>
 
-### Step 5: Create Private DNS Zone
+<details>
+  <summary><b>Deploy in your local Environment</b></summary>
 
-```bash
-# Create private DNS zone
-az network private-dns zone create \
-    --resource-group $RESOURCE_GROUP \
-    --name contentgen.internal
+### Local Environment
 
-# Link to VNet
-az network private-dns link vnet create \
-    --resource-group $RESOURCE_GROUP \
-    --zone-name contentgen.internal \
-    --name link-contentgen-vnet \
-    --virtual-network $VNET_NAME \
-    --registration-enabled false
+If you're not using one of the above options for opening the project, then you'll need to:
 
-# Get ACI IP address
-ACI_IP=$(az container show -g $RESOURCE_GROUP -n aci-contentgen-backend --query "ipAddress.ip" -o tsv)
+1. Make sure the following tools are installed:
+    - [PowerShell](https://learn.microsoft.com/en-us/powershell/scripting/install/installing-powershell?view=powershell-7.5) <small>(v7.0+)</small> - available for Windows, macOS, and Linux.
+    - [Azure Developer CLI (azd)](https://aka.ms/install-azd) <small>(v1.15.0+)</small>
+    - [Python 3.11+](https://www.python.org/downloads/)
+    - [Node.js 18+](https://nodejs.org/)
+    - [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+    - [Git](https://git-scm.com/downloads)
 
-# Create A record for backend
-az network private-dns record-set a add-record \
-    --resource-group $RESOURCE_GROUP \
-    --zone-name contentgen.internal \
-    --record-set-name backend \
-    --ipv4-address $ACI_IP
-```
+2. Clone the repository or download the project code via command-line:
 
-### Step 6: Deploy Frontend to App Service
+    ```shell
+    azd init -t microsoft/content-generation-solution-accelerator/
+    ```
 
-```bash
-# Create App Service Plan
-az appservice plan create \
-    --resource-group $RESOURCE_GROUP \
-    --name asp-contentgen \
-    --sku B1 \
-    --is-linux
+3. Open the project folder in your terminal or editor.
+4. Continue with the [deploying steps](#deploying-with-azd).
 
-# Create Web App
-az webapp create \
-    --resource-group $RESOURCE_GROUP \
-    --plan asp-contentgen \
-    --name app-contentgen-yourname \
-    --runtime "NODE|18-lts"
+</details>
 
-# Enable VNet integration
-az webapp vnet-integration add \
-    --resource-group $RESOURCE_GROUP \
-    --name app-contentgen-yourname \
-    --vnet $VNET_NAME \
-    --subnet subnet-appservice
+<br/>
 
-# Configure app settings
-az webapp config appsettings set \
-    --resource-group $RESOURCE_GROUP \
-    --name app-contentgen-yourname \
-    --settings \
-        BACKEND_URL="http://backend.contentgen.internal:8000" \
-        WEBSITES_PORT="3000" \
-        SCM_DO_BUILD_DURING_DEPLOYMENT="true"
+Consider the following settings during your deployment to modify specific settings:
 
-# Disable HTTP/2 for SSE streaming
-az webapp config set \
-    --resource-group $RESOURCE_GROUP \
-    --name app-contentgen-yourname \
-    --http20-enabled false
+<details>
+  <summary><b>Configurable Deployment Settings</b></summary>
 
-# Build and deploy frontend
-cd content-gen/src/app/frontend
-npm install
-npm run build
+When you start the deployment, most parameters will have **default values**, but you can update the following settings:
 
-cd ../frontend-server
-zip -r frontend-deploy.zip static/ server.js package.json package-lock.json
+| **Setting**                                 | **Description**                                                                                           | **Default value**      |
+| ------------------------------------------- | --------------------------------------------------------------------------------------------------------- | ---------------------- |
+| **Azure Region**                            | The region where resources will be created.                                                               | *(empty)*              |
+| **Environment Name**                        | A **3–20 character alphanumeric value** used to generate a unique ID to prefix the resources.             | env\_name              |
+| **GPT Model**                               | Choose from **gpt-4, gpt-4o, gpt-4o-mini**.                                                               | gpt-4o-mini            |
+| **GPT Model Version**                       | The version of the selected GPT model.                                                                    | 2024-07-18             |
+| **OpenAI API Version**                      | The Azure OpenAI API version to use.                                                                      | 2025-01-01-preview     |
+| **GPT Model Deployment Capacity**           | Configure capacity for **GPT models** (in thousands).                                                     | 30k                    |
+| **DALL-E Model**                            | DALL-E model for image generation.                                                                        | dall-e-3               |
+| **Image Tag**                               | Docker image tag to deploy. Common values: `latest`, `dev`, `hotfix`.                                     | latest                 |
+| **Use Local Build**                         | Boolean flag to determine if local container builds should be used.                                       | false                  |
+| **Existing Log Analytics Workspace**        | To reuse an existing Log Analytics Workspace ID.                                                          | *(empty)*              |
+| **Existing Azure AI Foundry Project**       | To reuse an existing Azure AI Foundry Project ID instead of creating a new one.                           | *(empty)*              |
 
-az webapp deploy \
-    --resource-group $RESOURCE_GROUP \
-    --name app-contentgen-yourname \
-    --src-path frontend-deploy.zip \
-    --type zip
-```
+</details>
+
+<details>
+  <summary><b>[Optional] Quota Recommendations</b></summary>
+
+By default, the **GPT-4o-mini model capacity** in deployment is set to **30k tokens**, so we recommend updating the following:
+
+> **For GPT-4o-mini - increase the capacity to at least 150k tokens post-deployment for optimal performance.**
+
+> **For DALL-E 3 - ensure you have sufficient capacity for image generation requests.**
+
+Depending on your subscription quota and capacity, you can adjust quota settings to better meet your specific needs.
+
+**⚠️ Warning:** Insufficient quota can cause deployment errors. Please ensure you have the recommended capacity or request additional capacity before deploying this solution.
+
+</details>
+
+### Deploying with AZD
+
+Once you've opened the project in [Codespaces](#github-codespaces), [Dev Containers](#vs-code-dev-containers), or [locally](#local-environment), you can deploy it to Azure by following these steps:
+
+1. Login to Azure:
+
+    ```shell
+    azd auth login
+    ```
+
+    To authenticate with Azure Developer CLI (`azd`), use the following command with your **Tenant ID**:
+
+    ```shell
+    azd auth login --tenant-id <tenant-id>
+    ```
+
+2. Provision and deploy all the resources:
+
+    ```shell
+    azd up
+    ```
+
+3. Provide an `azd` environment name (e.g., "contentgen").
+4. Select a subscription from your Azure account and choose a location that has quota for all the resources. 
+    - This deployment will take *7-10 minutes* to provision the resources in your account and set up the solution with sample data.
+    - If you encounter an error or timeout during deployment, changing the location may help, as there could be availability constraints for the resources.
+
+5. Once the deployment has completed successfully, copy the bash commands from the terminal for later use.
+
+> **Note**: if you are running this deployment in GitHub Codespaces or VS Code Dev Container skip to step 7. 
+
+6. Create and activate a virtual environment:
+  
+    ```shell
+    python -m venv .venv
+    ```
+
+    ```shell
+    .venv\Scripts\activate
+    ```
+
+    On Linux/Mac/GitBash:
+
+    ```shell
+    source .venv/bin/activate
+    ```
+
+7. Login to Azure:
+
+    ```shell
+    az login
+    ```
+
+8. Run the data setup scripts to populate product catalogs and upload sample images:
+
+    ```shell
+    bash ./infra/scripts/data_scripts/run_upload_data_scripts.sh
+    ```
+
+    If you don't have azd env then you need to pass parameters along with the command. Check the script for required parameters.
+
+9. Once the scripts have run successfully, go to the deployed resource group, find the App Service, and get the app URL from `Default domain`.
+
+10. If you are done trying out the application, you can delete the resources by running `azd down`.
+
+## Post Deployment Steps
+
+1. **Add App Authentication**
+   
+    Follow steps in [App Authentication](./AppAuthentication.md) to configure authentication in app service. Note: Authentication changes can take up to 10 minutes.
+
+2. **Assign RBAC Roles (if needed)**
+
+    If you encounter 401/403 errors, run the RBAC assignment script and wait 5-10 minutes for propagation:
+
+    ```shell
+    bash ./scripts/assign_rbac_roles.sh
+    ```
+
+3. **Deleting Resources After a Failed Deployment**  
+    - Follow steps in [Delete Resource Group](./DeleteResourceGroup.md) if your deployment fails and/or you need to clean up the resources.
 
 ## Troubleshooting
+
+<details>
+  <summary><b>Common Issues and Solutions</b></summary>
 
 ### 401 Unauthorized Errors
 
@@ -329,22 +247,8 @@ az webapp deploy \
 
 **Solution**:
 ```bash
-# Disable HTTP/2
 az webapp config set -g $RESOURCE_GROUP -n <app-name> --http20-enabled false
-
-# Verify server.js has proxyTimeout: 300000
 ```
-
-### Container Cannot Reach AI Services
-
-**Symptom**: 401 from Azure OpenAI even with correct roles
-
-**Cause**: AI resources may be in different resource groups
-
-**Solution**: Ensure role assignments are on the correct resources:
-- Check which resource group contains your GPT model
-- Check which resource group contains your DALL-E model
-- Assign roles to those specific resources
 
 ### Backend Not Accessible
 
@@ -358,14 +262,27 @@ az webapp config set -g $RESOURCE_GROUP -n <app-name> --http20-enabled false
 3. Verify A record points to correct ACI IP
 4. Check if ACI IP changed (run `update_backend_dns.sh`)
 
+### Image Generation Not Working
+
+**Symptom**: DALL-E requests fail
+
+**Cause**: Missing DALL-E model deployment or incorrect endpoint
+
+**Solution**: 
+1. Verify DALL-E 3 deployment exists in Azure OpenAI resource
+2. Check `AZURE_OPENAI_DALLE_ENDPOINT` and `AZURE_OPENAI_DALLE_DEPLOYMENT` environment variables
+
+</details>
+
 ## Environment Variables Reference
 
-### Backend (ACI)
+<details>
+  <summary><b>Backend Environment Variables (ACI)</b></summary>
 
 | Variable | Description | Example |
 |----------|-------------|---------|
 | AZURE_OPENAI_ENDPOINT | GPT model endpoint | https://ai-account.cognitiveservices.azure.com/ |
-| AZURE_OPENAI_DEPLOYMENT_NAME | GPT deployment name | gpt-5.1 |
+| AZURE_OPENAI_DEPLOYMENT_NAME | GPT deployment name | gpt-4o-mini |
 | AZURE_OPENAI_DALLE_ENDPOINT | DALL-E endpoint | https://dalle-account.cognitiveservices.azure.com/ |
 | AZURE_OPENAI_DALLE_DEPLOYMENT | DALL-E deployment name | dall-e-3 |
 | COSMOS_ENDPOINT | Cosmos DB endpoint | https://cosmos.documents.azure.com:443/ |
@@ -374,34 +291,46 @@ az webapp config set -g $RESOURCE_GROUP -n <app-name> --http20-enabled false
 | AZURE_STORAGE_CONTAINER | Product images container | product-images |
 | AZURE_STORAGE_GENERATED_CONTAINER | Generated images container | generated-images |
 
-### Frontend (App Service)
+</details>
+
+<details>
+  <summary><b>Frontend Environment Variables (App Service)</b></summary>
 
 | Variable | Description | Example |
 |----------|-------------|---------|
 | BACKEND_URL | Backend API URL | http://backend.contentgen.internal:8000 |
 | WEBSITES_PORT | App Service port | 3000 |
 
-## Updating the Deployment
+</details>
 
-### Update Backend Container
+## Sample Prompts
 
-```bash
-# Build new version
-az acr build --registry $ACR_NAME --image contentgen-backend:v2 --file WebApp.Dockerfile .
+To help you get started, here are some **sample prompts** you can use with the Content Generation Solution:
 
-# Update ACI (or restart to pull latest)
-az container restart -g $RESOURCE_GROUP -n aci-contentgen-backend
-```
+- "Create a product description for a new eco-friendly water bottle"
+- "Generate marketing copy for a summer sale campaign"
+- "Write social media posts promoting our latest product launch"
+- "Create an image for a blog post about sustainable living"
+- "Generate a product image showing a modern office setup"
 
-### Update Frontend
+These prompts serve as a great starting point to explore the solution's capabilities with text generation, image generation, and content management.
 
-```bash
-cd content-gen/src/app/frontend
-npm run build
-cd ../frontend-server
-zip -r frontend-deploy.zip static/ server.js package.json package-lock.json
-az webapp deploy -g $RESOURCE_GROUP -n <app-name> --src-path frontend-deploy.zip --type zip
-```
+## Architecture Overview
+
+The solution consists of:
+
+- **Backend**: Python 3.11 + Quart + Hypercorn running in Azure Container Instance (ACI) with VNet integration
+- **Frontend**: React + Vite + TypeScript + Fluent UI running on Azure App Service with Node.js proxy
+- **AI Services**: 
+  - Azure OpenAI (GPT model for text generation)
+  - Azure OpenAI (DALL-E 3 for image generation)
+- **Data Services**:
+  - Azure Cosmos DB (products catalog, conversations)
+  - Azure Blob Storage (product images, generated images)
+- **Networking**: 
+  - Private VNet for backend container
+  - App Service with VNet integration for frontend-to-backend communication
+  - Private DNS zone for internal name resolution
 
 ## Security Considerations
 
