@@ -287,3 +287,65 @@ export async function* streamGenerateContent(
   
   throw new Error('Generation timed out after 10 minutes');
 }
+/**
+ * Regenerate image with a modification request
+ * Used when user wants to change the generated image after initial content generation
+ */
+export async function* streamRegenerateImage(
+  modificationRequest: string,
+  brief: CreativeBrief,
+  products?: Product[],
+  previousImagePrompt?: string,
+  conversationId?: string,
+  userId?: string,
+  signal?: AbortSignal
+): AsyncGenerator<AgentResponse> {
+  const response = await fetch(`${API_BASE}/regenerate`, {
+    signal,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      modification_request: modificationRequest,
+      brief,
+      products: products || [],
+      previous_image_prompt: previousImagePrompt,
+      conversation_id: conversationId,
+      user_id: userId || 'anonymous',
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Regeneration request failed: ${response.statusText}`);
+  }
+
+  const reader = response.body?.getReader();
+  if (!reader) {
+    throw new Error('No response body');
+  }
+
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n\n');
+    buffer = lines.pop() || '';
+
+    for (const line of lines) {
+      if (line.startsWith('data: ')) {
+        const data = line.slice(6);
+        if (data === '[DONE]') {
+          return;
+        }
+        try {
+          yield JSON.parse(data) as AgentResponse;
+        } catch {
+          console.error('Failed to parse SSE data:', data);
+        }
+      }
+    }
+  }
+}

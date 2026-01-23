@@ -1510,6 +1510,200 @@ Check against brand guidelines and flag any issues.
         
         return results
 
+    async def regenerate_image(
+        self,
+        modification_request: str,
+        brief: CreativeBrief,
+        products: list = None,
+        previous_image_prompt: str = None
+    ) -> dict:
+        """
+        Regenerate just the image based on a user modification request.
+        
+        This method is called when the user wants to modify the generated image
+        after initial content generation (e.g., "show a kitchen instead of dining room").
+        
+        Args:
+            modification_request: User's request for how to modify the image
+            brief: The confirmed creative brief
+            products: List of products to feature
+            previous_image_prompt: The previous image prompt (if available)
+        
+        Returns:
+            dict: Regenerated image with updated prompt
+        """
+        if not self._initialized:
+            self.initialize()
+        
+        logger.info(f"Regenerating image with modification: {modification_request[:100]}...")
+        
+        # PROACTIVE CONTENT SAFETY CHECK
+        is_harmful, matched_pattern = _check_input_for_harmful_content(modification_request)
+        if is_harmful:
+            logger.warning(f"Blocking harmful content in image regeneration. Pattern: {matched_pattern}")
+            return {
+                "error": RAI_HARMFUL_CONTENT_RESPONSE,
+                "rai_blocked": True,
+                "blocked_reason": "harmful_content_detected"
+            }
+        
+        results = {
+            "image_prompt": None,
+            "image_base64": None,
+            "image_blob_url": None,
+            "image_revised_prompt": None,
+            "message": None
+        }
+        
+        # Build product context
+        product_context = ""
+        detailed_image_context = ""
+        if products:
+            product_details = []
+            image_descriptions = []
+            for p in products[:3]:
+                name = p.get('product_name', 'Product')
+                desc = p.get('description', p.get('marketing_description', ''))
+                tags = p.get('tags', '')
+                product_details.append(f"- {name}: {desc} (Tags: {tags})")
+                
+                img_desc = p.get('image_description')
+                if img_desc:
+                    image_descriptions.append(f"### {name} - Detailed Visual Description:\n{img_desc}")
+            
+            product_context = "\n".join(product_details)
+            if image_descriptions:
+                detailed_image_context = "\n\n".join(image_descriptions)
+        
+        # Prepare optional sections for the prompt
+        detailed_product_section = ""
+        if detailed_image_context:
+            detailed_product_section = f"DETAILED PRODUCT DESCRIPTIONS:\n{detailed_image_context}"
+        
+        previous_prompt_section = ""
+        if previous_image_prompt:
+            previous_prompt_section = f"PREVIOUS IMAGE PROMPT:\n{previous_image_prompt}"
+        
+        try:
+            # Use the image content agent to create a modified prompt
+            modification_prompt = f"""
+You need to create a NEW image prompt that incorporates the user's modification request.
+
+ORIGINAL CAMPAIGN CONTEXT:
+- Visual Guidelines: {brief.visual_guidelines}
+- Key Message: {brief.key_message}
+- Tone and Style: {brief.tone_and_style}
+
+PRODUCTS TO FEATURE:
+{product_context if product_context else 'No specific products'}
+
+{detailed_product_section}
+
+{previous_prompt_section}
+
+USER'S MODIFICATION REQUEST:
+"{modification_request}"
+
+Create a new image prompt that:
+1. Incorporates the user's requested change (e.g., different room, different setting, different style)
+2. Keeps the products and brand elements consistent
+3. Maintains the campaign's tone and objectives
+
+Return JSON with:
+- "prompt": The new DALL-E prompt incorporating the modification
+- "style": Visual style description
+- "change_summary": Brief summary of what was changed
+"""
+            
+            if self._use_foundry:
+                # Foundry mode: build prompt directly and call image API
+                # Combine original brief context with modification
+                new_prompt_parts = ["Generate a professional marketing image:"]
+                
+                # Apply the modification to visual guidelines
+                if brief.visual_guidelines:
+                    new_prompt_parts.append(f"Visual style: {brief.visual_guidelines}")
+                
+                if brief.tone_and_style:
+                    new_prompt_parts.append(f"Mood and tone: {brief.tone_and_style}")
+                
+                if product_context:
+                    new_prompt_parts.append(f"Products to feature: {product_context}")
+                
+                # The key modification - incorporate user's change
+                new_prompt_parts.append(f"IMPORTANT MODIFICATION: {modification_request}")
+                
+                if brief.key_message:
+                    new_prompt_parts.append(f"Key message to convey: {brief.key_message}")
+                
+                new_prompt_parts.append("Style: High-quality, photorealistic marketing photography with professional lighting.")
+                
+                image_prompt = " ".join(new_prompt_parts)
+                results["image_prompt"] = image_prompt
+                results["message"] = f"Regenerating image with your requested changes: {modification_request}"
+                
+                logger.info(f"Created modified Foundry image prompt: {image_prompt[:200]}...")
+                await self._generate_foundry_image(image_prompt, results)
+            else:
+                # Direct mode: use image agent to interpret the modification
+                image_response = await self._agents["image_content"].run(modification_prompt)
+                prompt_text = str(image_response)
+                
+                # Extract the prompt from JSON response
+                change_summary = modification_request
+                if '{' in prompt_text:
+                    try:
+                        prompt_data = json.loads(prompt_text)
+                        if isinstance(prompt_data, dict):
+                            prompt_text = prompt_data.get('prompt', prompt_text)
+                            change_summary = prompt_data.get('change_summary', modification_request)
+                    except json.JSONDecodeError:
+                        json_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', prompt_text, re.DOTALL)
+                        if json_match:
+                            try:
+                                prompt_data = json.loads(json_match.group(1))
+                                prompt_text = prompt_data.get('prompt', prompt_text)
+                                change_summary = prompt_data.get('change_summary', modification_request)
+                            except:
+                                pass
+                
+                results["image_prompt"] = prompt_text
+                results["message"] = f"Regenerating image: {change_summary}"
+                
+                # Generate the actual image
+                try:
+                    from agents.image_content_agent import generate_dalle_image
+                    
+                    product_description = detailed_image_context if detailed_image_context else product_context
+                    
+                    logger.info(f"Generating modified DALL-E image: {prompt_text[:200]}...")
+                    image_result = await generate_dalle_image(
+                        prompt=prompt_text,
+                        product_description=product_description,
+                        scene_description=brief.visual_guidelines
+                    )
+                    
+                    if image_result.get("success"):
+                        image_base64 = image_result.get("image_base64")
+                        results["image_revised_prompt"] = image_result.get("revised_prompt")
+                        logger.info("Modified DALL-E image generated successfully")
+                        await self._save_image_to_blob(image_base64, results)
+                    else:
+                        logger.warning(f"Modified DALL-E image generation failed: {image_result.get('error')}")
+                        results["image_error"] = image_result.get("error")
+                        
+                except Exception as img_error:
+                    logger.exception(f"Error generating modified DALL-E image: {img_error}")
+                    results["image_error"] = str(img_error)
+            
+            logger.info(f"Image regeneration complete. Has image: {bool(results.get('image_base64') or results.get('image_blob_url'))}")
+            
+        except Exception as e:
+            logger.exception(f"Error regenerating image: {e}")
+            results["error"] = str(e)
+        
+        return results
+
 
 # Singleton instance
 _orchestrator: Optional[ContentGenerationOrchestrator] = None

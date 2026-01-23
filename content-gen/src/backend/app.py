@@ -857,6 +857,170 @@ async def generate_content():
     )
 
 
+@app.route("/api/regenerate", methods=["POST"])
+async def regenerate_content():
+    """
+    Regenerate image based on user modification request.
+    
+    This endpoint is called when the user wants to modify the generated image
+    after initial content generation (e.g., "show a kitchen instead of dining room").
+    
+    Request body:
+    {
+        "modification_request": "User's modification request",
+        "brief": { ... CreativeBrief fields ... },
+        "products": [ ... Product list ... ],
+        "previous_image_prompt": "Previous image prompt (optional)",
+        "conversation_id": "uuid"
+    }
+    
+    Returns regenerated image with the modification applied.
+    """
+    import asyncio
+    
+    data = await request.get_json()
+    
+    modification_request = data.get("modification_request", "")
+    brief_data = data.get("brief", {})
+    products_data = data.get("products", [])
+    previous_image_prompt = data.get("previous_image_prompt")
+    conversation_id = data.get("conversation_id") or str(uuid.uuid4())
+    user_id = data.get("user_id", "anonymous")
+    
+    if not modification_request:
+        return jsonify({"error": "modification_request is required"}), 400
+    
+    try:
+        brief = CreativeBrief(**brief_data)
+    except Exception as e:
+        return jsonify({"error": f"Invalid brief format: {str(e)}"}), 400
+    
+    # Save user request for regeneration
+    try:
+        cosmos_service = await get_cosmos_service()
+        await cosmos_service.add_message_to_conversation(
+            conversation_id=conversation_id,
+            user_id=user_id,
+            message={
+                "role": "user",
+                "content": f"Modify image: {modification_request}",
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            }
+        )
+    except Exception as e:
+        logger.warning(f"Failed to save regeneration request to CosmosDB: {e}")
+    
+    orchestrator = get_orchestrator()
+    
+    async def generate():
+        """Stream regeneration responses with keepalive heartbeats."""
+        logger.info(f"Starting image regeneration for conversation {conversation_id}")
+        regeneration_task = None
+        
+        try:
+            # Create a task for the regeneration
+            regeneration_task = asyncio.create_task(
+                orchestrator.regenerate_image(
+                    modification_request=modification_request,
+                    brief=brief,
+                    products=products_data,
+                    previous_image_prompt=previous_image_prompt
+                )
+            )
+            
+            # Send keepalive heartbeats while regeneration is running
+            heartbeat_count = 0
+            while not regeneration_task.done():
+                for _ in range(30):  # 15 seconds
+                    if regeneration_task.done():
+                        break
+                    await asyncio.sleep(0.5)
+                
+                if not regeneration_task.done():
+                    heartbeat_count += 1
+                    yield f"data: {json.dumps({'type': 'heartbeat', 'count': heartbeat_count, 'message': 'Regenerating image...'})}\n\n"
+            
+        except asyncio.CancelledError:
+            logger.warning(f"Regeneration cancelled for conversation {conversation_id}")
+            if regeneration_task and not regeneration_task.done():
+                regeneration_task.cancel()
+            raise
+        except GeneratorExit:
+            logger.warning(f"Regeneration closed by client for conversation {conversation_id}")
+            if regeneration_task and not regeneration_task.done():
+                regeneration_task.cancel()
+            return
+        
+        # Get the result
+        try:
+            response = regeneration_task.result()
+            logger.info(f"Regeneration complete. Response keys: {list(response.keys()) if response else 'None'}")
+            
+            # Check for RAI block
+            if response.get("rai_blocked"):
+                yield f"data: {json.dumps({'type': 'error', 'content': response.get('error', 'Request blocked by content safety'), 'rai_blocked': True, 'is_final': True})}\n\n"
+                yield "data: [DONE]\n\n"
+                return
+            
+            # Handle image URL from orchestrator's blob save
+            if response.get("image_blob_url"):
+                blob_url = response["image_blob_url"]
+                parts = blob_url.split("/")
+                filename = parts[-1]
+                conv_folder = parts[-2]
+                response["image_url"] = f"/api/images/{conv_folder}/{filename}"
+                del response["image_blob_url"]
+            elif response.get("image_base64"):
+                # Save to blob storage
+                try:
+                    blob_service = await get_blob_service()
+                    blob_url = await blob_service.save_generated_image(
+                        conversation_id=conversation_id,
+                        image_base64=response["image_base64"]
+                    )
+                    if blob_url:
+                        parts = blob_url.split("/")
+                        filename = parts[-1]
+                        response["image_url"] = f"/api/images/{conversation_id}/{filename}"
+                        del response["image_base64"]
+                except Exception as e:
+                    logger.warning(f"Failed to save regenerated image to blob: {e}")
+            
+            # Save assistant response
+            try:
+                cosmos_service = await get_cosmos_service()
+                await cosmos_service.add_message_to_conversation(
+                    conversation_id=conversation_id,
+                    user_id=user_id,
+                    message={
+                        "role": "assistant",
+                        "content": response.get("message", "Image regenerated based on your request."),
+                        "agent": "ImageAgent",
+                        "timestamp": datetime.now(timezone.utc).isoformat()
+                    }
+                )
+            except Exception as e:
+                logger.warning(f"Failed to save regeneration response to CosmosDB: {e}")
+            
+            yield f"data: {json.dumps({'type': 'agent_response', 'content': json.dumps(response), 'is_final': True})}\n\n"
+        except Exception as e:
+            logger.exception(f"Error in regeneration: {e}")
+            yield f"data: {json.dumps({'type': 'error', 'content': str(e), 'is_final': True})}\n\n"
+        
+        yield "data: [DONE]\n\n"
+    
+    return Response(
+        generate(),
+        mimetype="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+            "Content-Type": "text/event-stream; charset=utf-8",
+        }
+    )
+
+
 # ==================== Image Proxy Endpoints ====================
 
 @app.route("/api/images/<conversation_id>/<filename>", methods=["GET"])

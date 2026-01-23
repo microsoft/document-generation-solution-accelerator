@@ -292,6 +292,115 @@ function App() {
           timestamp: new Date().toISOString(),
         };
         setMessages(prev => [...prev, assistantMessage]);
+      } else if (generatedContent && confirmedBrief) {
+        // Content has been generated - check if user wants to modify the image
+        const imageModificationKeywords = [
+          'change', 'modify', 'update', 'replace', 'show', 'display', 'use', 
+          'instead', 'different', 'another', 'make it', 'make the', 
+          'kitchen', 'dining', 'living', 'bedroom', 'bathroom', 'outdoor', 'office',
+          'room', 'scene', 'setting', 'background', 'style', 'color', 'lighting'
+        ];
+        const isImageModification = imageModificationKeywords.some(kw => content.toLowerCase().includes(kw));
+        
+        if (isImageModification) {
+          // User wants to modify the image - use regeneration endpoint
+          const { streamRegenerateImage } = await import('./api');
+          
+          setGenerationStatus('Regenerating image with your changes...');
+          
+          let responseData: GeneratedContent | null = null;
+          let messageContent = '';
+          
+          // Get previous prompt from image_content if available
+          const previousPrompt = generatedContent.image_content?.prompt_used;
+          
+          for await (const response of streamRegenerateImage(
+            content,
+            confirmedBrief,
+            selectedProducts,
+            previousPrompt,
+            conversationId,
+            userId,
+            signal
+          )) {
+            if (response.type === 'heartbeat') {
+              setGenerationStatus(response.message || 'Regenerating image...');
+            } else if (response.type === 'agent_response' && response.is_final) {
+              try {
+                const parsedContent = JSON.parse(response.content);
+                
+                // Update generatedContent with new image
+                if (parsedContent.image_url || parsedContent.image_base64) {
+                  responseData = {
+                    ...generatedContent,
+                    image_content: {
+                      ...generatedContent.image_content,
+                      image_url: parsedContent.image_url || generatedContent.image_content?.image_url,
+                      image_base64: parsedContent.image_base64,
+                      prompt_used: parsedContent.image_prompt || generatedContent.image_content?.prompt_used,
+                    },
+                  };
+                  setGeneratedContent(responseData);
+                  messageContent = parsedContent.message || 'Image regenerated with your requested changes.';
+                } else if (parsedContent.error) {
+                  messageContent = parsedContent.error;
+                } else {
+                  messageContent = parsedContent.message || 'I processed your request.';
+                }
+              } catch {
+                messageContent = response.content || 'Image regenerated.';
+              }
+            } else if (response.type === 'error') {
+              messageContent = response.content || 'An error occurred while regenerating the image.';
+            }
+          }
+          
+          setGenerationStatus('');
+          
+          const assistantMessage: ChatMessage = {
+            id: uuidv4(),
+            role: 'assistant',
+            content: messageContent,
+            agent: 'ImageAgent',
+            timestamp: new Date().toISOString(),
+          };
+          setMessages(prev => [...prev, assistantMessage]);
+        } else {
+          // General question after content generation - use regular chat
+          let fullContent = '';
+          let currentAgent = '';
+          let messageAdded = false;
+          
+          setGenerationStatus('Processing your request...');
+          for await (const response of streamChat(content, conversationId, userId, signal)) {
+            if (response.type === 'agent_response') {
+              fullContent = response.content;
+              currentAgent = response.agent || '';
+              
+              if ((response.is_final || response.requires_user_input) && !messageAdded) {
+                const assistantMessage: ChatMessage = {
+                  id: uuidv4(),
+                  role: 'assistant',
+                  content: fullContent,
+                  agent: currentAgent,
+                  timestamp: new Date().toISOString(),
+                };
+                setMessages(prev => [...prev, assistantMessage]);
+                messageAdded = true;
+              }
+            } else if (response.type === 'error') {
+              const errorMessage: ChatMessage = {
+                id: uuidv4(),
+                role: 'assistant',
+                content: response.content || 'An error occurred.',
+                timestamp: new Date().toISOString(),
+              };
+              setMessages(prev => [...prev, errorMessage]);
+              messageAdded = true;
+            }
+          }
+          setGenerationStatus('');
+        }
       } else {
         // Check if this looks like a creative brief
         const briefKeywords = ['campaign', 'marketing', 'target audience', 'objective', 'deliverable'];
