@@ -149,6 +149,7 @@ export function ChatPanel({
                 onStartOver={onProductsStartOver || (() => {})}
                 isAwaitingResponse={isLoading}
                 onProductSelect={onProductSelect}
+                disabled={isLoading}
               />
             )}
             

@@ -16,6 +16,7 @@ interface ProductReviewProps {
   isAwaitingResponse?: boolean;
   availableProducts?: Product[];
   onProductSelect?: (product: Product) => void;
+  disabled?: boolean;
 }
 
 export function ProductReview({
@@ -25,6 +26,7 @@ export function ProductReview({
   isAwaitingResponse = false,
   availableProducts = [],
   onProductSelect,
+  disabled = false,
 }: ProductReviewProps) {
   const displayProducts = availableProducts.length > 0 ? availableProducts : products;
   const selectedProductIds = new Set(products.map(p => p.sku || p.product_name));
@@ -69,6 +71,7 @@ export function ProductReview({
               product={product}
               isSelected={isProductSelected(product)}
               onClick={() => handleProductClick(product)}
+              disabled={disabled}
             />
           ))}
         </div>
@@ -129,13 +132,14 @@ interface ProductCardGridProps {
   product: Product;
   isSelected: boolean;
   onClick: () => void;
+  disabled?: boolean;
 }
 
-function ProductCardGrid({ product, isSelected, onClick }: ProductCardGridProps) {
+function ProductCardGrid({ product, isSelected, onClick, disabled = false }: ProductCardGridProps) {
   return (
     <div 
-      className={`product-card ${isSelected ? 'selected' : ''}`}
-      onClick={onClick}
+      className={`product-card ${isSelected ? 'selected' : ''} ${disabled ? 'disabled' : ''}`}
+      onClick={disabled ? undefined : onClick}
       style={{
         display: 'flex',
         flexDirection: 'row',
@@ -145,8 +149,10 @@ function ProductCardGrid({ product, isSelected, onClick }: ProductCardGridProps)
         borderRadius: '8px',
         border: isSelected ? `2px solid ${tokens.colorBrandStroke1}` : `1px dashed ${tokens.colorNeutralStroke2}`,
         backgroundColor: isSelected ? tokens.colorBrandBackground2 : tokens.colorNeutralBackground1,
-        cursor: 'pointer',
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        opacity: disabled ? 0.6 : 1,
         transition: 'all 0.15s ease-in-out',
+        pointerEvents: disabled ? 'none' : 'auto',
       }}
     >
       {product.image_url ? (
