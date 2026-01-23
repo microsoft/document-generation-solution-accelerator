@@ -44,7 +44,6 @@ export function WelcomeCard({ onSuggestionClick, currentInput = '' }: WelcomeCar
       width: '100%',
       boxSizing: 'border-box',
     }}>
-      
       {/* Welcome card with suggestions inside */}
       <div style={{
         padding: 'clamp(16px, 4vw, 32px)',
