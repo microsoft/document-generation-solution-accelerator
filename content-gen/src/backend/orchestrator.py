@@ -109,6 +109,69 @@ def _check_input_for_harmful_content(message: str) -> tuple[bool, str]:
     return False, ""
 
 
+# Patterns that indicate system prompt content is being leaked in agent responses
+# These are key phrases from our agent instructions that should never appear in user-facing output
+SYSTEM_PROMPT_PATTERNS = [
+    # Agent role descriptions
+    r"You are an? \w+ Agent",
+    r"You are a Triage Agent",
+    r"You are a Planning Agent",
+    r"You are a Research Agent", 
+    r"You are a Text Content Agent",
+    r"You are an Image Content Agent",
+    r"You are a Compliance Agent",
+    # Handoff instructions
+    r"hand off to \w+_agent",
+    r"hand back to \w+_agent",
+    r"may hand off to",
+    r"After (?:generating|completing|validation|parsing)",
+    # Internal workflow markers
+    r"CRITICAL: SCOPE ENFORCEMENT",
+    r"## CRITICAL:",
+    r"### IMMEDIATELY REJECT",
+    r"CONTENT SAFETY - CRITICAL",
+    r"MANDATORY: ZERO TEXT IN IMAGE",
+    # Instruction markers
+    r"Return JSON with:",
+    r"Your scope is (?:strictly |)limited to",
+    r"When creating image prompts:",
+    r"Check for:\s*\n\s*-",
+    # RAI internal instructions
+    r"NEVER generate images that contain:",
+    r"Responsible AI - Image Generation Rules",
+    # Agent framework references
+    r"compliance_agent|triage_agent|planning_agent|research_agent|text_content_agent|image_content_agent",
+]
+
+_SYSTEM_PROMPT_PATTERNS_COMPILED = [re.compile(pattern, re.IGNORECASE | re.DOTALL) for pattern in SYSTEM_PROMPT_PATTERNS]
+
+
+def _filter_system_prompt_from_response(response_text: str) -> str:
+    """
+    Filter out any system prompt content that might have leaked into agent responses.
+    
+    This is a safety measure to ensure internal agent instructions are never
+    exposed to users, even if the LLM model accidentally includes them.
+    
+    Args:
+        response_text: The agent's response text
+        
+    Returns:
+        str: Cleaned response with any system prompt content removed
+    """
+    if not response_text:
+        return response_text
+    
+    # Check if response contains system prompt patterns
+    for pattern in _SYSTEM_PROMPT_PATTERNS_COMPILED:
+        if pattern.search(response_text):
+            logger.warning(f"System prompt content detected in agent response, filtering. Pattern: {pattern.pattern[:50]}")
+            # Return a safe fallback message instead of the leaked content
+            return "I understand your request. Could you please clarify what specific changes you'd like me to make to the marketing content? I'm here to help refine your campaign materials."
+    
+    return response_text
+
+
 # Standard RAI refusal message for harmful content
 RAI_HARMFUL_CONTENT_RESPONSE = """I'm a specialized marketing content generation assistant designed exclusively for creating professional marketing materials.
 
@@ -637,8 +700,9 @@ class ContentGenerationOrchestrator:
                             for msg in messages
                         ])
                         
-                        # Get the last message content
+                        # Get the last message content and filter any system prompt leakage
                         last_msg_content = messages[-1].text if messages else (event.data.agent_response.text if hasattr(event.data, 'agent_response') and event.data.agent_response else "")
+                        last_msg_content = _filter_system_prompt_from_response(last_msg_content)
                         last_msg_agent = messages[-1].author_name if messages and hasattr(messages[-1], 'author_name') else "unknown"
                         
                         yield {
@@ -663,10 +727,12 @@ class ContentGenerationOrchestrator:
                         ]
                         if assistant_messages:
                             last_msg = assistant_messages[-1]
+                            # Filter any system prompt leakage from the response
+                            filtered_content = _filter_system_prompt_from_response(last_msg.text)
                             yield {
                                 "type": "agent_response",
                                 "agent": last_msg.author_name or "assistant",
-                                "content": last_msg.text,
+                                "content": filtered_content,
                                 "is_final": True,
                                 "metadata": {"conversation_id": conversation_id}
                             }
@@ -733,8 +799,9 @@ class ContentGenerationOrchestrator:
                         if not isinstance(messages, list):
                             messages = [messages] if messages else []
                         
-                        # Get the last message content
+                        # Get the last message content and filter any system prompt leakage
                         last_msg_content = messages[-1].text if messages else (event.data.agent_response.text if hasattr(event.data, 'agent_response') and event.data.agent_response else "")
+                        last_msg_content = _filter_system_prompt_from_response(last_msg_content)
                         last_msg_agent = messages[-1].author_name if messages and hasattr(messages[-1], 'author_name') else "unknown"
                         
                         yield {
@@ -756,10 +823,12 @@ class ContentGenerationOrchestrator:
                         ]
                         if assistant_messages:
                             last_msg = assistant_messages[-1]
+                            # Filter any system prompt leakage from the response
+                            filtered_content = _filter_system_prompt_from_response(last_msg.text)
                             yield {
                                 "type": "agent_response",
                                 "agent": last_msg.author_name or "assistant",
-                                "content": last_msg.text,
+                                "content": filtered_content,
                                 "is_final": True,
                                 "metadata": {"conversation_id": conversation_id}
                             }
