@@ -109,6 +109,69 @@ def _check_input_for_harmful_content(message: str) -> tuple[bool, str]:
     return False, ""
 
 
+# Patterns that indicate system prompt content is being leaked in agent responses
+# These are key phrases from our agent instructions that should never appear in user-facing output
+SYSTEM_PROMPT_PATTERNS = [
+    # Agent role descriptions
+    r"You are an? \w+ Agent",
+    r"You are a Triage Agent",
+    r"You are a Planning Agent",
+    r"You are a Research Agent", 
+    r"You are a Text Content Agent",
+    r"You are an Image Content Agent",
+    r"You are a Compliance Agent",
+    # Handoff instructions
+    r"hand off to \w+_agent",
+    r"hand back to \w+_agent",
+    r"may hand off to",
+    r"After (?:generating|completing|validation|parsing)",
+    # Internal workflow markers
+    r"CRITICAL: SCOPE ENFORCEMENT",
+    r"## CRITICAL:",
+    r"### IMMEDIATELY REJECT",
+    r"CONTENT SAFETY - CRITICAL",
+    r"MANDATORY: ZERO TEXT IN IMAGE",
+    # Instruction markers
+    r"Return JSON with:",
+    r"Your scope is (?:strictly |)limited to",
+    r"When creating image prompts:",
+    r"Check for:\s*\n\s*-",
+    # RAI internal instructions
+    r"NEVER generate images that contain:",
+    r"Responsible AI - Image Generation Rules",
+    # Agent framework references
+    r"compliance_agent|triage_agent|planning_agent|research_agent|text_content_agent|image_content_agent",
+]
+
+_SYSTEM_PROMPT_PATTERNS_COMPILED = [re.compile(pattern, re.IGNORECASE | re.DOTALL) for pattern in SYSTEM_PROMPT_PATTERNS]
+
+
+def _filter_system_prompt_from_response(response_text: str) -> str:
+    """
+    Filter out any system prompt content that might have leaked into agent responses.
+    
+    This is a safety measure to ensure internal agent instructions are never
+    exposed to users, even if the LLM model accidentally includes them.
+    
+    Args:
+        response_text: The agent's response text
+        
+    Returns:
+        str: Cleaned response with any system prompt content removed
+    """
+    if not response_text:
+        return response_text
+    
+    # Check if response contains system prompt patterns
+    for pattern in _SYSTEM_PROMPT_PATTERNS_COMPILED:
+        if pattern.search(response_text):
+            logger.warning(f"System prompt content detected in agent response, filtering. Pattern: {pattern.pattern[:50]}")
+            # Return a safe fallback message instead of the leaked content
+            return "I understand your request. Could you please clarify what specific changes you'd like me to make to the marketing content? I'm here to help refine your campaign materials."
+    
+    return response_text
+
+
 # Standard RAI refusal message for harmful content
 RAI_HARMFUL_CONTENT_RESPONSE = """I'm a specialized marketing content generation assistant designed exclusively for creating professional marketing materials.
 
@@ -637,8 +700,9 @@ class ContentGenerationOrchestrator:
                             for msg in messages
                         ])
                         
-                        # Get the last message content
+                        # Get the last message content and filter any system prompt leakage
                         last_msg_content = messages[-1].text if messages else (event.data.agent_response.text if hasattr(event.data, 'agent_response') and event.data.agent_response else "")
+                        last_msg_content = _filter_system_prompt_from_response(last_msg_content)
                         last_msg_agent = messages[-1].author_name if messages and hasattr(messages[-1], 'author_name') else "unknown"
                         
                         yield {
@@ -663,10 +727,12 @@ class ContentGenerationOrchestrator:
                         ]
                         if assistant_messages:
                             last_msg = assistant_messages[-1]
+                            # Filter any system prompt leakage from the response
+                            filtered_content = _filter_system_prompt_from_response(last_msg.text)
                             yield {
                                 "type": "agent_response",
                                 "agent": last_msg.author_name or "assistant",
-                                "content": last_msg.text,
+                                "content": filtered_content,
                                 "is_final": True,
                                 "metadata": {"conversation_id": conversation_id}
                             }
@@ -733,8 +799,9 @@ class ContentGenerationOrchestrator:
                         if not isinstance(messages, list):
                             messages = [messages] if messages else []
                         
-                        # Get the last message content
+                        # Get the last message content and filter any system prompt leakage
                         last_msg_content = messages[-1].text if messages else (event.data.agent_response.text if hasattr(event.data, 'agent_response') and event.data.agent_response else "")
+                        last_msg_content = _filter_system_prompt_from_response(last_msg_content)
                         last_msg_agent = messages[-1].author_name if messages and hasattr(messages[-1], 'author_name') else "unknown"
                         
                         yield {
@@ -756,10 +823,12 @@ class ContentGenerationOrchestrator:
                         ]
                         if assistant_messages:
                             last_msg = assistant_messages[-1]
+                            # Filter any system prompt leakage from the response
+                            filtered_content = _filter_system_prompt_from_response(last_msg.text)
                             yield {
                                 "type": "agent_response",
                                 "agent": last_msg.author_name or "assistant",
-                                "content": last_msg.text,
+                                "content": filtered_content,
                                 "is_final": True,
                                 "metadata": {"conversation_id": conversation_id}
                             }
@@ -1438,6 +1507,200 @@ Check against brand guidelines and flag any issues.
         has_image = bool(results.get("image_base64"))
         image_size = len(results.get("image_base64", "")) if has_image else 0
         logger.info(f"Orchestrator results: has_image={has_image}, image_size={image_size}, has_error={bool(results.get('error'))}")
+        
+        return results
+
+    async def regenerate_image(
+        self,
+        modification_request: str,
+        brief: CreativeBrief,
+        products: list = None,
+        previous_image_prompt: str = None
+    ) -> dict:
+        """
+        Regenerate just the image based on a user modification request.
+        
+        This method is called when the user wants to modify the generated image
+        after initial content generation (e.g., "show a kitchen instead of dining room").
+        
+        Args:
+            modification_request: User's request for how to modify the image
+            brief: The confirmed creative brief
+            products: List of products to feature
+            previous_image_prompt: The previous image prompt (if available)
+        
+        Returns:
+            dict: Regenerated image with updated prompt
+        """
+        if not self._initialized:
+            self.initialize()
+        
+        logger.info(f"Regenerating image with modification: {modification_request[:100]}...")
+        
+        # PROACTIVE CONTENT SAFETY CHECK
+        is_harmful, matched_pattern = _check_input_for_harmful_content(modification_request)
+        if is_harmful:
+            logger.warning(f"Blocking harmful content in image regeneration. Pattern: {matched_pattern}")
+            return {
+                "error": RAI_HARMFUL_CONTENT_RESPONSE,
+                "rai_blocked": True,
+                "blocked_reason": "harmful_content_detected"
+            }
+        
+        results = {
+            "image_prompt": None,
+            "image_base64": None,
+            "image_blob_url": None,
+            "image_revised_prompt": None,
+            "message": None
+        }
+        
+        # Build product context
+        product_context = ""
+        detailed_image_context = ""
+        if products:
+            product_details = []
+            image_descriptions = []
+            for p in products[:3]:
+                name = p.get('product_name', 'Product')
+                desc = p.get('description', p.get('marketing_description', ''))
+                tags = p.get('tags', '')
+                product_details.append(f"- {name}: {desc} (Tags: {tags})")
+                
+                img_desc = p.get('image_description')
+                if img_desc:
+                    image_descriptions.append(f"### {name} - Detailed Visual Description:\n{img_desc}")
+            
+            product_context = "\n".join(product_details)
+            if image_descriptions:
+                detailed_image_context = "\n\n".join(image_descriptions)
+        
+        # Prepare optional sections for the prompt
+        detailed_product_section = ""
+        if detailed_image_context:
+            detailed_product_section = f"DETAILED PRODUCT DESCRIPTIONS:\n{detailed_image_context}"
+        
+        previous_prompt_section = ""
+        if previous_image_prompt:
+            previous_prompt_section = f"PREVIOUS IMAGE PROMPT:\n{previous_image_prompt}"
+        
+        try:
+            # Use the image content agent to create a modified prompt
+            modification_prompt = f"""
+You need to create a NEW image prompt that incorporates the user's modification request.
+
+ORIGINAL CAMPAIGN CONTEXT:
+- Visual Guidelines: {brief.visual_guidelines}
+- Key Message: {brief.key_message}
+- Tone and Style: {brief.tone_and_style}
+
+PRODUCTS TO FEATURE:
+{product_context if product_context else 'No specific products'}
+
+{detailed_product_section}
+
+{previous_prompt_section}
+
+USER'S MODIFICATION REQUEST:
+"{modification_request}"
+
+Create a new image prompt that:
+1. Incorporates the user's requested change (e.g., different room, different setting, different style)
+2. Keeps the products and brand elements consistent
+3. Maintains the campaign's tone and objectives
+
+Return JSON with:
+- "prompt": The new DALL-E prompt incorporating the modification
+- "style": Visual style description
+- "change_summary": Brief summary of what was changed
+"""
+            
+            if self._use_foundry:
+                # Foundry mode: build prompt directly and call image API
+                # Combine original brief context with modification
+                new_prompt_parts = ["Generate a professional marketing image:"]
+                
+                # Apply the modification to visual guidelines
+                if brief.visual_guidelines:
+                    new_prompt_parts.append(f"Visual style: {brief.visual_guidelines}")
+                
+                if brief.tone_and_style:
+                    new_prompt_parts.append(f"Mood and tone: {brief.tone_and_style}")
+                
+                if product_context:
+                    new_prompt_parts.append(f"Products to feature: {product_context}")
+                
+                # The key modification - incorporate user's change
+                new_prompt_parts.append(f"IMPORTANT MODIFICATION: {modification_request}")
+                
+                if brief.key_message:
+                    new_prompt_parts.append(f"Key message to convey: {brief.key_message}")
+                
+                new_prompt_parts.append("Style: High-quality, photorealistic marketing photography with professional lighting.")
+                
+                image_prompt = " ".join(new_prompt_parts)
+                results["image_prompt"] = image_prompt
+                results["message"] = f"Regenerating image with your requested changes: {modification_request}"
+                
+                logger.info(f"Created modified Foundry image prompt: {image_prompt[:200]}...")
+                await self._generate_foundry_image(image_prompt, results)
+            else:
+                # Direct mode: use image agent to interpret the modification
+                image_response = await self._agents["image_content"].run(modification_prompt)
+                prompt_text = str(image_response)
+                
+                # Extract the prompt from JSON response
+                change_summary = modification_request
+                if '{' in prompt_text:
+                    try:
+                        prompt_data = json.loads(prompt_text)
+                        if isinstance(prompt_data, dict):
+                            prompt_text = prompt_data.get('prompt', prompt_text)
+                            change_summary = prompt_data.get('change_summary', modification_request)
+                    except json.JSONDecodeError:
+                        json_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', prompt_text, re.DOTALL)
+                        if json_match:
+                            try:
+                                prompt_data = json.loads(json_match.group(1))
+                                prompt_text = prompt_data.get('prompt', prompt_text)
+                                change_summary = prompt_data.get('change_summary', modification_request)
+                            except:
+                                pass
+                
+                results["image_prompt"] = prompt_text
+                results["message"] = f"Regenerating image: {change_summary}"
+                
+                # Generate the actual image
+                try:
+                    from agents.image_content_agent import generate_dalle_image
+                    
+                    product_description = detailed_image_context if detailed_image_context else product_context
+                    
+                    logger.info(f"Generating modified DALL-E image: {prompt_text[:200]}...")
+                    image_result = await generate_dalle_image(
+                        prompt=prompt_text,
+                        product_description=product_description,
+                        scene_description=brief.visual_guidelines
+                    )
+                    
+                    if image_result.get("success"):
+                        image_base64 = image_result.get("image_base64")
+                        results["image_revised_prompt"] = image_result.get("revised_prompt")
+                        logger.info("Modified DALL-E image generated successfully")
+                        await self._save_image_to_blob(image_base64, results)
+                    else:
+                        logger.warning(f"Modified DALL-E image generation failed: {image_result.get('error')}")
+                        results["image_error"] = image_result.get("error")
+                        
+                except Exception as img_error:
+                    logger.exception(f"Error generating modified DALL-E image: {img_error}")
+                    results["image_error"] = str(img_error)
+            
+            logger.info(f"Image regeneration complete. Has image: {bool(results.get('image_base64') or results.get('image_blob_url'))}")
+            
+        except Exception as e:
+            logger.exception(f"Error regenerating image: {e}")
+            results["error"] = str(e)
         
         return results
 
