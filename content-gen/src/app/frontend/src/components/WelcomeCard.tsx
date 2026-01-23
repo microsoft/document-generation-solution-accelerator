@@ -3,8 +3,8 @@ import {
   Text,
   tokens,
 } from '@fluentui/react-components';
-import FirstPromptIcon from '../styles/images/firstprompt.svg';
-import SecondPromptIcon from '../styles/images/secondprompt.svg';
+import FirstPromptIcon from '../styles/images/firstprompt.png';
+import SecondPromptIcon from '../styles/images/secondprompt.png';
 
 interface SuggestionCard {
   title: string;
