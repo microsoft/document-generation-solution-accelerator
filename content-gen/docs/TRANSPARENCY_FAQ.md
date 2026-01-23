@@ -16,7 +16,7 @@
     This repository is to be used only as a solution accelerator following the open-source license terms listed in the GitHub repository. The example scenario's intended purpose is to help users generate a marketing ad campaign for a social media post based on a sample set of data and help them perform their work more efficiently.
 
 - ### How was Content Generation Solution Accelerator evaluated? What metrics are used to measure performance?
-    We have used AI Foundry Prompt flow evaluation SDK to test for harmful content, groundedness, and potential security risks.
+    We have used the Azure AI evaluation SDK to test for harmful content, groundedness and potential risks.
   
 - ### What are the limitations of Content Generation Solution Accelerator? How can users minimize the impact of Content Generation Solution Accelerator's limitations when using the system?
     This solution accelerator can only be used as a sample to accelerate the creation of an AI assistant. The repository showcases a sample scenario of a user generating a marketing ad campaign. Users should review the system prompts provided and update them as per their organizational guidance. Users should run their own evaluation flow either using the guidance provided in the GitHub repository or their choice of evaluation methods. AI-generated content may be inaccurate and should be manually reviewed. Currently, the sample repo is available in English only.
