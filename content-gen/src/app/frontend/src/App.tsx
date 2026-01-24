@@ -341,6 +341,15 @@ function App() {
                     },
                   };
                   setGeneratedContent(responseData);
+                  
+                  // Update the confirmed brief to include the modification
+                  // This ensures subsequent "Regenerate" clicks use the updated visual guidelines
+                  const updatedBrief = {
+                    ...confirmedBrief,
+                    visual_guidelines: `${confirmedBrief.visual_guidelines}. User modification: ${content}`,
+                  };
+                  setConfirmedBrief(updatedBrief);
+                  
                   messageContent = parsedContent.message || 'Image regenerated with your requested changes.';
                 } else if (parsedContent.error) {
                   messageContent = parsedContent.error;
