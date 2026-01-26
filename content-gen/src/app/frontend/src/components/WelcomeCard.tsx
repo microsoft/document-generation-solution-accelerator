@@ -14,13 +14,13 @@ interface SuggestionCard {
 
 const suggestions: SuggestionCard[] = [
   {
-    title: 'Generate a social media campaign with ad copy and an image. This is for "Back to School" and the audience is parents of school age children. Tone is playful and humorous. The image must include children playing.',
-    prompt: 'Generate a social media campaign with ad copy and an image. This is for "Back to School" and the audience is parents of school age children. Tone is playful and humorous. The image must include children playing.',
+    title: "I need to create a social media post about paint products for home remodels. The campaign is titled \"Brighten Your Springtime\" and the audience is new homeowners. I need marketing copy plus an image. The image should be an informal living room with tasteful furnishings.",
+    prompt: "I need to create a social media post about paint products for home remodels. The campaign is titled \"Brighten Your Springtime\" and the audience is new homeowners. I need marketing copy plus an image. The image should be an informal living room with tasteful furnishings.",
     icon: FirstPromptIcon,
   },
   {
-    title: 'I need to create a social media post about paint products for home remodels. The campaign is titled "Brighten Your Springtime" and the audience is new homeowners. I need marketing copy plus an image. The image should be an informal living room with tasteful furnishings.',
-    prompt: 'I need to create a social media post about paint products for home remodels. The campaign is titled "Brighten Your Springtime" and the audience is new homeowners. I need marketing copy plus an image. The image should be an informal living room with tasteful furnishings.',
+    title: "Generate a social media campaign with ad copy and an image. This is for \"Back to School\" and the audience is parents of school age children. Tone is playful and humorous. The image must have minimal kids accessories in a children's bedroom. Show the room in a wide view.",
+    prompt: "Generate a social media campaign with ad copy and an image. This is for \"Back to School\" and the audience is parents of school age children. Tone is playful and humorous. The image must have minimal kids accessories in a children's bedroom. Show the room in a wide view.",
     icon: SecondPromptIcon,
   }
 ];
