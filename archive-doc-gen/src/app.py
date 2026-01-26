@@ -20,7 +20,7 @@ from backend.settings import (
     MINIMUM_SUPPORTED_AZURE_OPENAI_PREVIEW_API_VERSION, app_settings)
 from backend.utils import (ChatType, format_as_ndjson,
                            format_non_streaming_response,
-                           format_stream_response)
+                           format_stream_response, configure_logging)
 from event_utils import track_event_if_configured
 from azure.monitor.opentelemetry import configure_azure_monitor
 from opentelemetry import trace
@@ -40,6 +40,9 @@ from backend.api.agent.template_agent_factory import TemplateAgentFactory
 
 bp = Blueprint("routes", __name__, static_folder="static", template_folder="static")
 
+# Configure logging based on environment variables
+configure_logging(app_settings.logging)
+
 # Check if the Application Insights Instrumentation Key is set in the environment variables
 instrumentation_key = os.getenv("APPLICATIONINSIGHTS_CONNECTION_STRING")
 if instrumentation_key:
@@ -49,20 +52,6 @@ if instrumentation_key:
 else:
     # Log a warning if the Instrumentation Key is not found
     logging.warning("No Application Insights Instrumentation Key found. Skipping configuration")
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-
-# Suppress INFO logs from 'azure.core.pipeline.policies.http_logging_policy'
-logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
-    logging.WARNING
-)
-logging.getLogger("azure.identity.aio._internal").setLevel(logging.WARNING)
-
-# Suppress info logs from OpenTelemetry exporter
-logging.getLogger("azure.monitor.opentelemetry.exporter.export._base").setLevel(
-    logging.WARNING
-)
 
 
 def create_app():
@@ -115,10 +104,7 @@ async def assets(path):
     return await send_from_directory("static/assets", path)
 
 
-# Debug settings
-DEBUG = os.environ.get("DEBUG", "false")
-if DEBUG.lower() == "true":
-    logging.basicConfig(level=logging.DEBUG)
+# Debug settings are now handled by the logging configuration above
 
 USER_AGENT = "GitHubSampleWebApp/AsyncAzureOpenAI/1.0.0"
 
@@ -181,7 +167,6 @@ async def init_ai_foundry_client():
         return ai_foundry_client
     except Exception as e:
         logging.exception("Exception in AI Foundry initialization", e)
-        ai_foundry_client = None
         raise e
 
 
@@ -211,7 +196,6 @@ def init_cosmosdb_client():
             if span is not None:
                 span.record_exception(e)
                 span.set_status(Status(StatusCode.ERROR, str(e)))
-            cosmos_conversation_client = None
             raise e
     else:
         logging.debug("CosmosDB not configured")

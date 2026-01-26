@@ -1,10 +1,9 @@
-import { renderWithContext, screen, waitFor, fireEvent, act, findByText, render } from '../../test/test.utils'
+import { renderWithContext, screen, waitFor, fireEvent, act } from '../../test/test.utils'
 import { ChatHistoryListItemCell, ChatHistoryListItemGroups } from './ChatHistoryListItem'
 import { Conversation } from '../../api/models'
 import { historyRename, historyDelete, historyList, historyRead } from '../../api'
-import React, { useEffect } from 'react'
+import React from 'react'
 import userEvent from '@testing-library/user-event'
-import { AppStateContext } from '../../state/AppProvider'
 
 // Mock API
 jest.mock('../../api/api', () => ({
@@ -555,13 +554,6 @@ describe('ChatHistoryListItemCell', () => {
 
   test('shows error when trying to rename to an existing title', async () => {
     const existingTitle = 'Existing Chat Title'
-    const conversationWithExistingTitle: Conversation = {
-      id: '2',
-      title: existingTitle,
-      messages: [],
-      date: new Date().toISOString()
-    }
-
       ; (historyRename as jest.Mock).mockResolvedValueOnce({
         ok: false,
         json: async () => ({ message: 'Title already exists' })

@@ -34,6 +34,31 @@ class _UiSettings(BaseSettings):
     show_share_button: bool = False
 
 
+class _LoggingSettings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="AZURE_", env_file=DOTENV_PATH, extra="ignore", env_ignore_empty=True
+    )
+
+    basic_logging_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
+    package_logging_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "WARNING"
+    logging_packages: Optional[List[str]] = []
+
+    @field_validator("logging_packages", mode="before")
+    @classmethod
+    def split_logging_packages(cls, packages) -> Optional[List[str]]:
+        if isinstance(packages, str) and len(packages.strip()) > 0:
+            return [pkg.strip() for pkg in packages.split(",") if pkg.strip()]
+        return None
+
+    def get_basic_log_level(self) -> int:
+        """Convert string log level to logging constant"""
+        return getattr(logging, self.basic_logging_level.upper())
+
+    def get_package_log_level(self) -> int:
+        """Convert string package log level to logging constant"""
+        return getattr(logging, self.package_logging_level.upper())
+
+
 class _ChatHistorySettings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="AZURE_COSMOSDB_",
@@ -224,8 +249,9 @@ class _SearchCommonSettings(BaseSettings):
 class DatasourcePayloadConstructor(BaseModel, ABC):
     _settings: "_AppSettings" = PrivateAttr()
 
-    def __init__(self, settings: "_AppSettings", **data):
-        super().__init__(**data)
+    def __init__(self, *args, settings: "_AppSettings", **data):
+        # Call next __init__ in MRO to allow cooperative multiple inheritance
+        super().__init__(*args, **data)
         self._settings = settings
 
     @abstractmethod
@@ -276,6 +302,10 @@ class _AzureSearchSettings(BaseSettings, DatasourcePayloadConstructor):
     embedding_dependency: Optional[dict] = None
     fields_mapping: Optional[dict] = None
     filter: Optional[str] = Field(default=None, exclude=True)
+
+    def __init__(self, settings: "_AppSettings", **data):
+        # Ensure both BaseSettings and DatasourcePayloadConstructor are initialized
+        super().__init__(settings=settings, **data)
 
     @field_validator("content_columns", "vector_columns", mode="before")
     @classmethod
@@ -367,6 +397,7 @@ class _AppSettings(BaseModel):
     azure_ai: _AzureAISettings = _AzureAISettings()
     search: _SearchCommonSettings = _SearchCommonSettings()
     ui: Optional[_UiSettings] = _UiSettings()
+    logging: _LoggingSettings = _LoggingSettings()
 
     # Constructed properties
     chat_history: Optional[_ChatHistorySettings] = None
@@ -413,6 +444,7 @@ class _AppSettings(BaseModel):
             logging.warning(
                 "No datasource configuration found in the environment -- calls will be made to Azure OpenAI without grounding data."
             )
+            return self
 
 
 app_settings = _AppSettings()

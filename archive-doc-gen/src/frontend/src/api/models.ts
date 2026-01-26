@@ -1,5 +1,3 @@
-import Plotly from 'react-plotly.js'
-
 export type AskResponse = {
   answer: string
   citations: Citation[]

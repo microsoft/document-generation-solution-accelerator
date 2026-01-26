@@ -2,7 +2,7 @@
 import React from 'react';
 import { render, RenderResult } from '@testing-library/react';
 import { AppStateContext } from '../state/AppProvider';
-import { Conversation, ChatHistoryLoadingState } from '../api/models'; 
+import { ChatHistoryLoadingState } from '../api/models'; 
 // Default mock state
 export const defaultMockState = {
   isChatHistoryOpen: true,

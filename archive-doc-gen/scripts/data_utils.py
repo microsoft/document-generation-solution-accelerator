@@ -13,6 +13,7 @@ from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
 from functools import partial
 from typing import Any, Callable, Dict, Generator, List, Optional, Tuple, Union
+from urllib.parse import urlparse
 
 import fitz
 import markdown
@@ -20,7 +21,10 @@ import requests
 import tiktoken
 from azure.ai.documentintelligence import DocumentIntelligenceClient
 from azure.ai.documentintelligence.models import AnalyzeDocumentRequest
+from azure.ai.inference import EmbeddingsClient
 from azure.core.credentials import AzureKeyCredential
+from azure.identity import AzureCliCredential
+from azure.keyvault.secrets import SecretClient
 from azure.storage.blob import ContainerClient
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
@@ -28,11 +32,31 @@ from langchain.text_splitter import (MarkdownTextSplitter,
                                      PythonCodeTextSplitter,
                                      RecursiveCharacterTextSplitter,
                                      TextSplitter)
-from openai import AzureOpenAI
 from tqdm import tqdm
 
 # Configure environment variables
 load_dotenv()  # take environment variables from .env.
+
+# Key Vault name - replaced during deployment
+key_vault_name = 'kv_to-be-replaced'
+
+
+def get_secrets_from_kv(secret_name: str) -> str:
+    """Retrieves a secret value from Azure Key Vault.
+
+    Args:
+        secret_name: Name of the secret
+
+    Returns:
+        The secret value
+    """
+    kv_credential = AzureCliCredential()
+    secret_client = SecretClient(
+        vault_url=f"https://{key_vault_name}.vault.azure.net/",
+        credential=kv_credential
+    )
+    return secret_client.get_secret(secret_name).value
+
 
 FILE_FORMAT_DICT = {
     "md": "markdown",
@@ -133,7 +157,13 @@ class PdfTextSplitter(TextSplitter):
 
     def mask_urls_and_imgs(self, text) -> Tuple[Dict[str, str], str]:
         def find_urls(string):
-            regex = r"(?i)\b((?:https?://|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^()\s<>]+|\(([^()\s<>]+|(\([^()\s<>]+\)))*\))+(?:\(([^()\s<>]+|(\([^()\s<>]+\)))*\)|[^()\s`!()\[\]{};:'\".,<>?«»“”‘’]))"
+            regex = (
+                r"(?i)\b("
+                r"(?:https?://|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)"
+                r"(?:[^()\s<>]+|\(([^()\s<>]+|(\([^()\s<>]+\)))*\))+"
+                r"(?:\(([^()\s<>]+|(\([^()\s<>]+\)))*\)|[^()\s`!()\[\]{};:'\".,<>?«»“”‘’])"
+                r")"
+            )
             urls = re.findall(regex, string)
             return [x[0] for x in urls]
 
@@ -669,7 +699,9 @@ def extract_pdf_content(file_path, form_recognizer_client, use_layout=False):
     page_map = []
     model = "prebuilt-layout" if use_layout else "prebuilt-read"
 
-    base64file = base64.b64encode(open(file_path, "rb").read()).decode()
+    with open(file_path, "rb") as f:
+        file_bytes = f.read()
+    base64file = base64.b64encode(file_bytes).decode()
     poller = form_recognizer_client.begin_analyze_document(
         model, AnalyzeDocumentRequest(bytes_source=base64file)
     )
@@ -825,45 +857,27 @@ def get_payload_and_headers_cohere(text, aad_token) -> Tuple[Dict, Dict]:
 def get_embedding(
     text, embedding_model_endpoint=None, embedding_model_key=None, azure_credential=None
 ):
-    endpoint = (
-        embedding_model_endpoint
-        if embedding_model_endpoint
-        else os.environ.get("EMBEDDING_MODEL_ENDPOINT")
-    )
+    # Get AI Project endpoint from Key Vault
+    ai_project_endpoint = get_secrets_from_kv("AZURE-AI-AGENT-ENDPOINT")
 
-    FLAG_EMBEDDING_MODEL = os.getenv("FLAG_EMBEDDING_MODEL", "AOAI")
-
-    if azure_credential is None and (endpoint is None):
-        raise Exception(
-            "EMBEDDING_MODEL_ENDPOINT and EMBEDDING_MODEL_KEY are required for embedding"
-        )
+    # Construct inference endpoint: https://aif-xyz.services.ai.azure.com/models
+    inference_endpoint = f"https://{urlparse(ai_project_endpoint).netloc}/models"
+    embedding_model = "text-embedding-ada-002"
 
     try:
-        if FLAG_EMBEDDING_MODEL == "AOAI":
-            deployment_id = "embedding"
-            api_version = "2024-02-01"
+        credential = azure_credential if azure_credential is not None else AzureCliCredential()
+        embeddings_client = EmbeddingsClient(
+            endpoint=inference_endpoint,
+            credential=credential,
+            credential_scopes=["https://cognitiveservices.azure.com/.default"]
+        )
 
-            if azure_credential is not None:
-                api_key = azure_credential.get_token(
-                    "https://cognitiveservices.azure.com/.default"
-                ).token
-            else:
-                api_key = (
-                    embedding_model_key
-                    if embedding_model_key
-                    else os.getenv("AZURE_OPENAI_API_KEY")
-                )
-
-            client = AzureOpenAI(
-                api_version=api_version, azure_endpoint=endpoint, api_key=api_key
-            )
-            embeddings = client.embeddings.create(model=deployment_id, input=text)
-
-            return embeddings.model_dump()["data"][0]["embedding"]
+        response = embeddings_client.embed(model=embedding_model, input=[text])
+        return response.data[0].embedding
 
     except Exception as e:
         raise Exception(
-            f"Error getting embeddings with endpoint={endpoint} with error={e}"
+            f"Error getting embeddings with endpoint={inference_endpoint} with error={e}"
         )
 
 
@@ -1042,7 +1056,8 @@ def image_content_to_tag(image_content: str) -> str:
 
 
 def get_caption(image_path, captioning_model_endpoint, captioning_model_key):
-    encoded_image = base64.b64encode(open(image_path, "rb").read()).decode("ascii")
+    with open(image_path, "rb") as image_file:
+        encoded_image = base64.b64encode(image_file.read()).decode("ascii")
     file_ext = image_path.split(".")[-1]
     headers = {
         "Content-Type": "application/json",

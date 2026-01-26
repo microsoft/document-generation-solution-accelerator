@@ -1,6 +1,6 @@
 import { renderWithContext, screen, waitFor, fireEvent, act } from '../../test/test.utils'
 import Chat from './Chat'
-import { ChatHistoryLoadingState,ChatType } from '../../api/models'
+import { ChatType } from '../../api/models'
 import * as ReactRouterDom from 'react-router-dom';
 import {
   getUserInfo,
@@ -9,13 +9,11 @@ import {
   historyClear,
   ChatMessage,
   Citation,
-  historyUpdate,
-  CosmosDBStatus
+  historyUpdate
 } from '../../api'
 import userEvent from '@testing-library/user-event'
 
-import { AIResponseContent, decodedConversationResponseWithCitations } from '../../../__mocks__/mockAPIData'
-import { CitationPanel } from './Components/CitationPanel'
+import { decodedConversationResponseWithCitations } from '../../../__mocks__/mockAPIData'
 // import { BuildingCheckmarkRegular } from '@fluentui/react-icons';
 
 
@@ -108,8 +106,6 @@ jest.mock('../../components/ChatHistory/ChatHistoryPanel', () => ({
   ChatHistoryPanel: jest.fn(() => <div>ChatHistoryPanelMock</div>)
 }))
 
-
-const mockDispatch = jest.fn()
 const originalHostname = window.location.hostname
 
 const mockState = {
@@ -315,8 +311,6 @@ const addToExistResponse = {
 }
 
 //-----ConversationAPI Response
-
-const response4 = {}
 
 let originalFetch: typeof global.fetch
 
@@ -567,7 +561,6 @@ describe('Chat Component', () => {
 
     mockCallConversationApi.mockResolvedValueOnce({ ...mockResponse })
   }
-  const setIsVisible = jest.fn()
   beforeEach(() => {
     jest.clearAllMocks()
     originalFetch = global.fetch

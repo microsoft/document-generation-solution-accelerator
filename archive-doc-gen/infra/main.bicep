@@ -1105,6 +1105,11 @@ module keyvault 'br/public:avm/res/key-vault/vault:0.12.1' = {
       {name: 'AZURE-OPENAI-PREVIEW-API-VERSION', value: azureOpenaiAPIVersion}
       {name: 'AZURE-OPEN-AI-DEPLOYMENT-MODEL', value: gptModelName}
       {name: 'TENANT-ID', value: subscription().tenantId}
+      {
+        name: 'AZURE-AI-AGENT-ENDPOINT'
+        value: aiFoundryAiProjectEndpoint
+      }
+      
     ]
   }
   dependsOn:[
@@ -1204,6 +1209,9 @@ module webSite 'modules/web-sites.bicep' = {
           UWSGI_THREADS: '2'
           APP_ENV: appEnvironment
           AZURE_CLIENT_ID: userAssignedIdentity.outputs.clientId
+          AZURE_BASIC_LOGGING_LEVEL: 'INFO'
+          AZURE_PACKAGE_LOGGING_LEVEL: 'WARNING'
+          AZURE_LOGGING_PACKAGES: ''
         }
         // WAF aligned configuration for Monitoring
         applicationInsightResourceId: enableMonitoring ? applicationInsights!.outputs.resourceId : null

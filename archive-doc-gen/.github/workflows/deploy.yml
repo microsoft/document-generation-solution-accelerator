@@ -20,7 +20,10 @@ env:
   GPT_MIN_CAPACITY: 150
   TEXT_EMBEDDING_MIN_CAPACITY: 80
   BRANCH_NAME: ${{ github.event.workflow_run.head_branch || github.head_ref || github.ref_name }}
-
+permissions:
+  contents: read
+  actions: read
+  
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -29,12 +32,7 @@ jobs:
       WEBAPP_URL: ${{ steps.get_output.outputs.WEBAPP_URL }}
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v5
-
-      - name: Setup Azure CLI
-        run: |
-          curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
-          az --version  # Verify installation
+        uses: actions/checkout@v6
 
       - name: Login to Azure
         run: |
@@ -42,15 +40,15 @@ jobs:
 
       - name: Run Quota Check
         id: quota-check
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          GPT_MIN_CAPACITY: ${{ env.GPT_MIN_CAPACITY }}
+          TEXT_EMBEDDING_MIN_CAPACITY: ${{ env.TEXT_EMBEDDING_MIN_CAPACITY }}
+          AZURE_REGIONS: ${{ vars.AZURE_REGIONS }}
         run: |
-          export AZURE_CLIENT_ID=${{ secrets.AZURE_CLIENT_ID }}
-          export AZURE_TENANT_ID=${{ secrets.AZURE_TENANT_ID }}
-          export AZURE_CLIENT_SECRET=${{ secrets.AZURE_CLIENT_SECRET }}
-          export AZURE_SUBSCRIPTION_ID="${{ secrets.AZURE_SUBSCRIPTION_ID }}"
-          export GPT_MIN_CAPACITY=${{ env.GPT_MIN_CAPACITY }}
-          export TEXT_EMBEDDING_MIN_CAPACITY=${{ env.TEXT_EMBEDDING_MIN_CAPACITY }}
-          export AZURE_REGIONS="${{ vars.AZURE_REGIONS }}"
-
           chmod +x scripts/checkquota.sh
           if ! scripts/checkquota.sh; then
             # If quota check fails due to insufficient quota, set the flag
@@ -158,7 +156,7 @@ jobs:
                 azureAiServiceLocation=${{ env.AZURE_AI_LOCATION }} \
                 imageTag="${IMAGE_TAG}"\
                 createdBy="Pipeline" \
-                tags="{'SecurityControl':'Ignore','Purpose':'Deploying and Cleaning Up Resources for Validation','CreatedDate':'$current_date'}"
+                tags="{'Purpose':'Deploying and Cleaning Up Resources for Validation','CreatedDate':'$current_date'}"
 
       - name: Get Deployment Output and extract Values
         id: get_output
@@ -224,11 +222,6 @@ jobs:
     env:
       RESOURCE_GROUP_NAME: ${{ needs.deploy.outputs.RESOURCE_GROUP_NAME }}
     steps:
-      - name: Setup Azure CLI
-        run: |
-          curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
-          az --version  # Verify installation
-
       - name: Login to Azure
         run: |
           az login --service-principal -u ${{ secrets.AZURE_CLIENT_ID }} -p ${{ secrets.AZURE_CLIENT_SECRET }} --tenant ${{ secrets.AZURE_TENANT_ID }}
