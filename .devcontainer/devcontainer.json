@@ -1,6 +1,8 @@
 {
     "name": "azd-template",
-    "image": "mcr.microsoft.com/devcontainers/python:3.11-bullseye",
+    "build": {
+        "dockerfile": "Dockerfile"
+    },
     "forwardPorts": [50505],
     "features": {
         "ghcr.io/devcontainers/features/node:1": {
