@@ -1,7 +1,7 @@
 {
     "name": "azd-template",
     "image": "mcr.microsoft.com/devcontainers/python:3.11-bullseye",
-    "forwardPorts": [50505],
+    "forwardPorts": [3000, 5000],
     "features": {
         "ghcr.io/devcontainers/features/node:1": {
             "nodeGypDependencies": true,
